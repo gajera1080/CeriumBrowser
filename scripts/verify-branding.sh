@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Braving Branding Verification Script
-# Scans source and metadata for unexpected remaining Brave branding while
-# preserving legitimate upstream copyright and license notices.
+# Braving Branding & Visual Asset Verification Script
+# Enforces complete elimination of Brave lion branding across launcher,
+# adaptive, themed, splash, and toolbar Shields assets.
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ echo "========================================================"
 
 FAILURES=0
 
-# 1. Verify that the release manifest specifies org.braving.browser
+# 1. Verify release manifests specify org.braving.browser
 echo "Checking release manifests..."
 for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   if [[ -f "${manifest}" ]]; then
@@ -27,9 +27,7 @@ for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   fi
 done
 
-# 2. Check patches for forbidden package IDs (in added lines)
-# Note: This grep pipeline is inside an `if` block, so set -euo pipefail does not
-# cause early termination if grep finds no matches (exit code 1). This is correct behavior.
+# 2. Check patches for forbidden package IDs
 echo "Checking patches for official Brave package IDs..."
 if grep -rn "^+[^+].*com\.brave\.browser" "${REPO_ROOT}/patches/" | grep -v "\-      args\.chrome_public_manifest_package" | grep -v "\-      chrome_public_manifest_package"; then
   echo "WARNING: Unexpected active reference to com.brave.browser found in added patch lines." >&2
@@ -46,8 +44,8 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
-# 4. Check logo and icon assets
-echo "Checking Braving logo assets..."
+# 4. Check master logo
+echo "Checking Braving master logo..."
 if [[ ! -f "${REPO_ROOT}/branding/logo.png" ]]; then
   echo "ERROR: Missing master logo at ${REPO_ROOT}/branding/logo.png" >&2
   FAILURES=$((FAILURES + 1))
@@ -55,20 +53,96 @@ else
   echo " [OK] Master logo exists: branding/logo.png"
 fi
 
-if [[ ! -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-xxxhdpi/app_icon.png" ]]; then
-  echo "ERROR: Missing Android mipmap icon densities in res_brave_base" >&2
-  FAILURES=$((FAILURES + 1))
-else
-  echo " [OK] Android launcher icon densities generated in res_brave_base"
+# 5. Check launcher icon densities (legacy & adaptive)
+echo "Checking Android launcher icon densities..."
+DENSITIES=("mdpi" "hdpi" "xhdpi" "xxhdpi" "xxxhdpi")
+for d in "${DENSITIES[@]}"; do
+  # Standard launcher icon
+  f="${REPO_ROOT}/branding/android/res_brave_base/mipmap-${d}/app_icon.png"
+  if [[ ! -f "${f}" ]]; then
+    echo "ERROR: Missing app_icon.png for density ${d}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+  
+  # Adaptive foreground
+  fg="${REPO_ROOT}/branding/android/res_brave_base/mipmap-${d}/layered_app_icon.png"
+  if [[ ! -f "${fg}" ]]; then
+    echo "ERROR: Missing layered_app_icon.png (foreground) for density ${d}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+  
+  # Adaptive background
+  bg="${REPO_ROOT}/branding/android/res_brave_base/mipmap-${d}/layered_app_icon_background.png"
+  if [[ ! -f "${bg}" ]]; then
+    echo "ERROR: Missing layered_app_icon_background.png (background) for density ${d}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+done
+if [[ ${FAILURES} -eq 0 ]]; then
+  echo " [OK] All legacy & adaptive launcher icon densities verified (foreground & background)."
 fi
 
-if [[ ! -f "${REPO_ROOT}/branding/android/res_brave/drawable-xxxhdpi/fre_product_logo.png" ]]; then
-  echo "ERROR: Missing Android FRE product logo densities" >&2
-  FAILURES=$((FAILURES + 1))
-else
-  echo " [OK] Android FRE splash logo densities generated"
+# 6. Check First Run Experience (FRE) splash screen logos
+echo "Checking FRE splash screen logos..."
+for d in "${DENSITIES[@]}"; do
+  fre="${REPO_ROOT}/branding/android/res_brave/drawable-${d}/fre_product_logo.png"
+  if [[ ! -f "${fre}" ]]; then
+    echo "ERROR: Missing fre_product_logo.png for density ${d}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+done
+if [[ ${FAILURES} -eq 0 ]]; then
+  echo " [OK] All FRE splash logo densities verified."
 fi
 
+# 7. Check Android 13+ Themed Vector Icon (No night resources)
+echo "Checking Android 13+ themed_app_icon.xml..."
+UPSTREAM_LION_SIG="M74.68,37.99"
+themed="${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml"
+if [[ ! -f "${themed}" ]]; then
+  echo "ERROR: Missing themed_app_icon.xml in drawable/" >&2
+  FAILURES=$((FAILURES + 1))
+elif grep -q "${UPSTREAM_LION_SIG}" "${themed}"; then
+  echo "ERROR: themed_app_icon.xml still contains upstream Brave lion vector path!" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] Android 13+ themed_app_icon.xml verified (zero lion path remnants)."
+fi
+
+# Ensure no unwanted night resources exist
+if find "${REPO_ROOT}/branding/android" -type d -name "*night*" | grep -q .; then
+  echo "ERROR: Unwanted night resources found in branding/android:" >&2
+  find "${REPO_ROOT}/branding/android" -type d -name "*night*" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] Verified: no night resources present."
+fi
+
+# 8. Check dedicated Braving Shields toolbar vector drawables
+echo "Checking Braving Shields toolbar vector drawables..."
+SHIELDS_DIR="${REPO_ROOT}/branding/android/shields_drawables"
+REQUIRED_SHIELDS=(
+  "ic_social_brave_release_favicon_fullheight_color.xml"
+  "ic_social_brave_monochrome_favicon_fullheight_color.xml"
+  "ic_social_brave_outline_favicon_fullheight.xml"
+  "ic_social_brave_carved_favicon_fullheight.xml"
+)
+
+for s in "${REQUIRED_SHIELDS[@]}"; do
+  spath="${SHIELDS_DIR}/${s}"
+  if [[ ! -f "${spath}" ]]; then
+    echo "ERROR: Missing Shields drawable: ${s}" >&2
+    FAILURES=$((FAILURES + 1))
+  elif grep -q "${UPSTREAM_LION_SIG}" "${spath}"; then
+    echo "ERROR: Shields drawable ${s} still contains upstream Brave lion vector path!" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+done
+if [[ ${FAILURES} -eq 0 ]]; then
+  echo " [OK] Dedicated Braving Shields toolbar vector drawables verified."
+fi
+
+# 9. Final status
 if [[ ${FAILURES} -gt 0 ]]; then
   echo ""
   echo "FAILED: Branding verification detected ${FAILURES} issue(s)." >&2
@@ -76,5 +150,6 @@ if [[ ${FAILURES} -gt 0 ]]; then
 fi
 
 echo ""
-echo "SUCCESS: Branding verification passed cleanly."
+echo "SUCCESS: All branding verification checks passed cleanly."
+echo "No visible upstream Brave lion branding detected in Braving asset suite."
 exit 0

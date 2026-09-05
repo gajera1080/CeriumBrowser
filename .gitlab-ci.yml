@@ -8,6 +8,7 @@ stages:
   - build
 
 variables:
+  GIT_DEPTH: 1
   BRAVE_VERSION:
     value: "1.94.120"
     description: "Exact Brave release version (e.g. 1.94.120). Enforces deterministic brave-core + Chromium resolution."

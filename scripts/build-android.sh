@@ -84,12 +84,14 @@ PYEOF
 }
 
 BRAVE_CORE_COMMIT=$(extract_manifest_val "brave_core_commit")
+BRAVE_VERSION=$(extract_manifest_val "brave_version")
 CHROMIUM_COMMIT=$(extract_manifest_val "chromium_commit")
+CHROMIUM_VERSION=$(extract_manifest_val "chromium_version")
 PACKAGE_ID=$(extract_manifest_val "package_id" "org.braving.browser")
 
 echo "Manifest Target Revisions:"
-echo " - brave-core commit : ${BRAVE_CORE_COMMIT}"
-echo " - Chromium commit   : ${CHROMIUM_COMMIT}"
+echo " - brave-core version: ${BRAVE_VERSION} (${BRAVE_CORE_COMMIT})"
+echo " - Chromium version  : ${CHROMIUM_VERSION} (${CHROMIUM_COMMIT})"
 echo " - Package ID        : ${PACKAGE_ID}"
 
 # Step 2: Verify Required Tools
@@ -110,45 +112,63 @@ if [[ "${DRY_RUN}" == "true" ]]; then
   exit 0
 fi
 
-# Step 5: Obtain Chromium source at exact revision
+# Step 5: Obtain clean Chromium source at exact revision with NO history
 mkdir -p "${WORKSPACE_DIR}"
 if [[ ! -d "${SRC_DIR}/.git" ]]; then
   echo ""
-  echo "Fetching Chromium source at commit ${CHROMIUM_COMMIT}..."
-  git clone --depth 1 --no-tags \
-    "https://chromium.googlesource.com/chromium/src.git" \
-    "${SRC_DIR}" || {
-    # Shallow clone of exact commit requires fetch
-    git init "${SRC_DIR}"
-    git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git"
+  echo "Fetching clean Chromium source at exact revision with NO history..."
+  mkdir -p "${SRC_DIR}"
+  git init "${SRC_DIR}"
+  git -C "${SRC_DIR}" config advice.detachedHead false
+  git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git"
+  
+  # Fetch ONLY the exact single commit/tag at depth 1 (zero history)
+  if [[ -n "${CHROMIUM_VERSION}" ]]; then
+    echo "Shallow fetching Chromium tag ${CHROMIUM_VERSION}..."
+    git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
     git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
-    git -C "${SRC_DIR}" checkout FETCH_HEAD
-  }
+  else
+    echo "Shallow fetching Chromium commit ${CHROMIUM_COMMIT}..."
+    git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
+  fi
+  git -C "${SRC_DIR}" reset --hard FETCH_HEAD
 else
   echo "Chromium source directory already exists, verifying commit..."
   CURRENT_COMMIT=$(git -C "${SRC_DIR}" rev-parse HEAD 2>/dev/null || echo "")
   if [[ "${CURRENT_COMMIT}" != "${CHROMIUM_COMMIT}" ]]; then
-    echo "WARNING: Existing source is at ${CURRENT_COMMIT}, expected ${CHROMIUM_COMMIT}"
-    echo "Fetching correct commit..."
+    echo "Existing source is at ${CURRENT_COMMIT}, fetching exact revision ${CHROMIUM_COMMIT}..."
     git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
-    git -C "${SRC_DIR}" checkout FETCH_HEAD
+    git -C "${SRC_DIR}" reset --hard FETCH_HEAD
   fi
 fi
 
-# Step 6: Obtain brave-core at exact revision
+# Step 6: Obtain clean brave-core at exact revision with NO history
 if [[ ! -d "${BRAVE_DIR}/.git" ]]; then
   echo ""
-  echo "Fetching brave-core at commit ${BRAVE_CORE_COMMIT}..."
-  git clone --depth 1 --no-tags \
-    "https://github.com/brave/brave-core.git" \
-    "${BRAVE_DIR}" || {
-    git init "${BRAVE_DIR}"
-    git -C "${BRAVE_DIR}" remote add origin "https://github.com/brave/brave-core.git"
+  echo "Fetching clean brave-core at exact revision with NO history..."
+  mkdir -p "${BRAVE_DIR}"
+  git init "${BRAVE_DIR}"
+  git -C "${BRAVE_DIR}" config advice.detachedHead false
+  git -C "${BRAVE_DIR}" remote add origin "https://github.com/brave/brave-core.git"
+  
+  # Fetch ONLY the exact single release tag/commit at depth 1 (zero history)
+  if [[ -n "${BRAVE_VERSION}" ]]; then
+    echo "Shallow fetching brave-core tag v${BRAVE_VERSION}..."
+    git -C "${BRAVE_DIR}" fetch --depth 1 origin "refs/tags/v${BRAVE_VERSION}:refs/tags/v${BRAVE_VERSION}" 2>/dev/null || \
     git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
-    git -C "${BRAVE_DIR}" checkout FETCH_HEAD
-  }
+  else
+    echo "Shallow fetching brave-core commit ${BRAVE_CORE_COMMIT}..."
+    git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+  fi
+  git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
 else
   echo "brave-core directory already exists, verifying commit..."
+  CURRENT_BRAVE_COMMIT=$(git -C "${BRAVE_DIR}" rev-parse HEAD 2>/dev/null || echo "")
+  if [[ "${CURRENT_BRAVE_COMMIT}" != "${BRAVE_CORE_COMMIT}" ]]; then
+    echo "Existing brave-core is at ${CURRENT_BRAVE_COMMIT}, fetching exact revision ${BRAVE_CORE_COMMIT}..."
+    git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+    git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
+  fi
 fi
 
 # Step 6b: Apply Braving patches
@@ -168,19 +188,76 @@ for patch in "${PATCH_FILES[@]}"; do
   }
 done
 
-# Step 6c: Copy Braving logo assets into brave-core source tree
+# Step 6c: Deterministic Braving Asset Overlay
+# Guaranteeing Braving assets win over Brave's branding.js
 if [[ -d "${REPO_ROOT}/branding/android" ]]; then
   echo ""
-  echo "Copying Braving branding assets..."
+  echo "Applying Braving branding assets overlay..."
   THEME_DIR="${BRAVE_DIR}/app/theme/brave/android"
-  for density_dir in "${REPO_ROOT}/branding/android/mipmap-"*; do
-    density=$(basename "$density_dir")
-    # Copy to res_brave_base launcher icons
-    target="${THEME_DIR}/res_brave_base/${density}"
-    mkdir -p "$target"
-    cp -f "${density_dir}/app_icon.png" "$target/app_icon.png" 2>/dev/null || true
-    cp -f "${density_dir}/app_icon.png" "$target/layered_app_icon.png" 2>/dev/null || true
+  BRANDING_DIR="${REPO_ROOT}/branding/android"
+
+  # 1. Overlay base channel icons (standard launcher, adaptive fg/bg, themed icon)
+  for base_name in "res_brave_base" "res_brave_default_base"; do
+    if [[ -d "${BRANDING_DIR}/${base_name}" ]]; then
+      mkdir -p "${THEME_DIR}/${base_name}"
+      rm -rf "${THEME_DIR}/${base_name}/drawable-night" 2>/dev/null || true
+      cp -rf "${BRANDING_DIR}/${base_name}/"* "${THEME_DIR}/${base_name}/"
+      
+      # Also overlay directly onto Chromium destination if chrome exists
+      if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium_base" ]]; then
+        rm -rf "${SRC_DIR}/chrome/android/java/res_chromium_base/drawable-night" 2>/dev/null || true
+        cp -rf "${BRANDING_DIR}/${base_name}/"* "${SRC_DIR}/chrome/android/java/res_chromium_base/"
+      fi
+    fi
   done
+
+  # 2. Overlay First Run Experience (FRE) splash logos
+  for fre_name in "res_brave" "res_brave_default"; do
+    if [[ -d "${BRANDING_DIR}/${fre_name}" ]]; then
+      mkdir -p "${THEME_DIR}/${fre_name}"
+      cp -rf "${BRANDING_DIR}/${fre_name}/"* "${THEME_DIR}/${fre_name}/"
+      
+      # Also overlay directly onto Chromium destination if chrome exists
+      if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium" ]]; then
+        cp -rf "${BRANDING_DIR}/${fre_name}/"* "${SRC_DIR}/chrome/android/java/res_chromium/"
+      fi
+    fi
+  done
+
+  # 3. Overlay root fallback mipmap icons
+  for density_dir in "${BRANDING_DIR}/mipmap-"*; do
+    if [[ -d "${density_dir}" ]]; then
+      density=$(basename "$density_dir")
+      mkdir -p "${THEME_DIR}/${density}"
+      cp -f "${density_dir}/app_icon.png" "${THEME_DIR}/${density}/app_icon.png" 2>/dev/null || true
+    fi
+  done
+
+  # 4. Overlay dedicated Braving Shields toolbar vector drawables
+  # Replaces ic_social_brave_release_favicon_fullheight_color and variants
+  if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
+    echo " Overlaying dedicated Braving Shields toolbar vector drawables..."
+    
+    # Destination A: brave android resources
+    mkdir -p "${BRAVE_DIR}/android/java/res/drawable"
+    cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${BRAVE_DIR}/android/java/res/drawable/"
+    
+    # Destination B: brave-res drawable
+    mkdir -p "${BRAVE_DIR}/android/java/brave-res/drawable"
+    cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${BRAVE_DIR}/android/java/brave-res/drawable/"
+    
+    # Destination C: Nala / Leo node_modules source if present
+    LEO_DRAWABLE="${BRAVE_DIR}/node_modules/@brave/leo/tokens/android/drawable"
+    if [[ -d "${LEO_DRAWABLE}" ]]; then
+      cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${LEO_DRAWABLE}/"
+    fi
+    
+    # Destination D: Chromium android resources if present
+    if [[ -d "${SRC_DIR}/chrome/android/java/res/drawable" ]]; then
+      cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${SRC_DIR}/chrome/android/java/res/drawable/"
+    fi
+  fi
+  echo " [OK] Braving branding overlay applied deterministically."
 fi
 
 # Step 7: Set up depot_tools
@@ -188,9 +265,13 @@ DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
 if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
   echo ""
   echo "Fetching depot_tools..."
-  git clone "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
+  git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
 fi
 export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
+
+# Bootstrap depot_tools (creates python3_bin_reldir.txt, downloads cipd & gn)
+echo "Bootstrapping depot_tools..."
+"${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
 export DEPOT_TOOLS_UPDATE=0
 
 # Step 8: Configure Android Build Arguments
@@ -222,7 +303,6 @@ enable_brave_talk = false
 enable_brave_stats_updater = false
 enable_web_discovery = false
 enable_web_discovery_native = false
-enable_play_services = false
 EOF
 
 echo ""
@@ -231,8 +311,8 @@ cat "${GN_ARGS_FILE}"
 
 # Step 9: Run GN gen
 echo ""
-echo "Running gn gen..."
-gn gen "${OUT_DIR}"
+echo "Running gn gen from source root..."
+(cd "${SRC_DIR}" && gn gen "${OUT_DIR}")
 
 # Step 10: Build chrome_public_apk
 BUILD_TARGET="chrome_public_apk"
@@ -242,9 +322,9 @@ echo "This will take a long time (hours on first build)..."
 
 # Use autoninja if available (auto-detects parallelism), otherwise ninja
 if command -v autoninja &>/dev/null; then
-  autoninja -C "${OUT_DIR}" "${BUILD_TARGET}"
+  (cd "${SRC_DIR}" && autoninja -C "${OUT_DIR}" "${BUILD_TARGET}")
 else
-  ninja -C "${OUT_DIR}" "${BUILD_TARGET}"
+  (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" "${BUILD_TARGET}")
 fi
 
 # Step 11: Collect APK artifact

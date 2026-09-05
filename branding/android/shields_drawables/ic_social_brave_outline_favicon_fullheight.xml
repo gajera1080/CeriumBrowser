@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Braving Shields Outline Icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:fillColor="#8E8E93"
+      android:pathData="M12,2L4,5.5v5.5c0,5.25 3.4,10.15 8,11.35c4.6,-1.2 8,-6.1 8,-11.35V5.5L12,2zM12,3.9l6.5,2.85v4.25c0,4.25 -2.75,8.2 -6.5,9.25c-3.75,-1.05 -6.5,-5 -6.5,-9.25V6.75L12,3.9z"/>
+</vector>

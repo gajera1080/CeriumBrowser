@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Braving Shields Inactive / Paused Toolbar Icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:fillColor="#8E8E93"
+      android:pathData="M12,2L4,5.5v5.5c0,5.25 3.4,10.15 8,11.35c4.6,-1.2 8,-6.1 8,-11.35V5.5L12,2z"/>
+  <path
+      android:fillColor="#F2F2F7"
+      android:pathData="M10,9h1.5v6H10zM12.5,9H14v6h-1.5z"/>
+</vector>

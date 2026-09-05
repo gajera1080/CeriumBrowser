@@ -36,5 +36,4 @@ build_arguments:
   enable_brave_stats_updater: false
   enable_web_discovery: false
   enable_web_discovery_native: false
-  enable_play_services: false
   enable_sparkle: false
