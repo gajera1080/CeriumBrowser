@@ -1,0 +1,70 @@
+# GitLab CI Pipeline for Braving
+# Two-phase architecture: Phase 1 (Prepare Source) -> Phase 2 (Independent Build Jobs)
+
+stages:
+  - prepare
+  - build
+  - test
+  - publish
+
+variables:
+  BRAVE_VERSION:
+    value: "1.94.120"
+    description: "Exact Brave version to build (must match metadata/upstream-<version>.yaml)"
+  TARGET_ARCH:
+    value: "arm64"
+    description: "Target Android architecture: arm64, arm, x86_64"
+
+# ----------------------------------------------------
+# Stage 1: Source Preparation (No Chromium compilation)
+# ----------------------------------------------------
+prepare_source:
+  stage: prepare
+  image: debian:bookworm-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
+  script:
+    - echo "Preparing Braving source for Brave version ${BRAVE_VERSION}"
+    - ./scripts/prepare-source.sh "${BRAVE_VERSION}"
+    - ./scripts/verify-branding.sh
+  artifacts:
+    name: "braving-prepared-${BRAVE_VERSION}"
+    paths:
+      - metadata/releases/${BRAVE_VERSION}.yaml
+      - patches/
+    expire_in: 7 days
+
+# ----------------------------------------------------
+# Stage 2: Android Build (Consumes Exact Manifest)
+# ----------------------------------------------------
+build_android:
+  stage: build
+  image: debian:bookworm
+  needs:
+    - job: prepare_source
+      artifacts: true
+  variables:
+    GIT_STRATEGY: clone
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git python3 curl openjdk-17-jdk ninja-build
+  script:
+    - echo "Executing Android compile for release manifest metadata/releases/${BRAVE_VERSION}.yaml"
+    - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+  artifacts:
+    name: "braving-android-${TARGET_ARCH}-${BRAVE_VERSION}"
+    paths:
+      - out/apks/Braving-${BRAVE_VERSION}-${TARGET_ARCH}.apk
+      - metadata/releases/${BRAVE_VERSION}.yaml
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
+
+# ----------------------------------------------------
+# Stage 3: Verification & Branding Lints
+# ----------------------------------------------------
+test_branding_and_integrity:
+  stage: test
+  needs:
+    - job: prepare_source
+  script:
+    - ./scripts/verify-branding.sh

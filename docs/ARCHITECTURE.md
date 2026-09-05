@@ -1,0 +1,45 @@
+# Braving Android — System Architecture
+
+## Architecture Diagram
+
+```
+User selects BRAVE_VERSION (e.g. 1.94.120)
+              ↓
+  Resolve matching brave-core release
+      (tag: refs/tags/v1.94.120 / commit: 449b91b1c032bd6c94aacd054757a97e128635b5)
+              ↓
+  Resolve exact Chromium revision
+      (tag: 152.0.7977.76 / commit: 0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174)
+              ↓
+  Apply Braving Patches
+      ├── branding/ (app name, launcher label, package ID: org.braving.browser)
+      ├── build/    (android_defaults.gni feature exclusions)
+      └── f-droid/  (exclusion of proprietary Google Play SDKs)
+              ↓
+  Braving Android Source Tree
+              ↓
+  Hermetic / Reproducible Build Engine (GN + Ninja)
+              ↓
+  Braving APK (Target: arm64-v8a / monobuild)
+```
+
+---
+
+## Component Separation
+
+1. **Braving Repository (`/run/media/pc/D/Braving`)**:
+   - Contains zero giant upstream source blobs.
+   - Hosts metadata, patches, build scripts, tests, CI pipelines, and branding resources.
+   - Keeps git history small, auditable, and fast to clone.
+
+2. **brave-core (`src/brave`)**:
+   - Upstream Brave Core customizations and native modules.
+   - Checked out at exact pinned commit.
+   - Patched in-place by Braving preparation scripts before compilation.
+
+3. **Chromium (`src`)**:
+   - The Chromium upstream browser engine checked out at the exact milestone and commit referenced in brave-core's `package.json`.
+
+4. **Patches (`patches/`)**:
+   - Small, modular patches applied strictly in order.
+   - Fail loudly if upstream shifts unexpectedly, ensuring build integrity.

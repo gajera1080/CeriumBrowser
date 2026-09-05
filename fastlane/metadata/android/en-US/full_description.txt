@@ -1,0 +1,9 @@
+Braving is an independently branded Android browser based on exact Brave releases.
+
+Features:
+- Fast and secure Web browsing powered by Chromium
+- Powerful tracker and ad-blocking via Brave Shields
+- Complete removal of closed-source Google Play dependencies
+- Disables crypto wallet modules, advertising rewards, and cloud AI assistants
+- Strips telemetry and tracking metrics
+- Fully open-source and ready for reproducible F-Droid builds
