@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BRAVE_CORE_DIR="${BRAVE_CORE_DIR:-/run/media/pc/D/brave-core}"
+BRAVE_CORE_DIR="${BRAVE_CORE_DIR:-}"
 
 TARGET_ARG="${1:-}"
 
@@ -25,7 +25,7 @@ if [[ "${TARGET_ARG}" =~ ^[0-9a-fA-F]{40}$ ]]; then
   BRAVE_CORE_COMMIT="${TARGET_ARG}"
   echo "Targeting explicit brave-core commit: ${BRAVE_CORE_COMMIT}"
 else
-  # Treat as version
+  # Treat as version — extract commit with yaml fallback
   VERSION="${TARGET_ARG#v}"
   METADATA_FILE="${REPO_ROOT}/metadata/upstream-${VERSION}.yaml"
   if [[ ! -f "${METADATA_FILE}" ]]; then
@@ -35,12 +35,32 @@ else
     echo "ERROR: Metadata not found for version ${VERSION}: ${METADATA_FILE}" >&2
     exit 1
   fi
-  BRAVE_CORE_COMMIT=$(python3 -c "
-import yaml
-with open('${METADATA_FILE}') as f:
-    data = yaml.safe_load(f)
-print(data.get('repositories', {}).get('brave_core', {}).get('commit') or data.get('brave_core_commit', ''))
-")
+  BRAVE_CORE_COMMIT=$(python3 - "${METADATA_FILE}" <<'PYEOF'
+import sys
+metadata_file = sys.argv[1]
+try:
+    import yaml
+    with open(metadata_file) as f:
+        data = yaml.safe_load(f)
+    result = (data.get('repositories', {}).get('brave_core', {}).get('commit')
+              or data.get('brave_core_commit', ''))
+    print(result)
+except Exception:
+    val = ''
+    with open(metadata_file) as f:
+        for line in f:
+            s = line.strip()
+            for key in ('commit:', 'brave_core_commit:'):
+                if s.startswith(key):
+                    candidate = s[len(key):].strip().strip('"\'')
+                    if len(candidate) == 40:
+                        val = candidate
+                        break
+            if val:
+                break
+    print(val)
+PYEOF
+)
 fi
 
 echo "========================================================"
@@ -64,17 +84,33 @@ for p in "${PATCH_FILES[@]}"; do
   echo " - $(realpath --relative-to="${REPO_ROOT}" "$p")"
 done
 
+# Write patch list and parameters to temp files for safe passing to Python
+PATCH_LIST_FILE=$(mktemp)
+for p in "${PATCH_FILES[@]}"; do
+  echo "$p" >> "${PATCH_LIST_FILE}"
+done
+
 # Run isolated verification in temporary git tree
-python3 -c "
-import subprocess, tempfile, os, sys
+python3 - "${BRAVE_CORE_COMMIT}" "${BRAVE_CORE_DIR}" "${PATCH_LIST_FILE}" <<'PYEOF'
+import subprocess, tempfile, os, sys, urllib.request
 
-target_commit = '${BRAVE_CORE_COMMIT}'
-brave_dir = '${BRAVE_CORE_DIR}'
-patches = [
-$(for p in "${PATCH_FILES[@]}"; do echo "    '$p',"; done)
-]
+target_commit = sys.argv[1]
+brave_dir = sys.argv[2]
+patch_list_file = sys.argv[3]
 
-print('\nExtracting upstream base files from commit ' + target_commit[:10] + '...')
+with open(patch_list_file) as f:
+    patches = [line.strip() for line in f if line.strip()]
+os.unlink(patch_list_file)
+
+# Determine if local brave-core is available
+use_local = bool(brave_dir) and os.path.isdir(os.path.join(brave_dir, '.git'))
+
+if use_local:
+    print(f'\nUsing local brave-core at {brave_dir}')
+else:
+    print('\nNo local brave-core found, fetching files from GitHub...')
+
+print(f'\nExtracting upstream base files from commit {target_commit[:10]}...')
 
 # Identify all files affected by the patches
 affected_files = set()
@@ -91,13 +127,29 @@ print(f'Detected {len(affected_files)} target file(s) affected across patch set:
 for af in affected_files:
     print(f' - {af}')
 
+def fetch_file_content(filepath):
+    """Fetch file content from local git or remote GitHub."""
+    if use_local:
+        return subprocess.check_output(
+            ['git', '-C', brave_dir, 'cat-file', '-p', f'{target_commit}:{filepath}']
+        )
+    else:
+        url = f'https://raw.githubusercontent.com/brave/brave-core/{target_commit}/{filepath}'
+        try:
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.read()
+        except Exception as e:
+            print(f'  WARNING: Could not fetch {filepath}: {e}', file=sys.stderr)
+            raise
+
 with tempfile.TemporaryDirectory() as td:
     subprocess.run(['git', 'init', '-q'], cwd=td, check=True)
     subprocess.run(['git', 'config', 'user.email', 'ci@braving.org'], cwd=td, check=True)
     subprocess.run(['git', 'config', 'user.name', 'Braving CI'], cwd=td, check=True)
 
     for f in affected_files:
-        content = subprocess.check_output(['git', '-C', brave_dir, 'cat-file', '-p', f'{target_commit}:{f}'])
+        content = fetch_file_content(f)
         dst = os.path.join(td, f)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         with open(dst, 'wb') as out:
@@ -130,14 +182,14 @@ with tempfile.TemporaryDirectory() as td:
     build_args_path = os.path.join(td, 'build/commands/lib/buildArgs.ts')
     with open(build_args_path, 'r') as f:
         bargs = f.read()
-    assert 'args.chrome_public_manifest_package = \'org.braving.browser\'' in bargs, 'Manifest package replacement missing'
+    assert "args.chrome_public_manifest_package = 'org.braving.browser'" in bargs, 'Manifest package replacement missing'
     print(' [PASS] buildArgs.ts specifies org.braving.browser')
 
     # 2. Check channel constants
     chan_path = os.path.join(td, 'app/theme/brave/android/res_brave_base/values/channel_constants.xml')
     with open(chan_path, 'r') as f:
         chan = f.read()
-    assert '<string name=\"app_name\" translatable=\"false\">Braving</string>' in chan, 'App name string replacement missing'
+    assert '<string name="app_name" translatable="false">Braving</string>' in chan, 'App name string replacement missing'
     print(' [PASS] channel_constants.xml specifies Braving')
 
     # 3. Check GN defaults
@@ -168,4 +220,4 @@ with tempfile.TemporaryDirectory() as td:
 print('\n========================================================')
 print(' ALL PATCHES VERIFIED CLEAN & DETERMINISTIC')
 print('========================================================')
-"
+PYEOF

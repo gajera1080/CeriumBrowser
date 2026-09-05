@@ -18,8 +18,6 @@ This document outlines the standard release lifecycle for Braving Android builds
 5. Run automated test suite & branding verifier
                   ↓
 6. Publish Braving GitHub / GitLab release
-                  ↓
-7. Update F-Droid metadata recipe
 ```
 
 ---
@@ -74,6 +72,3 @@ git tag -a v1.94.120 -m "Braving release 1.94.120"
 git push origin v1.94.120
 ```
 Upload the release APKs and SHA256 checksums to the release page.
-
-### Step 7: Update F-Droid Metadata
-Update the F-Droid metadata file in `fastlane/metadata/android/` or the dedicated F-Droid repo recipe with the new commit hash and version code.

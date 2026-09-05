@@ -28,6 +28,8 @@ for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
 done
 
 # 2. Check patches for forbidden package IDs (in added lines)
+# Note: This grep pipeline is inside an `if` block, so set -euo pipefail does not
+# cause early termination if grep finds no matches (exit code 1). This is correct behavior.
 echo "Checking patches for official Brave package IDs..."
 if grep -rn "^+[^+].*com\.brave\.browser" "${REPO_ROOT}/patches/" | grep -v "\-      args\.chrome_public_manifest_package" | grep -v "\-      chrome_public_manifest_package"; then
   echo "WARNING: Unexpected active reference to com.brave.browser found in added patch lines." >&2

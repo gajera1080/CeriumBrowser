@@ -18,12 +18,12 @@ echo "========================================================"
 echo " Generating Android Assets from ${SRC_LOGO}"
 echo "========================================================"
 
-python3 -c "
-import os
+python3 - "${SRC_LOGO}" "${REPO_ROOT}" <<'PYEOF'
+import os, sys
 from PIL import Image
 
-src_img = Image.open('${SRC_LOGO}').convert('RGBA')
-braving_root = '${REPO_ROOT}'
+src_img = Image.open(sys.argv[1]).convert('RGBA')
+braving_root = sys.argv[2]
 
 legacy_sizes = {
     'mipmap-mdpi': 48,
@@ -95,6 +95,6 @@ for density, sz in legacy_sizes.items():
     canvas.save(os.path.join(d_path, 'app_icon.png'), 'PNG')
 
 print(' [OK] Android icon sets generated successfully.')
-"
+PYEOF
 
 echo "All Android branding assets updated."

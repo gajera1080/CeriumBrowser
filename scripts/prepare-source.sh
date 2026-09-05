@@ -50,7 +50,7 @@ brave_core_commit = data.get('repositories', {}).get('brave_core', {}).get('comm
 chromium_commit = data.get('repositories', {}).get('chromium', {}).get('commit')
 chromium_version = data.get('repositories', {}).get('chromium', {}).get('version')
 
-local_brave = os.environ.get('BRAVE_CORE_DIR', '/run/media/pc/D/brave-core')
+local_brave = os.environ.get('BRAVE_CORE_DIR', '')
 
 # 1. Resolve exact brave-core release tag commit
 if not brave_core_commit:

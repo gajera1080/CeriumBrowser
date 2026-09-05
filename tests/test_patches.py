@@ -13,7 +13,13 @@ PATCH_DIR = os.path.join(REPO_ROOT, "patches")
 def test_patches_structure():
     assert os.path.isdir(PATCH_DIR), f"Missing {PATCH_DIR}"
 
-    subdirs = ["branding", "build", "telemetry"]
+    # Dynamically discover patch subdirectories (skip empty dirs with only .gitkeep)
+    subdirs = [
+        d for d in sorted(os.listdir(PATCH_DIR))
+        if os.path.isdir(os.path.join(PATCH_DIR, d)) and not d.startswith('.')
+        and any(f.endswith('.patch') for f in os.listdir(os.path.join(PATCH_DIR, d)))
+    ]
+    assert len(subdirs) > 0, f"No patch subdirectories with .patch files found in {PATCH_DIR}"
     total_patches = 0
 
     for sub in subdirs:

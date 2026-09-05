@@ -14,7 +14,7 @@ User selects BRAVE_VERSION (e.g. 1.94.120)
   Apply Braving Patches
       ├── branding/ (app name, launcher label, package ID: org.braving.browser)
       ├── build/    (android_defaults.gni feature exclusions)
-      └── f-droid/  (exclusion of proprietary Google Play SDKs)
+      └── telemetry/ (disable P3A analytics and metrics reporting)
               ↓
   Braving Android Source Tree
               ↓
@@ -27,7 +27,7 @@ User selects BRAVE_VERSION (e.g. 1.94.120)
 
 ## Component Separation
 
-1. **Braving Repository (`/run/media/pc/D/Braving`)**:
+1. **Braving Repository (`<BRAVING_DIR>`)**:
    - Contains zero giant upstream source blobs.
    - Hosts metadata, patches, build scripts, tests, CI pipelines, and branding resources.
    - Keeps git history small, auditable, and fast to clone.

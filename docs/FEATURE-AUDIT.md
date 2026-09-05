@@ -23,7 +23,7 @@ The goal of this audit is to identify all Brave-specific services, components, p
 | **Brave News (Feed)** | **DISABLE** | Content aggregator feed. |
 | **Brave Telemetry / P3A (Privacy-Preserving Analytics)** | **REMOVE** | Telemetry metrics uploaded to Brave analytics endpoints. |
 | **Promotional Onboarding & Engagement Callouts** | **REMOVE** | Callouts prompting users to enable Rewards, VPN, Leo, or default browser. |
-| **Google Play Billing SDK** | **REMOVE** | Closed-source billing library (`billingclient`); strict F-Droid blocker. |
+| **Google Play Billing SDK** | **DISABLE** | Closed-source billing library (`billingclient`). |
 | **Google Play Services Vision** | **REMOVE** | Proprietary barcode/QR scanner; replace with bundled open-source ZXing. |
 | **Google Play Services SafetyNet & Integrity** | **REMOVE** | Closed-source Google device integrity attestation SDKs. |
 | **Google Play Review & App Update SDKs** | **REMOVE** | Closed-source Play Store update/rating dialogs. |
@@ -35,7 +35,7 @@ The goal of this audit is to identify all Brave-specific services, components, p
 ## Detailed Component Audit for DISABLE / REMOVE Items
 
 ### 1. Brave Rewards
-- **Classification**: `DISABLE` (Milestone 1) / `REMOVE` (F-Droid Target)
+- **Classification**: `DISABLE` (Milestone 1) / `REMOVE`
 - **1. Source Location**:
   - `src/brave/components/brave_rewards/`
   - `src/brave/android/java/org/chromium/chrome/browser/BraveRewardsHelper.java`
@@ -174,7 +174,7 @@ The goal of this audit is to identify all Brave-specific services, components, p
 
 ---
 
-### 6. Google Play SDKs & Proprietary Dependencies (Strict F-Droid Blockers)
+### 6. Google Play SDKs & Proprietary Dependencies
 
 #### 6.1 Google Play In-App Billing Client
 - **Source / Dependency**: `//brave/third_party/android_deps:com_android_billingclient_java`

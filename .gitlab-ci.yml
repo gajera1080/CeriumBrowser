@@ -68,7 +68,7 @@ build_android:
     GIT_STRATEGY: clone
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 curl openjdk-17-jdk ninja-build nodejs npm
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build nodejs npm
     - npm install -g pnpm@11.11.0
   script:
     - echo "Executing Android compile for release manifest metadata/releases/${BRAVE_VERSION}.yaml"
