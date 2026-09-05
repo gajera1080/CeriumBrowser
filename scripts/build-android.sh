@@ -274,7 +274,38 @@ echo "Bootstrapping depot_tools..."
 "${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
 export DEPOT_TOOLS_UPDATE=0
 
-# Step 7b: Ensure hermetic GN binary is present in buildtools/linux64
+# Step 7b: Generate .gclient configuration for Android
+GCLIENT_CONFIG="${WORKSPACE_DIR}/.gclient"
+echo ""
+echo "Writing gclient configuration to ${GCLIENT_CONFIG}..."
+cat <<EOF > "${GCLIENT_CONFIG}"
+solutions = [
+  {
+    "name": "src",
+    "url": "https://chromium.googlesource.com/chromium/src.git",
+    "managed": False,
+    "custom_deps": {
+      "src/testing/libfuzzer/fuzzers/wasm_corpus": None,
+      "src/third_party/chromium-variations": None,
+    },
+    "custom_vars": {},
+  },
+  {
+    "name": "src/brave",
+    "url": "https://github.com/brave/brave-core.git",
+    "managed": False,
+  },
+]
+target_os = ["android"]
+target_cpu = ["${TARGET_ARCH}"]
+EOF
+
+# Step 7c: Sync Chromium DEPS dependencies (third_party/angle, v8, skia, toolchains)
+echo ""
+echo "Syncing Chromium DEPS dependencies via gclient (shallow, no history)..."
+(cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow -j16)
+
+# Step 7d: Ensure hermetic GN binary is present in buildtools/linux64
 mkdir -p "${SRC_DIR}/buildtools/linux64"
 if [[ ! -x "${SRC_DIR}/buildtools/linux64/gn" ]]; then
   echo ""
