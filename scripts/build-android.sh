@@ -274,6 +274,16 @@ echo "Bootstrapping depot_tools..."
 "${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
 export DEPOT_TOOLS_UPDATE=0
 
+# Step 7b: Ensure hermetic GN binary is present in buildtools/linux64
+mkdir -p "${SRC_DIR}/buildtools/linux64"
+if [[ ! -x "${SRC_DIR}/buildtools/linux64/gn" ]]; then
+  echo ""
+  echo "Installing hermetic GN binary via CIPD..."
+  cipd install "gn/gn/linux-amd64" "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de" -root "${SRC_DIR}/buildtools/linux64" || \
+  cipd install "gn/gn/linux-amd64" "latest" -root "${SRC_DIR}/buildtools/linux64"
+  chmod +x "${SRC_DIR}/buildtools/linux64/gn" 2>/dev/null || true
+fi
+
 # Step 8: Configure Android Build Arguments
 OUT_DIR="${SRC_DIR}/out/Release"
 mkdir -p "${OUT_DIR}"
