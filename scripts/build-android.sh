@@ -260,6 +260,26 @@ if [[ -d "${REPO_ROOT}/branding/android" ]]; then
   echo " [OK] Braving branding overlay applied deterministically."
 fi
 
+# Step 6d: Prepare Chromium VERSION and VERSION.chromium sidecar
+# Brave's version.py hook requires both chrome/VERSION (with Brave version)
+# and chrome/VERSION.chromium (with original upstream Chromium version) to exist.
+if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
+  echo ""
+  echo "Preparing Chromium VERSION and VERSION.chromium sidecar (Brave ${BRAVE_VERSION})..."
+  if [[ -f "${BRAVE_DIR}/build/util/version.py" && -n "${BRAVE_VERSION}" ]]; then
+    python3 "${BRAVE_DIR}/build/util/version.py" update --brave-version "${BRAVE_VERSION}" "${SRC_DIR}/chrome/VERSION" || {
+      echo "WARNING: version.py update failed, copying sidecar manually..."
+      cp -f "${SRC_DIR}/chrome/VERSION" "${SRC_DIR}/chrome/VERSION.chromium"
+    }
+  else
+    cp -f "${SRC_DIR}/chrome/VERSION" "${SRC_DIR}/chrome/VERSION.chromium"
+  fi
+fi
+
+if [[ -f "${SRC_DIR}/chrome/VERSION" && ! -f "${SRC_DIR}/chrome/VERSION.chromium" ]]; then
+  cp -f "${SRC_DIR}/chrome/VERSION" "${SRC_DIR}/chrome/VERSION.chromium"
+fi
+
 # Step 7: Set up depot_tools
 DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
 if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
@@ -305,6 +325,12 @@ echo ""
 echo "Syncing Chromium DEPS dependencies via gclient (shallow, no history)..."
 (cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow -j16)
 
+# Verify //brave/build/version.gni was generated, or generate it now
+if [[ -f "${BRAVE_DIR}/build/util/version.py" && -f "${SRC_DIR}/chrome/VERSION" && ! -f "${BRAVE_DIR}/build/version.gni" ]]; then
+  echo "Generating brave/build/version.gni..."
+  python3 "${BRAVE_DIR}/build/util/version.py" gen "${SRC_DIR}/chrome/VERSION"
+fi
+
 # Step 7d: Ensure hermetic GN binary is present in buildtools/linux64
 mkdir -p "${SRC_DIR}/buildtools/linux64"
 if [[ ! -x "${SRC_DIR}/buildtools/linux64/gn" ]]; then
@@ -314,6 +340,7 @@ if [[ ! -x "${SRC_DIR}/buildtools/linux64/gn" ]]; then
   cipd install "gn/gn/linux-amd64" "latest" -root "${SRC_DIR}/buildtools/linux64"
   chmod +x "${SRC_DIR}/buildtools/linux64/gn" 2>/dev/null || true
 fi
+export PATH="${SRC_DIR}/buildtools/linux64:${PATH}"
 
 # Step 8: Configure Android Build Arguments
 OUT_DIR="${SRC_DIR}/out/Release"
