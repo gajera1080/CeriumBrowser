@@ -1,1 +1,0 @@
-Privacy-respecting Android browser based on Brave without telemetry or proprietary SDKs.

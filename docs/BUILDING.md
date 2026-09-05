@@ -33,7 +33,7 @@ export SRC_DIR="${WORKSPACE_DIR}/src"
 
 Clone the Braving repository:
 ```bash
-git clone https://gitlab.com/braving/braving.git "${BRAVING_DIR}"
+git clone https://gitlab.com/braving/braving-browser.git "${BRAVING_DIR}"
 ```
 
 ---

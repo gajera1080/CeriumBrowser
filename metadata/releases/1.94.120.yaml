@@ -1,19 +1,19 @@
 # Braving Release Manifest
-# Generated deterministically by scripts/prepare-source.sh
+# Generated dynamically by scripts/prepare-source.sh
 
 braving_version: "1.94.120"
 brave_version: "1.94.120"
 brave_core_commit: "449b91b1c032bd6c94aacd054757a97e128635b5"
 chromium_version: "152.0.7977.76"
 chromium_commit: "0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174"
-build_date: "2026-09-05T04:54:39Z"
+build_date: "2026-09-05T05:54:52Z"
 package_id: "org.braving.browser"
 target_architecture: "arm64"
 
 applied_patches:
-  - 0001-braving-branding-and-package-id.patch
-  - 0001-braving-android-defaults.patch
-  - 0001-gate-google-play-dependencies.patch
+  - patches/branding/0001-braving-branding.patch
+  - patches/build/0001-disable-unwanted-brave-components.patch
+  - patches/telemetry/0001-remove-brave-telemetry.patch
 
 build_arguments:
   target_os: "android"
@@ -23,9 +23,14 @@ build_arguments:
   is_component_build: false
   chrome_public_manifest_package: "org.braving.browser"
   enable_brave_wallet: false
-  enable_brave_rewards: false
-  enable_brave_ads: false
   enable_brave_vpn: false
+  enable_brave_vpn_v1: false
+  enable_brave_vpn_v2: false
   enable_ai_chat: false
   enable_brave_news: false
-  enable_play_services: false
+  enable_brave_rewards: false
+  enable_brave_ads: false
+  enable_brave_talk: false
+  enable_brave_stats_updater: false
+  enable_web_discovery: false
+  enable_web_discovery_native: false

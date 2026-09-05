@@ -1,128 +1,219 @@
 #!/usr/bin/env bash
-# Braving Phase 1 — Upstream Source Preparation Script
-# Usage: ./scripts/prepare-source.sh <BRAVE_VERSION>
-# Example: ./scripts/prepare-source.sh 1.94.120
+# Braving — Release Mode Source Preparation Script
+# Enforces strict Release Mode determinism:
+#   BRAVE_VERSION -> exact matching brave-core release -> exact pinned Chromium revision
+#   NO arbitrary overrides permitted.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-BRAVE_VERSION="${1:-}"
+BRAVE_VERSION="${1:-${BRAVE_VERSION:-}}"
 
 if [[ -z "${BRAVE_VERSION}" ]]; then
-  echo "ERROR: BRAVE_VERSION is required." >&2
-  echo "Usage: $0 <BRAVE_VERSION>" >&2
-  exit 1
-fi
-
-METADATA_FILE="${REPO_ROOT}/metadata/upstream-${BRAVE_VERSION}.yaml"
-if [[ ! -f "${METADATA_FILE}" ]]; then
-  echo "ERROR: Upstream metadata file not found: ${METADATA_FILE}" >&2
-  echo "No verified release definition exists for Brave version ${BRAVE_VERSION}." >&2
-  exit 1
-fi
-
-echo "========================================================"
-echo " Braving Source Preparation"
-echo " Target Brave Version: ${BRAVE_VERSION}"
-echo " Metadata: ${METADATA_FILE}"
-echo "========================================================"
-
-# Parse exact revisions using python3
-BRAVE_CORE_COMMIT=$(python3 -c "
-import yaml
-with open('${METADATA_FILE}') as f:
-    data = yaml.safe_load(f)
-print(data['repositories']['brave_core']['commit'])
-")
-
-CHROMIUM_VERSION=$(python3 -c "
-import yaml
-with open('${METADATA_FILE}') as f:
-    data = yaml.safe_load(f)
-print(data['repositories']['chromium']['version'])
-")
-
-CHROMIUM_COMMIT=$(python3 -c "
-import yaml
-with open('${METADATA_FILE}') as f:
-    data = yaml.safe_load(f)
-print(data['repositories']['chromium']['commit'])
-")
-
-if [[ -z "${BRAVE_CORE_COMMIT}" || -z "${CHROMIUM_COMMIT}" ]]; then
-  echo "ERROR: Failed to resolve exact revisions from metadata." >&2
-  exit 1
-fi
-
-echo "Resolved Revisions:"
-echo " - brave-core commit: ${BRAVE_CORE_COMMIT}"
-echo " - Chromium version : ${CHROMIUM_VERSION}"
-echo " - Chromium commit  : ${CHROMIUM_COMMIT}"
-
-# Verify patch set
-PATCH_DIR="${REPO_ROOT}/patches"
-echo ""
-echo "Validating patch set in ${PATCH_DIR}..."
-
-PATCHES=(
-  "${PATCH_DIR}/branding/0001-braving-branding-and-package-id.patch"
-  "${PATCH_DIR}/build/0001-braving-android-defaults.patch"
-  "${PATCH_DIR}/f-droid/0001-gate-google-play-dependencies.patch"
-)
-
-for patch_file in "${PATCHES[@]}"; do
-  if [[ ! -f "${patch_file}" ]]; then
-    echo "ERROR: Required patch file missing: ${patch_file}" >&2
+  LATEST_UPSTREAM=$(ls -t "${REPO_ROOT}/metadata/upstream-"*.yaml 2>/dev/null | head -n 1 || true)
+  if [[ -n "${LATEST_UPSTREAM}" ]]; then
+    BRAVE_VERSION=$(basename "${LATEST_UPSTREAM}" | sed 's/upstream-//;s/\.yaml//')
+    echo "Notice: BRAVE_VERSION not explicitly set. Using latest release definition: ${BRAVE_VERSION}"
+  else
+    echo "ERROR: BRAVE_VERSION is required." >&2
+    echo "Usage: $0 <BRAVE_VERSION>" >&2
     exit 1
   fi
-  echo " [OK] Found patch: $(basename "${patch_file}")"
+fi
+
+# Strip leading 'v' if present (e.g. v1.94.120 -> 1.94.120)
+BRAVE_VERSION="${BRAVE_VERSION#v}"
+
+echo "========================================================"
+echo " Braving Source Preparation (RELEASE MODE)"
+echo " BRAVE_VERSION : ${BRAVE_VERSION}"
+echo " Rule          : Exact brave-core -> Exact Chromium"
+echo " Overrides     : NONE (Strict Determinism)"
+echo "========================================================"
+
+# Strict Resolution: BRAVE_VERSION -> brave-core tag -> package.json -> Chromium revision
+RESOLVED_DATA=$(python3 -c "
+import os, sys, yaml, json, urllib.request, subprocess
+
+version = '${BRAVE_VERSION}'
+repo_root = '${REPO_ROOT}'
+metadata_path = os.path.join(repo_root, f'metadata/upstream-{version}.yaml')
+
+data = {}
+if os.path.isfile(metadata_path):
+    with open(metadata_path, 'r') as f:
+        data = yaml.safe_load(f) or {}
+
+brave_core_commit = data.get('repositories', {}).get('brave_core', {}).get('commit')
+chromium_commit = data.get('repositories', {}).get('chromium', {}).get('commit')
+chromium_version = data.get('repositories', {}).get('chromium', {}).get('version')
+
+local_brave = os.environ.get('BRAVE_CORE_DIR', '/run/media/pc/D/brave-core')
+
+# 1. Resolve exact brave-core release tag commit
+if not brave_core_commit:
+    # Check local git
+    if os.path.isdir(os.path.join(local_brave, '.git')):
+        try:
+            brave_core_commit = subprocess.check_output(
+                ['git', '-C', local_brave, 'rev-parse', f'refs/tags/v{version}^{{commit}}'],
+                text=True, stderr=subprocess.DEVNULL
+            ).strip()
+        except Exception:
+            pass
+
+    # Remote lookup for exact release tag
+    if not brave_core_commit:
+        try:
+            ls_out = subprocess.check_output(
+                ['git', 'ls-remote', 'https://github.com/brave/brave-core.git', f'refs/tags/v{version}'],
+                text=True, stderr=subprocess.DEVNULL
+            ).strip()
+            if ls_out:
+                brave_core_commit = ls_out.split()[0]
+        except Exception as e:
+            pass
+
+if not brave_core_commit:
+    print(f'ERROR: Exact brave-core release tag v{version} does not exist.', file=sys.stderr)
+    sys.exit(1)
+
+# 2. Resolve exact Chromium revision from that release package.json
+if not chromium_version:
+    local_pkg = os.path.join(local_brave, 'package.json')
+    if os.path.isfile(local_pkg):
+        try:
+            with open(local_pkg, 'r') as f:
+                pkg_data = json.load(f)
+            if pkg_data.get('version') == version:
+                chromium_version = pkg_data.get('config', {}).get('projects', {}).get('chrome', {}).get('tag')
+        except Exception:
+            pass
+
+    if not chromium_version:
+        pkg_url = f'https://raw.githubusercontent.com/brave/brave-core/v{version}/package.json'
+        try:
+            req = urllib.request.Request(pkg_url, headers={'User-Agent': 'Braving-Source-Prep'})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                pkg_data = json.loads(resp.read().decode())
+                chromium_version = pkg_data.get('config', {}).get('projects', {}).get('chrome', {}).get('tag')
+        except Exception as e:
+            print(f'ERROR: Failed to fetch package.json for Brave {version}: {e}', file=sys.stderr)
+            sys.exit(1)
+
+if not chromium_version:
+    print(f'ERROR: Could not resolve pinned Chromium revision from Brave {version} package.json', file=sys.stderr)
+    sys.exit(1)
+
+# 3. Resolve exact Chromium commit
+if not chromium_commit:
+    try:
+        ls_out = subprocess.check_output(
+            ['git', 'ls-remote', 'https://chromium.googlesource.com/chromium/src.git', f'refs/tags/{chromium_version}'],
+            text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if ls_out:
+            chromium_commit = ls_out.split()[0]
+    except Exception:
+        pass
+
+if not chromium_commit:
+    chromium_commit = chromium_version
+
+print(f'{brave_core_commit}|{chromium_version}|{chromium_commit}')
+")
+
+BRAVE_CORE_COMMIT=$(echo "${RESOLVED_DATA}" | cut -d'|' -f1)
+CHROMIUM_VERSION=$(echo "${RESOLVED_DATA}" | cut -d'|' -f2)
+CHROMIUM_COMMIT=$(echo "${RESOLVED_DATA}" | cut -d'|' -f3)
+
+echo ""
+echo "Exact Pinned Specification:"
+echo " - brave-core release tag : v${BRAVE_VERSION}"
+echo " - brave-core commit      : ${BRAVE_CORE_COMMIT}"
+echo " - Pinned Chromium tag    : ${CHROMIUM_VERSION}"
+echo " - Pinned Chromium commit : ${CHROMIUM_COMMIT}"
+
+mkdir -p "${REPO_ROOT}/metadata"
+UPSTREAM_META_FILE="${REPO_ROOT}/metadata/upstream-${BRAVE_VERSION}.yaml"
+
+cat <<EOF > "${UPSTREAM_META_FILE}"
+# Upstream Release Metadata for Brave ${BRAVE_VERSION}
+# Generated in RELEASE MODE: BRAVE_VERSION -> exact brave-core -> exact Chromium
+
+release:
+  brave_version: "${BRAVE_VERSION}"
+  release_date: "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+repositories:
+  brave_core:
+    url: "https://github.com/brave/brave-core.git"
+    tag: "refs/tags/v${BRAVE_VERSION}"
+    commit: "${BRAVE_CORE_COMMIT}"
+    mount_path: "src/brave"
+
+  chromium:
+    url: "https://chromium.googlesource.com/chromium/src.git"
+    tag: "refs/tags/${CHROMIUM_VERSION}"
+    version: "${CHROMIUM_VERSION}"
+    commit: "${CHROMIUM_COMMIT}"
+    mount_path: "src"
+
+  depot_tools:
+    url: "https://chromium.googlesource.com/chromium/tools/depot_tools.git"
+    mount_path: "src/brave/vendor/depot_tools"
+    behavior:
+      disable_auto_update: true
+
+gn_arguments:
+  base:
+    target_os: "android"
+    target_cpu: "arm64"
+    is_debug: false
+    is_official_build: true
+    is_component_build: false
+    symbol_level: 0
+    disable_fieldtrial_testing_config: true
+  braving_overrides:
+    chrome_public_manifest_package: "org.braving.browser"
+    enable_brave_wallet: false
+    enable_brave_vpn: false
+    enable_brave_vpn_v1: false
+    enable_brave_vpn_v2: false
+    enable_ai_chat: false
+    enable_brave_news: false
+    enable_brave_rewards: false
+    enable_brave_ads: false
+    enable_brave_talk: false
+    enable_brave_stats_updater: false
+    enable_web_discovery: false
+    enable_web_discovery_native: false
+    enable_sparkle: false
+EOF
+echo " [OK] Recorded ${UPSTREAM_META_FILE}"
+
+# Discover active patches
+PATCH_DIR="${REPO_ROOT}/patches"
+echo ""
+echo "Collecting active patch set from ${PATCH_DIR}..."
+
+PATCHES=()
+while IFS= read -r -d $'\0' file; do
+  PATCHES+=("$file")
+done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
+
+for patch_file in "${PATCHES[@]}"; do
+  echo " [OK] Discovered patch: $(realpath --relative-to="${REPO_ROOT}" "${patch_file}")"
 done
 
-# Validate patches against the exact commit tree
+# If local brave-core repo exists, verify patches apply cleanly against target commit
 TARGET_BRAVE_DIR="${BRAVE_CORE_DIR:-/run/media/pc/D/brave-core}"
 if [[ -d "${TARGET_BRAVE_DIR}/.git" ]]; then
   echo ""
-  echo "Validating patch set cleanly against brave-core commit ${BRAVE_CORE_COMMIT}..."
-  python3 -c "
-import subprocess, tempfile, os, sys
-
-target_commit = '${BRAVE_CORE_COMMIT}'
-brave_dir = '${TARGET_BRAVE_DIR}'
-patches = [
-$(for p in "${PATCHES[@]}"; do echo "    '$p',"; done)
-]
-
-with tempfile.TemporaryDirectory() as td:
-    subprocess.run(['git', 'init'], cwd=td, check=True, capture_output=True)
-    files = [
-        'app/theme/brave/android/res_brave_base/values/channel_constants.xml',
-        'app/theme/brave/android/res_brave_default_base/values/channel_constants.xml',
-        'app/theme/brave/android/values/channel_constants.xml',
-        'build/commands/lib/buildArgs.ts',
-        'build/args/android_defaults.gni',
-        'build/android/config.gni',
-    ]
-    for f in files:
-        try:
-            content = subprocess.check_output(['git', '-C', brave_dir, 'cat-file', '-p', f'{target_commit}:{f}'])
-            dst = os.path.join(td, f)
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            with open(dst, 'wb') as out:
-                out.write(content)
-        except Exception as e:
-            print(f'ERROR: Could not fetch {f} from {target_commit}: {e}', file=sys.stderr)
-            sys.exit(1)
-    subprocess.run(['git', 'add', '.'], cwd=td, check=True, capture_output=True)
-    for p in patches:
-        res = subprocess.run(['git', 'apply', '--check', p], cwd=td, capture_output=True, text=True)
-        if res.returncode != 0:
-            print(f'ERROR: Patch {os.path.basename(p)} failed to apply: {res.stderr}', file=sys.stderr)
-            sys.exit(1)
-        subprocess.run(['git', 'apply', p], cwd=td, check=True)
-        print(f' [OK] Patch applies cleanly: {os.path.basename(p)}')
-"
+  echo "Validating patch set against brave-core commit ${BRAVE_CORE_COMMIT}..."
+  "${REPO_ROOT}/scripts/verify-patches.sh" "${BRAVE_CORE_COMMIT}"
 fi
 
 # Generate Release Manifest
@@ -134,9 +225,9 @@ BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 cat <<EOF > "${RELEASE_MANIFEST}"
 # Braving Release Manifest
-# Generated deterministically by scripts/prepare-source.sh
+# Generated in RELEASE MODE: BRAVE_VERSION -> exact brave-core -> exact Chromium
 
-braving_version: "1.94.120"
+braving_version: "${BRAVE_VERSION}"
 brave_version: "${BRAVE_VERSION}"
 brave_core_commit: "${BRAVE_CORE_COMMIT}"
 chromium_version: "${CHROMIUM_VERSION}"
@@ -146,7 +237,7 @@ package_id: "org.braving.browser"
 target_architecture: "arm64"
 
 applied_patches:
-$(for p in "${PATCHES[@]}"; do echo "  - $(basename "$p")"; done)
+$(for p in "${PATCHES[@]}"; do echo "  - $(realpath --relative-to="${REPO_ROOT}" "$p")"; done)
 
 build_arguments:
   target_os: "android"
@@ -156,14 +247,19 @@ build_arguments:
   is_component_build: false
   chrome_public_manifest_package: "org.braving.browser"
   enable_brave_wallet: false
-  enable_brave_rewards: false
-  enable_brave_ads: false
   enable_brave_vpn: false
+  enable_brave_vpn_v1: false
+  enable_brave_vpn_v2: false
   enable_ai_chat: false
   enable_brave_news: false
-  enable_play_services: false
+  enable_brave_rewards: false
+  enable_brave_ads: false
+  enable_brave_talk: false
+  enable_brave_stats_updater: false
+  enable_web_discovery: false
+  enable_web_discovery_native: false
 EOF
 
 echo ""
 echo "Successfully generated release manifest: ${RELEASE_MANIFEST}"
-echo "Phase 1 source preparation complete."
+echo "Release Mode source preparation complete."

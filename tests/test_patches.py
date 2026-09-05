@@ -13,7 +13,7 @@ PATCH_DIR = os.path.join(REPO_ROOT, "patches")
 def test_patches_structure():
     assert os.path.isdir(PATCH_DIR), f"Missing {PATCH_DIR}"
 
-    subdirs = ["branding", "build", "f-droid"]
+    subdirs = ["branding", "build", "telemetry"]
     total_patches = 0
 
     for sub in subdirs:

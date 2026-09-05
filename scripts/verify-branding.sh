@@ -37,7 +37,7 @@ fi
 
 # 3. Check for application label replacement
 echo "Checking channel_constants patch..."
-if grep -Fq '<string name="app_name" translatable="false">Braving</string>' "${REPO_ROOT}/patches/branding/0001-braving-branding-and-package-id.patch"; then
+if grep -Fq '<string name="app_name" translatable="false">Braving</string>' "${REPO_ROOT}/patches/branding/0001-braving-branding.patch"; then
   echo " [OK] App launcher name successfully rebranded to Braving in branding patch."
 else
   echo "ERROR: Branding patch missing app_name = Braving" >&2
@@ -53,18 +53,18 @@ else
   echo " [OK] Master logo exists: branding/logo.png"
 fi
 
-if [[ ! -f "${REPO_ROOT}/fastlane/metadata/android/en-US/images/icon.png" ]]; then
-  echo "ERROR: Missing fastlane 512x512 icon" >&2
+if [[ ! -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-xxxhdpi/app_icon.png" ]]; then
+  echo "ERROR: Missing Android mipmap icon densities in res_brave_base" >&2
   FAILURES=$((FAILURES + 1))
 else
-  echo " [OK] Fastlane 512x512 icon exists"
+  echo " [OK] Android launcher icon densities generated in res_brave_base"
 fi
 
-if [[ ! -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-xxxhdpi/app_icon.png" ]]; then
-  echo "ERROR: Missing Android mipmap icon densities" >&2
+if [[ ! -f "${REPO_ROOT}/branding/android/res_brave/drawable-xxxhdpi/fre_product_logo.png" ]]; then
+  echo "ERROR: Missing Android FRE product logo densities" >&2
   FAILURES=$((FAILURES + 1))
 else
-  echo " [OK] Android launcher icon densities generated"
+  echo " [OK] Android FRE splash logo densities generated"
 fi
 
 if [[ ${FAILURES} -gt 0 ]]; then

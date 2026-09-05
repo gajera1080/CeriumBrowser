@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving Phase 2 — Android Compilation Entry Point
+# Braving — Android Compilation Entry Point
 # Usage: ./scripts/build-android.sh [--manifest=<path>] [--arch=arm64|arm|x86_64] [--release]
 
 set -euo pipefail
@@ -92,7 +92,7 @@ command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 is required." >&2; 
 command -v git >/dev/null 2>&1 || { echo "ERROR: git is required." >&2; exit 1; }
 
 # Step 3 & 4: Workspace Verification
-WORKSPACE_DIR="${WORKSPACE_DIR:-/run/media/pc/D}"
+WORKSPACE_DIR="${WORKSPACE_DIR:-${REPO_ROOT}/build-workspace}"
 SRC_DIR="${WORKSPACE_DIR}/src"
 BRAVE_DIR="${SRC_DIR}/brave"
 
@@ -120,12 +120,17 @@ symbol_level = 0
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
 enable_brave_wallet = false
-enable_brave_rewards = false
-enable_brave_ads = false
 enable_brave_vpn = false
+enable_brave_vpn_v1 = false
+enable_brave_vpn_v2 = false
 enable_ai_chat = false
 enable_brave_news = false
-enable_play_services = false
+enable_brave_rewards = false
+enable_brave_ads = false
+enable_brave_talk = false
+enable_brave_stats_updater = false
+enable_web_discovery = false
+enable_web_discovery_native = false
 EOF
 
 echo ""

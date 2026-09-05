@@ -1,14 +1,35 @@
 #!/usr/bin/env bash
-# Braving Master Verification Suite
-# Runs all tests, linters, patch verifiers, and build dry-runs in a single pass.
+# Braving Dynamic Master Verification Suite
+# Runs all tests, linters, patch verifiers, and build dry-runs across any release version.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+TARGET_VERSION="${1:-${BRAVE_VERSION:-}}"
+
+if [[ -z "${TARGET_VERSION}" ]]; then
+  # Auto-detect latest release manifest or upstream metadata
+  LATEST_MANIFEST=$(ls -t "${REPO_ROOT}/metadata/releases"/*.yaml 2>/dev/null | head -n 1 || true)
+  if [[ -n "${LATEST_MANIFEST}" ]]; then
+    TARGET_VERSION=$(basename "${LATEST_MANIFEST}" | sed 's/\.yaml//')
+  else
+    LATEST_UPSTREAM=$(ls -t "${REPO_ROOT}/metadata/upstream-"*.yaml 2>/dev/null | head -n 1 || true)
+    if [[ -n "${LATEST_UPSTREAM}" ]]; then
+      TARGET_VERSION=$(basename "${LATEST_UPSTREAM}" | sed 's/upstream-//;s/\.yaml//')
+    else
+      echo "ERROR: No metadata or release manifests found." >&2
+      exit 1
+    fi
+  fi
+fi
+
+TARGET_VERSION="${TARGET_VERSION#v}"
+
 echo "========================================================"
 echo " Starting Braving Master Verification Suite"
+echo " Target Version: ${TARGET_VERSION}"
 echo "========================================================"
 
 echo ""
@@ -21,7 +42,7 @@ python3 "${REPO_ROOT}/tests/test_patches.py"
 
 echo ""
 echo "=== Step 3/5: Isolated Upstream Patch Application ==="
-"${REPO_ROOT}/scripts/verify-patches.sh" "1.94.120"
+"${REPO_ROOT}/scripts/verify-patches.sh" "${TARGET_VERSION}"
 
 echo ""
 echo "=== Step 4/5: Branding & Asset Verification ==="
@@ -29,7 +50,12 @@ echo "=== Step 4/5: Branding & Asset Verification ==="
 
 echo ""
 echo "=== Step 5/5: Android Build Orchestration Dry-Run ==="
-"${REPO_ROOT}/scripts/build-android.sh" --manifest="${REPO_ROOT}/metadata/releases/1.94.120.yaml" --arch=arm64 --release --dry-run
+MANIFEST_FILE="${REPO_ROOT}/metadata/releases/${TARGET_VERSION}.yaml"
+if [[ ! -f "${MANIFEST_FILE}" ]]; then
+  MANIFEST_FILE=$(ls -t "${REPO_ROOT}/metadata/releases"/*.yaml 2>/dev/null | head -n 1 || true)
+fi
+
+"${REPO_ROOT}/scripts/build-android.sh" --manifest="${MANIFEST_FILE}" --arch=arm64 --release --dry-run
 
 echo ""
 echo "========================================================"

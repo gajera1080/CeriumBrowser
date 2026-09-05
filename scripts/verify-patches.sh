@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Braving Comprehensive Patch Verification Script
-# Verifies that all patches in patches/ apply cleanly and deterministically
-# against the exact upstream brave-core release commit without modifying working trees.
+# Braving Dynamic Patch Verification Script
+# Verifies that all patches apply cleanly against a specified commit or version.
 
 set -euo pipefail
 
@@ -9,27 +8,45 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BRAVE_CORE_DIR="${BRAVE_CORE_DIR:-/run/media/pc/D/brave-core}"
 
-BRAVE_VERSION="${1:-1.94.120}"
-METADATA_FILE="${REPO_ROOT}/metadata/upstream-${BRAVE_VERSION}.yaml"
+TARGET_ARG="${1:-}"
 
-if [[ ! -f "${METADATA_FILE}" ]]; then
-  echo "ERROR: Upstream metadata not found: ${METADATA_FILE}" >&2
-  exit 1
+# Auto-detect target if not supplied
+if [[ -z "${TARGET_ARG}" ]]; then
+  LATEST_META=$(ls -t "${REPO_ROOT}/metadata/upstream-"*.yaml 2>/dev/null | head -n 1 || true)
+  if [[ -n "${LATEST_META}" ]]; then
+    TARGET_ARG=$(basename "${LATEST_META}" | sed 's/upstream-//;s/\.yaml//')
+  else
+    echo "ERROR: Target commit or version required." >&2
+    exit 1
+  fi
+fi
+
+if [[ "${TARGET_ARG}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  BRAVE_CORE_COMMIT="${TARGET_ARG}"
+  echo "Targeting explicit brave-core commit: ${BRAVE_CORE_COMMIT}"
+else
+  # Treat as version
+  VERSION="${TARGET_ARG#v}"
+  METADATA_FILE="${REPO_ROOT}/metadata/upstream-${VERSION}.yaml"
+  if [[ ! -f "${METADATA_FILE}" ]]; then
+    METADATA_FILE="${REPO_ROOT}/metadata/releases/${VERSION}.yaml"
+  fi
+  if [[ ! -f "${METADATA_FILE}" ]]; then
+    echo "ERROR: Metadata not found for version ${VERSION}: ${METADATA_FILE}" >&2
+    exit 1
+  fi
+  BRAVE_CORE_COMMIT=$(python3 -c "
+import yaml
+with open('${METADATA_FILE}') as f:
+    data = yaml.safe_load(f)
+print(data.get('repositories', {}).get('brave_core', {}).get('commit') or data.get('brave_core_commit', ''))
+")
 fi
 
 echo "========================================================"
 echo " Braving Patch Set Verification"
-echo " Target Version: ${BRAVE_VERSION}"
+echo " Target brave-core commit: ${BRAVE_CORE_COMMIT}"
 echo "========================================================"
-
-BRAVE_CORE_COMMIT=$(python3 -c "
-import yaml
-with open('${METADATA_FILE}') as f:
-    data = yaml.safe_load(f)
-print(data['repositories']['brave_core']['commit'])
-")
-
-echo "Target brave-core commit: ${BRAVE_CORE_COMMIT}"
 
 # Collect all patch files in order
 PATCH_FILES=()
@@ -92,14 +109,12 @@ with tempfile.TemporaryDirectory() as td:
     print('\nApplying patches sequentially:')
     for p in patches:
         pname = os.path.basename(p)
-        # Check first
         chk = subprocess.run(['git', 'apply', '--check', p], cwd=td, capture_output=True, text=True)
         if chk.returncode != 0:
             print(f' [FAIL] git apply --check failed for {pname}:', file=sys.stderr)
             print(chk.stderr, file=sys.stderr)
             sys.exit(1)
 
-        # Apply
         app = subprocess.run(['git', 'apply', p], cwd=td, capture_output=True, text=True)
         if app.returncode != 0:
             print(f' [FAIL] git apply failed for {pname}:', file=sys.stderr)
@@ -111,35 +126,44 @@ with tempfile.TemporaryDirectory() as td:
         print(f' [PASS] {pname}')
 
     print('\nVerifying resulting files:')
-    # Check manifest package
+    # 1. Check manifest package
     build_args_path = os.path.join(td, 'build/commands/lib/buildArgs.ts')
     with open(build_args_path, 'r') as f:
         bargs = f.read()
     assert 'args.chrome_public_manifest_package = \'org.braving.browser\'' in bargs, 'Manifest package replacement missing'
     print(' [PASS] buildArgs.ts specifies org.braving.browser')
 
-    # Check channel constants
+    # 2. Check channel constants
     chan_path = os.path.join(td, 'app/theme/brave/android/res_brave_base/values/channel_constants.xml')
     with open(chan_path, 'r') as f:
         chan = f.read()
     assert '<string name=\"app_name\" translatable=\"false\">Braving</string>' in chan, 'App name string replacement missing'
     print(' [PASS] channel_constants.xml specifies Braving')
 
-    # Check GN defaults
+    # 3. Check GN defaults
     defaults_path = os.path.join(td, 'build/args/android_defaults.gni')
     with open(defaults_path, 'r') as f:
         defs = f.read()
     assert 'enable_brave_wallet = false' in defs, 'Wallet disabling missing'
     assert 'enable_brave_vpn = false' in defs, 'VPN disabling missing'
-    print(' [PASS] android_defaults.gni disables bloat features')
+    assert 'enable_ai_chat = false' in defs, 'AI chat disabling missing'
+    assert 'enable_brave_stats_updater = false' in defs, 'Stats updater disabling missing'
+    assert 'enable_web_discovery = false' in defs, 'Web discovery disabling missing'
+    print(' [PASS] android_defaults.gni disables bloat & telemetry features')
 
-    # Check Play deps
-    config_path = os.path.join(td, 'build/android/config.gni')
-    with open(config_path, 'r') as f:
-        cfg = f.read()
-    assert 'enable_play_services = false' in cfg, 'Play services flag missing'
-    assert 'if (enable_play_services)' in cfg, 'Play services gating missing'
-    print(' [PASS] config.gni gates proprietary Play dependencies')
+    # 4. Check Telemetry & P3A removal
+    p3a_path = os.path.join(td, 'components/p3a/p3a_service.cc')
+    with open(p3a_path, 'r') as f:
+        p3a_c = f.read()
+    assert 'registry->RegisterBooleanPref(kP3AEnabled, false);' in p3a_c, 'P3A default false missing'
+    assert 'registry->RegisterBooleanPref(kP3ANoticeAcknowledged, true);' in p3a_c, 'P3A notice acknowledged missing'
+    print(' [PASS] p3a_service.cc disables P3A analytics')
+
+    metrics_path = os.path.join(td, 'browser/metrics/metrics_reporting_util.cc')
+    with open(metrics_path, 'r') as f:
+        met_c = f.read()
+    assert 'bool GetDefaultPrefValueForMetricsReporting() {\n  return false;\n}' in met_c, 'Metrics default false missing'
+    print(' [PASS] metrics_reporting_util.cc defaults reporting to false')
 
 print('\n========================================================')
 print(' ALL PATCHES VERIFIED CLEAN & DETERMINISTIC')

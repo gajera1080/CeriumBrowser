@@ -1,52 +1,75 @@
-# GitLab CI Pipeline for Braving
-# Two-phase architecture: Phase 1 (Prepare Source) -> Phase 2 (Independent Build Jobs)
+# GitLab CI Pipeline for Braving Android
+# RELEASE MODE: BRAVE_VERSION -> exact matching brave-core release -> exact pinned Chromium
+# Builds minimal Chromium + Brave Shields with custom Braving branding
 
 stages:
   - prepare
-  - build
   - test
-  - publish
+  - build
 
 variables:
   BRAVE_VERSION:
     value: "1.94.120"
-    description: "Exact Brave version to build (must match metadata/upstream-<version>.yaml)"
+    description: "Exact Brave release version (e.g. 1.94.120). Enforces deterministic brave-core + Chromium resolution."
   TARGET_ARCH:
     value: "arm64"
     description: "Target Android architecture: arm64, arm, x86_64"
 
 # ----------------------------------------------------
-# Stage 1: Source Preparation (No Chromium compilation)
+# Stage 1: Source Preparation (RELEASE MODE Deterministic Resolution)
 # ----------------------------------------------------
 prepare_source:
   stage: prepare
   image: debian:bookworm-slim
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates python3-pil
   script:
-    - echo "Preparing Braving source for Brave version ${BRAVE_VERSION}"
+    - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
+    - ./scripts/generate-icons.sh
     - ./scripts/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/verify-branding.sh
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:
       - metadata/releases/${BRAVE_VERSION}.yaml
+      - metadata/upstream-${BRAVE_VERSION}.yaml
       - patches/
+      - branding/
     expire_in: 7 days
 
 # ----------------------------------------------------
-# Stage 2: Android Build (Consumes Exact Manifest)
+# Stage 2: Verification Suite & Static Integrity
+# ----------------------------------------------------
+test_integrity_suite:
+  stage: test
+  image: debian:bookworm-slim
+  needs:
+    - job: prepare_source
+      artifacts: true
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml python3-pil
+  script:
+    - python3 ./tests/test_manifest.py
+    - python3 ./tests/test_patches.py
+    - ./scripts/verify-branding.sh
+
+# ----------------------------------------------------
+# Stage 3: Android Build (Full Compilation on Large Runner)
 # ----------------------------------------------------
 build_android:
   stage: build
   image: debian:bookworm
+  tags:
+    - saas-linux-2xlarge-amd64
   needs:
     - job: prepare_source
       artifacts: true
   variables:
     GIT_STRATEGY: clone
+    WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 curl openjdk-17-jdk ninja-build
+    - apt-get update -qq && apt-get install -y -qq git python3 curl openjdk-17-jdk ninja-build nodejs npm
+    - npm install -g pnpm@11.11.0
   script:
     - echo "Executing Android compile for release manifest metadata/releases/${BRAVE_VERSION}.yaml"
     - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
@@ -58,13 +81,3 @@ build_android:
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
-
-# ----------------------------------------------------
-# Stage 3: Verification & Branding Lints
-# ----------------------------------------------------
-test_branding_and_integrity:
-  stage: test
-  needs:
-    - job: prepare_source
-  script:
-    - ./scripts/verify-branding.sh
