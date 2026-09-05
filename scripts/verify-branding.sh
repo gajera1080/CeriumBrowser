@@ -44,6 +44,29 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
+# 4. Check logo and icon assets
+echo "Checking Braving logo assets..."
+if [[ ! -f "${REPO_ROOT}/branding/logo.png" ]]; then
+  echo "ERROR: Missing master logo at ${REPO_ROOT}/branding/logo.png" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] Master logo exists: branding/logo.png"
+fi
+
+if [[ ! -f "${REPO_ROOT}/fastlane/metadata/android/en-US/images/icon.png" ]]; then
+  echo "ERROR: Missing fastlane 512x512 icon" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] Fastlane 512x512 icon exists"
+fi
+
+if [[ ! -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-xxxhdpi/app_icon.png" ]]; then
+  echo "ERROR: Missing Android mipmap icon densities" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] Android launcher icon densities generated"
+fi
+
 if [[ ${FAILURES} -gt 0 ]]; then
   echo ""
   echo "FAILED: Branding verification detected ${FAILURES} issue(s)." >&2
