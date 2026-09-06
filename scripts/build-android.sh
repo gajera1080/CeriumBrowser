@@ -254,7 +254,9 @@ solutions = [
       "src/testing/libfuzzer/fuzzers/wasm_corpus": None,
       "src/third_party/chromium-variations": None,
     },
-    "custom_vars": {},
+    "custom_vars": {
+      "checkout_pgo_profiles": True,
+    },
   },
   {
     "name": "src/brave",
