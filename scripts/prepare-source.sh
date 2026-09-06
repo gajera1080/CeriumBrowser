@@ -262,4 +262,49 @@ EOF
 
 echo ""
 echo "Successfully generated release manifest: ${RELEASE_MANIFEST}"
-echo "Release Mode source preparation complete."
+
+# --- Added for Phase 1 Source Preparation ---
+
+WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-$PWD}/build-workspace}"
+SRC_DIR="${WORKSPACE_DIR}/src"
+BRAVE_DIR="${SRC_DIR}/brave"
+
+echo ""
+echo "Phase 1: Preparing Source in ${WORKSPACE_DIR}"
+
+mkdir -p "${WORKSPACE_DIR}"
+
+# 1. Fetch exact brave-core revision (zero history)
+if [[ ! -d "${BRAVE_DIR}/.git" ]]; then
+  echo "Fetching clean brave-core at exact revision with NO history..."
+  mkdir -p "${BRAVE_DIR}"
+  git init "${BRAVE_DIR}"
+  git -C "${BRAVE_DIR}" config advice.detachedHead false
+  git -C "${BRAVE_DIR}" remote add origin "https://github.com/brave/brave-core.git"
+  git -C "${BRAVE_DIR}" fetch --depth 1 origin "refs/tags/v${BRAVE_VERSION}:refs/tags/v${BRAVE_VERSION}" 2>/dev/null || \
+  git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+  git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
+else
+  echo "brave-core directory already exists, verifying commit..."
+  CURRENT_BRAVE_COMMIT=$(git -C "${BRAVE_DIR}" rev-parse HEAD 2>/dev/null || echo "")
+  if [[ "${CURRENT_BRAVE_COMMIT}" != "${BRAVE_CORE_COMMIT}" ]]; then
+    echo "Existing brave-core is at ${CURRENT_BRAVE_COMMIT}, fetching exact revision ${BRAVE_CORE_COMMIT}..."
+    git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+    git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
+  fi
+fi
+
+# 2. Apply Braving patches to brave-core
+echo ""
+echo "Applying Braving patches to brave-core..."
+for patch in "${PATCHES[@]}"; do
+  pname=$(basename "$patch")
+  echo " Applying: ${pname}"
+  git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null && \
+    git -C "${BRAVE_DIR}" apply "$patch" || {
+    echo "WARNING: Patch ${pname} may already be applied or conflicts exist, skipping."
+  }
+done
+
+echo ""
+echo "Phase 1: Source Preparation Complete."

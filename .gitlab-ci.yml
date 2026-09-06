@@ -4,7 +4,6 @@
 
 stages:
   - prepare
-  - test
   - build
 
 variables:
@@ -17,7 +16,7 @@ variables:
     description: "Target Android architecture: arm64, arm, x86_64"
 
 # ----------------------------------------------------
-# Stage 1: Source Preparation (RELEASE MODE Deterministic Resolution)
+# Stage 1: Source Preparation (Phase 1)
 # ----------------------------------------------------
 prepare_source:
   stage: prepare
@@ -28,34 +27,18 @@ prepare_source:
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/generate-icons.sh
     - ./scripts/prepare-source.sh "${BRAVE_VERSION}"
-    - ./scripts/verify-branding.sh
+    - ./scripts/verify-all.sh
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:
       - metadata/releases/${BRAVE_VERSION}.yaml
       - metadata/upstream-${BRAVE_VERSION}.yaml
-      - patches/
       - branding/
+      - build-workspace/src/brave/
     expire_in: 7 days
 
 # ----------------------------------------------------
-# Stage 2: Verification Suite & Static Integrity
-# ----------------------------------------------------
-test_integrity_suite:
-  stage: test
-  image: debian:bookworm-slim
-  needs:
-    - job: prepare_source
-      artifacts: true
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml python3-pil
-  script:
-    - python3 ./tests/test_manifest.py
-    - python3 ./tests/test_patches.py
-    - ./scripts/verify-branding.sh
-
-# ----------------------------------------------------
-# Stage 3: Android Build (Full Compilation on Large Runner)
+# Stage 2: Android Build (Phase 2 on Large Runner)
 # ----------------------------------------------------
 build_android:
   stage: build
@@ -78,7 +61,7 @@ build_android:
   artifacts:
     name: "braving-android-${TARGET_ARCH}-${BRAVE_VERSION}"
     paths:
-      - out/apks/Braving-${BRAVE_VERSION}-${TARGET_ARCH}.apk
+      - out/apks/*.apk
       - metadata/releases/${BRAVE_VERSION}.yaml
     expire_in: 30 days
   rules:

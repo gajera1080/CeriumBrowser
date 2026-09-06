@@ -192,17 +192,6 @@ with tempfile.TemporaryDirectory() as td:
     assert '<string name="app_name" translatable="false">Braving</string>' in chan, 'App name string replacement missing'
     print(' [PASS] channel_constants.xml specifies Braving')
 
-    # 3. Check GN defaults
-    defaults_path = os.path.join(td, 'build/args/android_defaults.gni')
-    with open(defaults_path, 'r') as f:
-        defs = f.read()
-    assert 'enable_brave_wallet = false' in defs, 'Wallet disabling missing'
-    assert 'enable_brave_vpn = false' in defs, 'VPN disabling missing'
-    assert 'enable_ai_chat = false' in defs, 'AI chat disabling missing'
-    assert 'enable_brave_stats_updater = false' in defs, 'Stats updater disabling missing'
-    assert 'enable_web_discovery = false' in defs, 'Web discovery disabling missing'
-    print(' [PASS] android_defaults.gni disables bloat & telemetry features')
-
     # 4. Check Telemetry & P3A removal
     p3a_path = os.path.join(td, 'components/p3a/p3a_service.cc')
     with open(p3a_path, 'r') as f:

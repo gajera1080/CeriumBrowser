@@ -1,18 +1,17 @@
 # Braving Release Manifest
-# Generated dynamically by scripts/prepare-source.sh
+# Generated in RELEASE MODE: BRAVE_VERSION -> exact brave-core -> exact Chromium
 
 braving_version: "1.94.120"
 brave_version: "1.94.120"
 brave_core_commit: "449b91b1c032bd6c94aacd054757a97e128635b5"
 chromium_version: "152.0.7977.76"
 chromium_commit: "0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174"
-build_date: "2026-09-05T05:54:52Z"
+build_date: "2026-09-06T05:22:38Z"
 package_id: "org.braving.browser"
 target_architecture: "arm64"
 
 applied_patches:
   - patches/branding/0001-braving-branding.patch
-  - patches/build/0001-disable-unwanted-brave-components.patch
   - patches/telemetry/0001-remove-brave-telemetry.patch
 
 build_arguments:
@@ -21,8 +20,6 @@ build_arguments:
   is_debug: false
   is_official_build: true
   is_component_build: false
-  symbol_level: 0
-  disable_fieldtrial_testing_config: true
   chrome_public_manifest_package: "org.braving.browser"
   enable_brave_wallet: false
   enable_brave_vpn: false
@@ -36,4 +33,3 @@ build_arguments:
   enable_brave_stats_updater: false
   enable_web_discovery: false
   enable_web_discovery_native: false
-  enable_sparkle: false

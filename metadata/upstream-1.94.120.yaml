@@ -1,9 +1,9 @@
 # Upstream Release Metadata for Brave 1.94.120
-# Generated dynamically by scripts/prepare-source.sh
+# Generated in RELEASE MODE: BRAVE_VERSION -> exact brave-core -> exact Chromium
 
 release:
   brave_version: "1.94.120"
-  release_date: "2026-09-05T05:54:51Z"
+  release_date: "2026-09-06T05:22:34Z"
 
 repositories:
   brave_core:
