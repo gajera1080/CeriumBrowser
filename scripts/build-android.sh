@@ -153,6 +153,84 @@ else
   fi
 fi
 
+T_SYNC_START=$(date +%s)
+echo "Disk usage before gclient sync:"
+du -sh "${WORKSPACE_DIR}" || true
+
+# Step 7: Set up depot_tools
+DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
+if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
+  echo ""
+  echo "Fetching depot_tools..."
+  git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
+fi
+export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
+
+# Bootstrap depot_tools (creates python3_bin_reldir.txt, downloads cipd & gn)
+echo "Bootstrapping depot_tools..."
+"${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
+export DEPOT_TOOLS_UPDATE=0
+
+# Step 7b: Generate .gclient configuration for Android
+GCLIENT_CONFIG="${WORKSPACE_DIR}/.gclient"
+echo ""
+echo "Writing gclient configuration to ${GCLIENT_CONFIG}..."
+cat <<EOF > "${GCLIENT_CONFIG}"
+solutions = [
+  {
+    "name": "src",
+    "url": "https://chromium.googlesource.com/chromium/src.git",
+    "managed": False,
+    "custom_deps": {
+      "src/testing/libfuzzer/fuzzers/wasm_corpus": None,
+      "src/third_party/chromium-variations": None,
+    },
+    "custom_vars": {
+      "checkout_pgo_profiles": True,
+      "checkout_clang_coverage_tools": True,
+      "checkout_clangd": True,
+      "download_reclient": True,
+      "gn_version": "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de",
+    },
+  },
+  {
+    "name": "src/brave",
+    "url": "https://github.com/brave/brave-core.git",
+    "managed": False,
+  },
+]
+target_os = ["android"]
+target_cpu = ["${TARGET_ARCH}"]
+EOF
+
+# ----------------------------------------------------
+# EXACT BRAVE BUILD FLOW
+# 1. gclient sync --nohooks
+# 2. applyPatches
+# 3. version.py update
+# 4. runhooks
+# 5. branding / touchOverriddenFiles
+# ----------------------------------------------------
+
+# Step 7c: Sync Chromium DEPS dependencies (third_party/angle, v8, skia, toolchains)
+echo ""
+# Set required PYTHONPATH for upstream Brave hooks (e.g. generate_clang_format.py)
+# Matches pythonPaths array in build/commands/lib/config.ts
+export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools:${PYTHONPATH:-}"
+export PYTHONUNBUFFERED="1"
+
+echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
+(cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow --nohooks -j16)
+
+echo "Installing Chromium build dependencies..."
+if [[ -f "${SRC_DIR}/build/install-build-deps.sh" ]]; then
+  # install-build-deps.sh complains if run as root without --no-prompt
+  bash "${SRC_DIR}/build/install-build-deps.sh" --android --no-prompt || echo "WARNING: install-build-deps.sh failed, build might fail"
+fi
+
+echo "Disk usage after gclient sync:"
+du -sh "${WORKSPACE_DIR}" || true
+
 # Apply Deterministic Braving Asset Overlay to brave-core and Chromium
 if [[ -d "${REPO_ROOT}/branding/android" ]]; then
   echo ""
@@ -208,13 +286,18 @@ if [[ -d "${REPO_ROOT}/branding/android" ]]; then
       cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${SRC_DIR}/chrome/android/java/res/drawable/"
     fi
   fi
-  echo " [OK] Braving branding overlay applied deterministically."
+  echo " [OK] Braving branding overlay applied to brave-core."
 fi
+
+echo ""
+echo "2. Applying Brave patches (1108+) to Chromium..."
+(cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
+(cd "${BRAVE_DIR}" && pnpm run apply_patches)
 
 # Prepare Chromium VERSION and VERSION.chromium sidecar using brave-core version.py
 if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
   echo ""
-  echo "Preparing Chromium VERSION and VERSION.chromium sidecar (Brave ${BRAVE_VERSION})..."
+  echo "3. Preparing Chromium VERSION and VERSION.chromium sidecar (Brave ${BRAVE_VERSION})..."
   if [[ -f "${BRAVE_DIR}/build/util/version.py" && -n "${BRAVE_VERSION}" ]]; then
     python3 "${BRAVE_DIR}/build/util/version.py" update --brave-version "${BRAVE_VERSION}" "${SRC_DIR}/chrome/VERSION" || {
       echo "WARNING: version.py update failed."
@@ -222,68 +305,13 @@ if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
   fi
 fi
 
-T_SYNC_START=$(date +%s)
-echo "Disk usage before gclient sync:"
-du -sh "${WORKSPACE_DIR}" || true
-
-# Step 7: Set up depot_tools
-DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
-if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
-  echo ""
-  echo "Fetching depot_tools..."
-  git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
-fi
-export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
-
-# Bootstrap depot_tools (creates python3_bin_reldir.txt, downloads cipd & gn)
-echo "Bootstrapping depot_tools..."
-"${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
-export DEPOT_TOOLS_UPDATE=0
-
-# Step 7b: Generate .gclient configuration for Android
-GCLIENT_CONFIG="${WORKSPACE_DIR}/.gclient"
 echo ""
-echo "Writing gclient configuration to ${GCLIENT_CONFIG}..."
-cat <<EOF > "${GCLIENT_CONFIG}"
-solutions = [
-  {
-    "name": "src",
-    "url": "https://chromium.googlesource.com/chromium/src.git",
-    "managed": False,
-    "custom_deps": {
-      "src/testing/libfuzzer/fuzzers/wasm_corpus": None,
-      "src/third_party/chromium-variations": None,
-    },
-    "custom_vars": {
-      "checkout_pgo_profiles": True,
-      "checkout_clang_coverage_tools": True,
-      "checkout_clangd": True,
-      "download_reclient": True,
-      "gn_version": "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de",
-    },
-  },
-  {
-    "name": "src/brave",
-    "url": "https://github.com/brave/brave-core.git",
-    "managed": False,
-  },
-]
-target_os = ["android"]
-target_cpu = ["${TARGET_ARCH}"]
-EOF
+echo "4. Running gclient hooks on patched Chromium..."
+(cd "${WORKSPACE_DIR}" && gclient runhooks)
 
-# Step 7c: Sync Chromium DEPS dependencies (third_party/angle, v8, skia, toolchains)
 echo ""
-# Set required PYTHONPATH for upstream Brave hooks (e.g. generate_clang_format.py)
-# Matches pythonPaths array in build/commands/lib/config.ts
-export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools:${PYTHONPATH:-}"
-export PYTHONUNBUFFERED="1"
-
-echo "Syncing Chromium DEPS dependencies via gclient (shallow, no history)..."
-(cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow -j16)
-
-echo "Disk usage after gclient sync:"
-du -sh "${WORKSPACE_DIR}" || true
+echo "5. Propagating branding and touching overridden files..."
+(cd "${BRAVE_DIR}" && pnpm run build --prepare_only --target_os=android --target_arch="${TARGET_ARCH}")
 
 # Verify //brave/build/version.gni was generated, or generate it now
 if [[ -f "${BRAVE_DIR}/build/util/version.py" && -f "${SRC_DIR}/chrome/VERSION" && ! -f "${BRAVE_DIR}/build/version.gni" ]]; then
@@ -313,14 +341,22 @@ echo ""
 echo "Writing GN build arguments to ${GN_ARGS_FILE}..."
 
 cat <<EOF > "${GN_ARGS_FILE}"
+import("//brave/build/args/brave_defaults.gni")
+import("//brave/build/args/blink_platform_defaults.gni")
+import("//brave/build/args/branding_defaults.gni")
+import("//brave/build/args/android_defaults.gni")
+
 target_os = "android"
 target_cpu = "${TARGET_ARCH}"
 is_debug = false
 is_official_build = true
 is_component_build = false
-symbol_level = 0
+symbol_level = 1
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
+android_channel = "stable"
+target_android_output_format = "apk"
+
 enable_brave_wallet = false
 enable_brave_vpn = false
 enable_brave_vpn_v1 = false
@@ -347,17 +383,21 @@ echo "Running gn gen from source root..."
 T_NINJA_START=$(date +%s)
 
 # Step 10: Build chrome_public_apk
-BUILD_TARGET="chrome_public_apk"
+BUILD_TARGET="brave"
 echo ""
 echo "Building target: ${BUILD_TARGET}"
 echo "This will take a long time (hours on first build)..."
 
 # Use autoninja if available (auto-detects parallelism), otherwise ninja
+# We pipe to awk to only show every 100th line in the CI UI to avoid the 4MB limit,
+# but we save the full log to build-workspace/build.log for debugging.
+echo "Logging full build output to ${WORKSPACE_DIR}/build.log..."
 if command -v autoninja &>/dev/null; then
-  (cd "${SRC_DIR}" && autoninja -C "${OUT_DIR}" "${BUILD_TARGET}")
+  (cd "${SRC_DIR}" && autoninja -C "${OUT_DIR}" "${BUILD_TARGET}" 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || /Error/) print $0; }')
 else
-  (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" "${BUILD_TARGET}")
+  (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" "${BUILD_TARGET}" 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || /Error/) print $0; }')
 fi
+
 
 T_PKG_START=$(date +%s)
 

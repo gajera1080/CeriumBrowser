@@ -147,6 +147,7 @@ with tempfile.TemporaryDirectory() as td:
     subprocess.run(['git', 'init', '-q'], cwd=td, check=True)
     subprocess.run(['git', 'config', 'user.email', 'ci@braving.org'], cwd=td, check=True)
     subprocess.run(['git', 'config', 'user.name', 'Braving CI'], cwd=td, check=True)
+    subprocess.run(['git', 'config', 'commit.gpgsign', 'false'], cwd=td, check=True)
 
     for f in affected_files:
         content = fetch_file_content(f)

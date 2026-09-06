@@ -49,10 +49,10 @@ build_android:
     - job: prepare_source
       artifacts: true
   variables:
-    GIT_STRATEGY: clone
+    GIT_STRATEGY: fetch
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
@@ -60,9 +60,11 @@ build_android:
     - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
   artifacts:
     name: "braving-android-${TARGET_ARCH}-${BRAVE_VERSION}"
+    when: always
     paths:
       - out/apks/*.apk
       - metadata/releases/${BRAVE_VERSION}.yaml
+      - build-workspace/build.log
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'

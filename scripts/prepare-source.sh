@@ -174,7 +174,7 @@ gn_arguments:
     is_debug: false
     is_official_build: true
     is_component_build: false
-    symbol_level: 0
+    symbol_level: 1
     disable_fieldtrial_testing_config: true
   braving_overrides:
     chrome_public_manifest_package: "org.braving.browser"
@@ -299,11 +299,16 @@ echo ""
 echo "Applying Braving patches to brave-core..."
 for patch in "${PATCHES[@]}"; do
   pname=$(basename "$patch")
-  echo " Applying: ${pname}"
-  git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null && \
-    git -C "${BRAVE_DIR}" apply "$patch" || {
-    echo "WARNING: Patch ${pname} may already be applied or conflicts exist, skipping."
-  }
+  echo " - Applying ${pname}..."
+  if git -C "${BRAVE_DIR}" apply --check --reverse "$patch" 2>/dev/null; then
+    echo "   [OK] Patch ${pname} already applied."
+  elif git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null; then
+    git -C "${BRAVE_DIR}" apply "$patch"
+    echo "   [OK] Patch ${pname} successfully applied."
+  else
+    echo "ERROR: Patch ${pname} failed to apply and is not already applied. Aborting to fail closed." >&2
+    exit 1
+  fi
 done
 
 echo ""
