@@ -6,7 +6,7 @@ brave_version: "1.94.120"
 brave_core_commit: "449b91b1c032bd6c94aacd054757a97e128635b5"
 chromium_version: "152.0.7977.76"
 chromium_commit: "0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174"
-build_date: "2026-09-06T05:22:38Z"
+build_date: "2026-09-06T06:32:03Z"
 package_id: "org.braving.browser"
 target_architecture: "arm64"
 

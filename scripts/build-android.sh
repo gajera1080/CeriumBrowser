@@ -256,6 +256,10 @@ solutions = [
     },
     "custom_vars": {
       "checkout_pgo_profiles": True,
+      "checkout_clang_coverage_tools": True,
+      "checkout_clangd": True,
+      "download_reclient": True,
+      "gn_version": "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de",
     },
   },
   {
