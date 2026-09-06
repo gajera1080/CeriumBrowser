@@ -268,6 +268,11 @@ EOF
 
 # Step 7c: Sync Chromium DEPS dependencies (third_party/angle, v8, skia, toolchains)
 echo ""
+# Set required PYTHONPATH for upstream Brave hooks (e.g. generate_clang_format.py)
+# Matches pythonPaths array in build/commands/lib/config.ts
+export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools:${PYTHONPATH:-}"
+export PYTHONUNBUFFERED="1"
+
 echo "Syncing Chromium DEPS dependencies via gclient (shallow, no history)..."
 (cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow -j16)
 
