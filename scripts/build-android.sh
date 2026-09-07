@@ -380,7 +380,8 @@ cat "${GN_ARGS_FILE}"
 # Step 9: Run GN gen
 echo ""
 echo "Running gn gen from source root..."
-cd "${SRC_DIR}" (cd "${SRC_DIR}" && gn gen "${OUT_DIR}")(cd "${SRC_DIR}" && gn gen "${OUT_DIR}") gn gen "${OUT_DIR}"
+cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
+
 
 if [[ "${GN_ONLY}" == "true" ]]; then
   echo "\n========================================================"
