@@ -371,6 +371,7 @@ enable_brave_talk = false
 enable_brave_stats_updater = false
 enable_web_discovery = false
 enable_web_discovery_native = false
+brave_services_key = "no-key"
 EOF
 
 echo ""
