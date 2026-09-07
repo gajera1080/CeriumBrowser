@@ -232,8 +232,6 @@ if [[ -f "${SRC_DIR}/build/install-build-deps.sh" ]]; then
   bash "${SRC_DIR}/build/install-build-deps.sh" --android --no-prompt || echo "WARNING: install-build-deps.sh failed, build might fail"
 fi
 
-echo "Disk usage after gclient sync:"
-du -sh "${WORKSPACE_DIR}" || true
 
 # Apply Deterministic Braving Asset Overlay to brave-core and Chromium
 if [[ -d "${REPO_ROOT}/branding/android" ]]; then
