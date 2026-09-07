@@ -295,6 +295,10 @@ echo ""
 echo "2. Applying Brave patches (1108+) to Chromium..."
 (cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
+echo "Pruning Android Settings UI bloatware..."
+echo "Enforcing strict minimalist UI policies natively..."
+python3 "${REPO_ROOT}/scripts/enforce-policies.py" "${BRAVE_DIR}"
+python3 "${REPO_ROOT}/scripts/prune-ui.py" "${BRAVE_DIR}"
 
 # Prepare Chromium VERSION and VERSION.chromium sidecar using brave-core version.py
 if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
