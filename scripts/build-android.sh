@@ -22,7 +22,11 @@ while [[ $# -gt 0 ]]; do
       TARGET_ARCH="${1#*=}"
       shift
       ;;
-    --release)
+    --gn-only)
+    GN_ONLY=true
+    shift
+    ;;
+  --release)
       IS_RELEASE=true
       shift
       ;;
@@ -378,7 +382,14 @@ cat "${GN_ARGS_FILE}"
 # Step 9: Run GN gen
 echo ""
 echo "Running gn gen from source root..."
-(cd "${SRC_DIR}" && gn gen "${OUT_DIR}")
+(cd "${SRC_DIR}" (cd "${SRC_DIR}" && gn gen "${OUT_DIR}")(cd "${SRC_DIR}" && gn gen "${OUT_DIR}") gn gen "${OUT_DIR}")
+
+if [[ "${GN_ONLY}" == "true" ]]; then
+  echo "\n========================================================"
+  echo " [SUCCESS] GN configuration passed! Skipping compilation (--gn-only)."
+  echo "========================================================"
+  exit 0
+fi
 
 T_NINJA_START=$(date +%s)
 
