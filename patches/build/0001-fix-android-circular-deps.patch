@@ -1,0 +1,26 @@
+From: Braving CI <ci@braving.org>
+Date: Mon, 7 Sep 2026 00:00:00 +0000
+Subject: [PATCH] [build] Fix circular include deps when enable_brave_ads is false
+
+---
+ browser/sources.gni | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/browser/sources.gni b/browser/sources.gni
+index abcdef..123456 100644
+--- a/browser/sources.gni
++++ b/browser/sources.gni
+@@ -981,8 +981,10 @@ if (is_android) {
+     "//brave/browser/android:android_browser_process",
+     "//brave/browser/android:tabs_impl",
+     "//brave/browser/android/preferences",
+-    "//brave/browser/notifications",
+   ]
++  if (enable_brave_ads) {
++    brave_chrome_browser_allow_circular_includes_from += [ "//brave/browser/notifications" ]
++  }
+ }
+ 
+ # TODO(https://github.com/brave/brave-browser/issues/43310):
+-- 
+2.34.1
