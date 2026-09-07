@@ -28,13 +28,16 @@ prepare_source:
     - ./scripts/generate-icons.sh
     - ./scripts/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/verify-all.sh
+  cache:
+    key: "braving-source-${BRAVE_VERSION}-${CI_COMMIT_SHA}"
+    paths:
+      - build-workspace/src/brave/
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:
       - metadata/releases/${BRAVE_VERSION}.yaml
       - metadata/upstream-${BRAVE_VERSION}.yaml
       - branding/
-      - build-workspace/src/brave/
     expire_in: 7 days
 
 # ----------------------------------------------------
@@ -48,6 +51,11 @@ build_android:
   needs:
     - job: prepare_source
       artifacts: true
+  cache:
+    key: "braving-source-${BRAVE_VERSION}-${CI_COMMIT_SHA}"
+    paths:
+      - build-workspace/src/brave/
+    policy: pull
   variables:
     GIT_STRATEGY: fetch
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
