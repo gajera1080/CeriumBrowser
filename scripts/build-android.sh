@@ -11,6 +11,7 @@ MANIFEST=""
 TARGET_ARCH="arm64"
 IS_RELEASE=true
 DRY_RUN=false
+GN_ONLY=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -406,7 +407,7 @@ echo "Running gn gen from source root..."
 cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
 
 
-if [[ "${GN_ONLY}" == "true" ]]; then
+if [[ "${GN_ONLY:-false}" == "true" ]]; then
   echo "\n========================================================"
   echo " [SUCCESS] GN configuration passed! Skipping compilation (--gn-only)."
   echo "========================================================"
