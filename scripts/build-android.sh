@@ -365,7 +365,6 @@ android_channel = "stable"
 target_android_output_format = "apk"
 
 enable_brave_wallet = false
-enable_brave_vpn = false
 enable_brave_vpn_v1 = false
 enable_brave_vpn_v2 = false
 enable_ai_chat = false
