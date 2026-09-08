@@ -275,28 +275,23 @@ if [[ -d "${REPO_ROOT}/branding/android" ]]; then
     fi
   done
 
-  if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
-    echo " Overlaying dedicated Braving Shields toolbar vector drawables..."
-    mkdir -p "${BRAVE_DIR}/android/java/res/drawable"
-    cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${BRAVE_DIR}/android/java/res/drawable/"
-    mkdir -p "${BRAVE_DIR}/android/java/brave-res/drawable"
-    cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${BRAVE_DIR}/android/java/brave-res/drawable/"
-    
-    LEO_DRAWABLE="${BRAVE_DIR}/node_modules/@brave/leo/tokens/android/drawable"
-    if [[ -d "${LEO_DRAWABLE}" ]]; then
-      cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${LEO_DRAWABLE}/"
-    fi
-    
-    if [[ -d "${SRC_DIR}/chrome/android/java/res/drawable" ]]; then
-      cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${SRC_DIR}/chrome/android/java/res/drawable/"
-    fi
-  fi
   echo " [OK] Braving branding overlay applied to brave-core."
 fi
 
 echo ""
 echo "2. Applying Brave patches (1108+) to Chromium..."
 (cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
+
+if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
+  echo " Overlaying dedicated Braving Shields toolbar vector drawables..."
+  LEO_DRAWABLE="${BRAVE_DIR}/node_modules/@brave/leo/tokens/android/drawable"
+  if [[ -d "${LEO_DRAWABLE}" ]]; then
+    cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${LEO_DRAWABLE}/"
+  else
+    echo "WARNING: ${LEO_DRAWABLE} not found after pnpm install."
+  fi
+fi
+
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
 echo "Pruning Android Settings UI bloatware..."
 echo "Enforcing strict minimalist UI policies natively..."
