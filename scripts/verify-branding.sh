@@ -95,28 +95,25 @@ if [[ ${FAILURES} -eq 0 ]]; then
   echo " [OK] All FRE splash logo densities verified."
 fi
 
-# 7. Check Android 13+ Themed Vector Icon (No night resources)
+# 7. Check Android 13+ Themed Vector Icon (in drawable and drawable-night)
 echo "Checking Android 13+ themed_app_icon.xml..."
 UPSTREAM_LION_SIG="M74.68,37.99"
-themed="${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml"
-if [[ ! -f "${themed}" ]]; then
-  echo "ERROR: Missing themed_app_icon.xml in drawable/" >&2
-  FAILURES=$((FAILURES + 1))
-elif grep -q "${UPSTREAM_LION_SIG}" "${themed}"; then
-  echo "ERROR: themed_app_icon.xml still contains upstream Brave lion vector path!" >&2
-  FAILURES=$((FAILURES + 1))
-else
-  echo " [OK] Android 13+ themed_app_icon.xml verified (zero lion path remnants)."
-fi
+UPSTREAM_LION_NIGHT_SIG="M74.96,45.77"
 
-# Ensure no unwanted night resources exist
-if find "${REPO_ROOT}/branding/android" -type d -name "*night*" | grep -q .; then
-  echo "ERROR: Unwanted night resources found in branding/android:" >&2
-  find "${REPO_ROOT}/branding/android" -type d -name "*night*" >&2
-  FAILURES=$((FAILURES + 1))
-else
-  echo " [OK] Verified: no night resources present."
-fi
+for base_name in "res_brave_base" "res_brave_default_base"; do
+  for draw_dir in "drawable" "drawable-night"; do
+    themed="${REPO_ROOT}/branding/android/${base_name}/${draw_dir}/themed_app_icon.xml"
+    if [[ ! -f "${themed}" ]]; then
+      echo "ERROR: Missing themed_app_icon.xml in ${base_name}/${draw_dir}/" >&2
+      FAILURES=$((FAILURES + 1))
+    elif grep -q "${UPSTREAM_LION_SIG}" "${themed}" || grep -q "${UPSTREAM_LION_NIGHT_SIG}" "${themed}"; then
+      echo "ERROR: ${base_name}/${draw_dir}/themed_app_icon.xml still contains upstream Brave lion vector path!" >&2
+      FAILURES=$((FAILURES + 1))
+    else
+      echo " [OK] Android 13+ ${base_name}/${draw_dir}/themed_app_icon.xml verified."
+    fi
+  done
+done
 
 # 8. Check dedicated Braving Shields toolbar vector drawables
 echo "Checking Braving Shields toolbar vector drawables..."

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Braving Android 13+ Monochrome Themed App Icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <path
+      android:pathData="M54,22L27,34v20c0,18.8 11.5,36.4 27,40.7c15.5,-4.3 27,-21.9 27,-40.7V34L54,22zM54,28.4l21.6,9.6v16c0,15.1 -9.2,29.6 -21.6,33.2C41.6,83.6 32.4,69.1 32.4,54V38L54,28.4zM48.2,64.2L36.8,52.8l3.4,-3.4l8,8l18,-18l3.4,3.4L48.2,64.2z"
+      android:fillColor="#000000"
+      android:fillType="evenOdd"/>
+</vector>

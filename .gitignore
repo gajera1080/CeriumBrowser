@@ -2,6 +2,7 @@
 out/
 *.apk
 *.aab
+build-workspace/
 
 # Python
 __pycache__/

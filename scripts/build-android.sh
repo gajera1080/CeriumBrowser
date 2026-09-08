@@ -241,29 +241,31 @@ if [[ -d "${REPO_ROOT}/branding/android" ]]; then
   THEME_DIR="${BRAVE_DIR}/app/theme/brave/android"
   BRANDING_DIR="${REPO_ROOT}/branding/android"
 
-  for base_name in "res_brave_base" "res_brave_default_base"; do
-    if [[ -d "${BRANDING_DIR}/${base_name}" ]]; then
+  for base_name in "res_brave_base" "res_brave_default_base" "res_brave_beta_base" "res_brave_dev_base" "res_brave_nightly_base"; do
+    src_base="${BRANDING_DIR}/${base_name}"
+    [[ ! -d "${src_base}" ]] && src_base="${BRANDING_DIR}/res_brave_base"
+    if [[ -d "${src_base}" ]]; then
       mkdir -p "${THEME_DIR}/${base_name}"
-      rm -rf "${THEME_DIR}/${base_name}/drawable-night" 2>/dev/null || true
-      cp -rf "${BRANDING_DIR}/${base_name}/"* "${THEME_DIR}/${base_name}/"
-      
-      if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium_base" ]]; then
-        rm -rf "${SRC_DIR}/chrome/android/java/res_chromium_base/drawable-night" 2>/dev/null || true
-        cp -rf "${BRANDING_DIR}/${base_name}/"* "${SRC_DIR}/chrome/android/java/res_chromium_base/"
-      fi
+      cp -rf "${src_base}/"* "${THEME_DIR}/${base_name}/"
     fi
   done
 
-  for fre_name in "res_brave" "res_brave_default"; do
-    if [[ -d "${BRANDING_DIR}/${fre_name}" ]]; then
+  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium_base" ]]; then
+    cp -rf "${BRANDING_DIR}/res_brave_base/"* "${SRC_DIR}/chrome/android/java/res_chromium_base/"
+  fi
+
+  for fre_name in "res_brave" "res_brave_default" "res_brave_beta" "res_brave_dev" "res_brave_nightly"; do
+    src_fre="${BRANDING_DIR}/${fre_name}"
+    [[ ! -d "${src_fre}" ]] && src_fre="${BRANDING_DIR}/res_brave"
+    if [[ -d "${src_fre}" ]]; then
       mkdir -p "${THEME_DIR}/${fre_name}"
-      cp -rf "${BRANDING_DIR}/${fre_name}/"* "${THEME_DIR}/${fre_name}/"
-      
-      if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium" ]]; then
-        cp -rf "${BRANDING_DIR}/${fre_name}/"* "${SRC_DIR}/chrome/android/java/res_chromium/"
-      fi
+      cp -rf "${src_fre}/"* "${THEME_DIR}/${fre_name}/"
     fi
   done
+
+  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium" ]]; then
+    cp -rf "${BRANDING_DIR}/res_brave/"* "${SRC_DIR}/chrome/android/java/res_chromium/"
+  fi
 
   for density_dir in "${BRANDING_DIR}/mipmap-"*; do
     if [[ -d "${density_dir}" ]]; then
@@ -319,6 +321,16 @@ echo "4. Running gclient hooks on patched Chromium..."
 echo ""
 echo "5. Propagating branding and touching overridden files..."
 (cd "${BRAVE_DIR}" && pnpm run build --prepare_only --target_os=android --target_arch="${TARGET_ARCH}")
+
+# Ensure Braving branding assets (including themed_app_icon.xml in drawable & drawable-night) are present in res_chromium_base
+if [[ -d "${BRANDING_DIR}" ]]; then
+  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium_base" && -d "${BRANDING_DIR}/res_brave_base" ]]; then
+    cp -rf "${BRANDING_DIR}/res_brave_base/"* "${SRC_DIR}/chrome/android/java/res_chromium_base/"
+  fi
+  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium" && -d "${BRANDING_DIR}/res_brave" ]]; then
+    cp -rf "${BRANDING_DIR}/res_brave/"* "${SRC_DIR}/chrome/android/java/res_chromium/"
+  fi
+fi
 
 # Verify //brave/build/version.gni was generated, or generate it now
 if [[ -f "${BRAVE_DIR}/build/util/version.py" && -f "${SRC_DIR}/chrome/VERSION" && ! -f "${BRAVE_DIR}/build/version.gni" ]]; then

@@ -124,12 +124,13 @@ themed_icon_xml = '''<?xml version="1.0" encoding="utf-8"?>
 '''
 
 for base_name in ['res_brave_base', 'res_brave_default_base']:
-    d_path = os.path.join(branding_base, base_name, 'drawable')
-    os.makedirs(d_path, exist_ok=True)
-    with open(os.path.join(d_path, 'themed_app_icon.xml'), 'w') as f:
-        f.write(themed_icon_xml)
+    for draw_dir in ['drawable', 'drawable-night']:
+        d_path = os.path.join(branding_base, base_name, draw_dir)
+        os.makedirs(d_path, exist_ok=True)
+        with open(os.path.join(d_path, 'themed_app_icon.xml'), 'w') as f:
+            f.write(themed_icon_xml)
 
-print(' [OK] Android 13+ themed_app_icon.xml vector drawables generated.')
+print(' [OK] Android 13+ themed_app_icon.xml vector drawables generated (drawable and drawable-night).')
 
 # 5. Dedicated Braving Shields Toolbar Vector Drawables
 # Replaces ic_social_brave_release_favicon_fullheight_color and variants
