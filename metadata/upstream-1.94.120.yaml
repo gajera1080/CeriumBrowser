@@ -3,7 +3,7 @@
 
 release:
   brave_version: "1.94.120"
-  release_date: "2026-09-06T06:31:56Z"
+  release_date: "2026-09-09T03:41:06Z"
 
 repositories:
   brave_core:
@@ -32,7 +32,7 @@ gn_arguments:
     is_debug: false
     is_official_build: true
     is_component_build: false
-    symbol_level: 0
+    symbol_level: 1
     disable_fieldtrial_testing_config: true
   braving_overrides:
     chrome_public_manifest_package: "org.braving.browser"
