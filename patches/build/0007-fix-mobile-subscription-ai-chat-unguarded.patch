@@ -1,0 +1,151 @@
+diff --git a/components/brave_mobile_subscription/renderer/android/BUILD.gn b/components/brave_mobile_subscription/renderer/android/BUILD.gn
+index 19391f64a..639a6261b 100644
+--- a/components/brave_mobile_subscription/renderer/android/BUILD.gn
++++ b/components/brave_mobile_subscription/renderer/android/BUILD.gn
+@@ -4,6 +4,7 @@
+ # You can obtain one at https://mozilla.org/MPL/2.0/.
+ 
+ import("//brave/components/brave_vpn/common/buildflags/buildflags.gni")
++import("//brave/components/ai_chat/core/common/buildflags/buildflags.gni")
+ 
+ assert(is_android)
+ 
+@@ -15,8 +16,6 @@ source_set("android") {
+ 
+   deps = [
+     "//base",
+-    "//brave/components/ai_chat/core/common",
+-    "//brave/components/ai_chat/core/common/mojom",
+     "//brave/components/brave_origin:features",
+     "//brave/components/brave_origin/mojom",
+     "//brave/components/brave_vpn/common/buildflags",
+@@ -37,8 +36,16 @@ source_set("android") {
+       "//brave/components/brave_vpn/common/mojom",
+     ]
+   }
++
++  if (enable_ai_chat) {
++    deps += [
++      "//brave/components/ai_chat/core/common",
++      "//brave/components/ai_chat/core/common/mojom",
++    ]
++  }
+ }
+ 
++
+ source_set("browser_tests") {
+   testonly = true
+ 
+@@ -47,7 +54,6 @@ source_set("browser_tests") {
+   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+ 
+   deps = [
+-    "//brave/components/ai_chat/core/common",
+     "//brave/components/brave_mobile_subscription/renderer/android",
+     "//brave/components/brave_origin:features",
+     "//brave/components/brave_vpn/common/buildflags",
+@@ -64,8 +70,16 @@ source_set("browser_tests") {
+       "//brave/components/brave_vpn/common/mojom",
+     ]
+   }
++
++  if (enable_ai_chat) {
++    deps += [
++      "//brave/components/ai_chat/core/common",
++      "//brave/components/ai_chat/core/common/mojom",
++    ]
++  }
+ }
+ 
++
+ source_set("unit_tests") {
+   testonly = true
+ 
+diff --git a/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.cc b/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.cc
+index dc0202328..bff0526ab 100644
+--- a/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.cc
++++ b/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.cc
+@@ -14,7 +14,10 @@
+ #include "base/no_destructor.h"
+ #include "base/strings/strcat.h"
+ #include "base/strings/utf_string_conversions.h"
++#if BUILDFLAG(ENABLE_AI_CHAT)
+ #include "brave/components/ai_chat/core/common/features.h"
++#endif
++#include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
+ #include "brave/components/brave_origin/features.h"
+ #include "brave/components/skus/renderer/skus_utils.h"
+ #include "brave/gin/converter_specializations.h"
+@@ -66,6 +69,7 @@ bool SubscriptionRenderFrameObserver::EnsureConnected() {
+   }
+ #endif
+ 
++#if BUILDFLAG(ENABLE_AI_CHAT)
+   if (ai_chat::features::IsAIChatEnabled() && product_ == Product::kLeo) {
+     if (!ai_chat_subscription_.is_bound()) {
+       render_frame()->GetBrowserInterfaceBroker().GetInterface(
+@@ -73,6 +77,7 @@ bool SubscriptionRenderFrameObserver::EnsureConnected() {
+     }
+     bound |= ai_chat_subscription_.is_bound();
+   }
++#endif
+ 
+   if (base::FeatureList::IsEnabled(brave_origin::features::kBraveOrigin) &&
+       product_ == Product::kOrigin) {
+@@ -115,6 +120,7 @@ void SubscriptionRenderFrameObserver::DidCreateScriptContext(
+     }
+ #endif
+   } else if (product_ == Product::kLeo) {
++#if BUILDFLAG(ENABLE_AI_CHAT)
+     if (ai_chat_subscription_.is_bound()) {
+       // Inject only linkResult object on the
+       // https://account.brave.com/order-link/?product=leo page
+@@ -128,6 +134,7 @@ void SubscriptionRenderFrameObserver::DidCreateScriptContext(
+             weak_factory_.GetWeakPtr()));
+       }
+     }
++  #endif
+   } else if (product_ == Product::kOrigin) {
+     if (origin_subscription_.is_bound()) {
+       if (page_ == Page::kResultLandingPage) {
+@@ -203,10 +210,13 @@ void SubscriptionRenderFrameObserver::SetLinkStatus(
+     return;
+   }
+ 
++#if BUILDFLAG(ENABLE_AI_CHAT)
+   if (product_ == Product::kLeo && ai_chat_subscription_.is_bound()) {
+     ai_chat_subscription_->SetLinkStatus(
+         status_dict.FindInt("status").value_or(0));
+-  } else if (product_ == Product::kOrigin && origin_subscription_.is_bound()) {
++  } else
++#endif
++  if (product_ == Product::kOrigin && origin_subscription_.is_bound()) {
+     origin_subscription_->SetLinkStatus(
+         status_dict.FindInt("status").value_or(0));
+   }
+diff --git a/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.h b/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.h
+index a4e7a95f7..6d5ae176c 100644
+--- a/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.h
++++ b/components/brave_mobile_subscription/renderer/android/subscription_render_frame_observer.h
+@@ -13,8 +13,11 @@
+ #include "base/gtest_prod_util.h"
+ #include "base/memory/weak_ptr.h"
+ #include "base/values.h"
++#include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
++#if BUILDFLAG(ENABLE_AI_CHAT)
+ #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom.h"
+ #include "brave/components/ai_chat/core/common/mojom/common.mojom.h"
++#endif
+ #include "brave/components/brave_origin/mojom/brave_origin_settings.mojom.h"
+ #include "brave/components/brave_vpn/common/buildflags/buildflags.h"
+ #include "content/public/renderer/render_frame.h"
+@@ -88,7 +91,9 @@ class SubscriptionRenderFrameObserver : public content::RenderFrameObserver {
+ #if BUILDFLAG(ENABLE_BRAVE_VPN)
+   mojo::Remote<brave_vpn::mojom::ServiceHandler> vpn_service_;
+ #endif
++#if BUILDFLAG(ENABLE_AI_CHAT)
+   mojo::Remote<ai_chat::mojom::IAPSubscription> ai_chat_subscription_;
++#endif
+   mojo::Remote<brave_origin::mojom::OriginIAPSubscription> origin_subscription_;
+   base::WeakPtrFactory<SubscriptionRenderFrameObserver> weak_factory_{this};
+ };
