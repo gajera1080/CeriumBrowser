@@ -435,9 +435,9 @@ echo "This will take a long time (hours on first build)..."
 # but we save the full log to build-workspace/build.log for debugging.
 echo "Logging full build output to ${WORKSPACE_DIR}/build.log..."
 if command -v autoninja &>/dev/null; then
-  (cd "${SRC_DIR}" && autoninja -C "${OUT_DIR}" "${BUILD_TARGET}" 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || /Error/) print $0; }')
+  (cd "${SRC_DIR}" && autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || tolower($0) ~ /error/) print $0; }')
 else
-  (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" "${BUILD_TARGET}" 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || /Error/) print $0; }')
+  (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || tolower($0) ~ /error/) print $0; }')
 fi
 
 
