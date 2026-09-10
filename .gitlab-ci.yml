@@ -4,6 +4,7 @@
 
 stages:
   - prepare
+  - cache_prep
   - build
 
 variables:
@@ -41,10 +42,10 @@ prepare_source:
     expire_in: 7 days
 
 # ----------------------------------------------------
-# Stage 2: Android Build (Phase 2 on Large Runner)
+# Stage 2: Cache Preparation (Build Heavy Sub-targets)
 # ----------------------------------------------------
-build_android:
-  stage: build
+prepare_chromium_cache:
+  stage: cache_prep
   image: debian:bookworm
   tags:
     - saas-linux-2xlarge-amd64
@@ -59,11 +60,44 @@ build_android:
   variables:
     GIT_STRATEGY: fetch
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
+    CACHE_PREP_ONLY: "true"
+    BUILD_TARGET: "v8 third_party/blink/public:blink"
   before_script:
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
+    - echo "Building isolated heavy targets (v8 & blink) to generate warm cache..."
+    - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - ./scripts/upload-cache.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
+
+# ----------------------------------------------------
+# Stage 3: Android Build (Phase 2 on Large Runner)
+# ----------------------------------------------------
+build_android:
+  stage: build
+  image: debian:bookworm
+  tags:
+    - saas-linux-2xlarge-amd64
+  needs:
+    - job: prepare_chromium_cache
+      artifacts: true
+  cache:
+    key: "braving-source-${BRAVE_VERSION}-${CI_COMMIT_SHA}"
+    paths:
+      - build-workspace/src/brave/
+    policy: pull
+  variables:
+    GIT_STRATEGY: fetch
+    WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config
+    - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
+    - npm install -g pnpm@11.11.0
+  script:
+    - ./scripts/download-cache.sh
     - echo "Executing Android compile for release manifest metadata/releases/${BRAVE_VERSION}.yaml"
     - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
   artifacts:

@@ -425,7 +425,7 @@ fi
 T_NINJA_START=$(date +%s)
 
 # Step 10: Build chrome_public_apk
-BUILD_TARGET="brave"
+BUILD_TARGET="${BUILD_TARGET:-brave}"
 echo ""
 echo "Building target: ${BUILD_TARGET}"
 echo "This will take a long time (hours on first build)..."
@@ -440,6 +440,11 @@ else
   (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" "${BUILD_TARGET}" 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || /Error/) print $0; }')
 fi
 
+
+if [[ "${CACHE_PREP_ONLY:-false}" == "true" ]]; then
+  echo "CACHE_PREP_ONLY=true: Skipping APK packaging."
+  exit 0
+fi
 
 T_PKG_START=$(date +%s)
 
