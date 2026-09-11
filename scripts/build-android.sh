@@ -55,6 +55,9 @@ if [[ -z "${MANIFEST}" || ! -f "${MANIFEST}" ]]; then
   echo "ERROR: Release manifest not found. Run prepare-source.sh first." >&2
   exit 1
 fi
+# Resolve to absolute path so later cd commands cannot break manifest lookups
+MANIFEST="$(cd "$(dirname "${MANIFEST}")" && pwd)/$(basename "${MANIFEST}")"
+
 
 echo "========================================================"
 echo " Braving Android Build"
