@@ -8,14 +8,7 @@ package_id: org.braving.browser
 target_architecture: arm64
 applied_patches:
 - patches/branding/0001-braving-branding.patch
-- patches/build/0001-fix-android-circular-deps.patch
-- patches/build/0002-fix-android-browser-tests-deps.patch
-- patches/build/0003-fix-android-tabs-impl-ai-chat-deps.patch
-- patches/build/0004-fix-android-preferences-news-deps.patch
-- patches/build/0005-force-generate-wallet-java.patch
-- patches/build/0006-force-generate-preferences-java.patch
 - patches/telemetry/0001-remove-brave-telemetry.patch
-- patches/build/0007-fix-mobile-subscription-ai-chat-unguarded.patch
 build_arguments:
   target_os: android
   target_cpu: arm64
@@ -23,15 +16,3 @@ build_arguments:
   is_official_build: true
   is_component_build: false
   chrome_public_manifest_package: org.braving.browser
-  enable_brave_wallet: false
-  enable_brave_vpn: false
-  enable_brave_vpn_v1: false
-  enable_brave_vpn_v2: false
-  enable_ai_chat: false
-  enable_brave_news: false
-  enable_brave_rewards: false
-  enable_brave_ads: false
-  enable_brave_talk: false
-  enable_brave_stats_updater: false
-  enable_web_discovery: false
-  enable_web_discovery_native: false
