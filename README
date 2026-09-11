@@ -1,0 +1,123 @@
+Braving Android
+===============
+
+    0. Overview
+    1. Architecture Overview
+    2. Repository Structure
+    3. Building Braving
+       3.1. Prerequisites
+       3.2. Prepare Source
+       3.3. Build Android APK
+    4. Special Thanks
+    5. License
+
+
+0. Overview
+-----------
+
+    Braving is an independently branded Android browser based on exact Brave
+    and Chromium releases, featuring a maintainable patch-based architecture.
+
+    Braving does not simply rebrand an APK. It builds directly from clean
+    upstream source code with reproducible, patch-driven modifications.
+
+
+1. Architecture Overview
+------------------------
+
+    User selects BRAVE_VERSION
+              |
+    matching brave-core release
+              |
+    exact Chromium revision
+              |
+    Braving patches
+              |
+    Braving Android source
+              |
+    reproducible Android build
+              |
+    Braving APK / AAB
+
+
+2. Repository Structure
+-----------------------
+
+    braving/
+    |-- android/                 Android-specific override sources & configs
+    |-- patches/                 Directory containing source code patches
+    |   |-- branding/            App identity, strings, package name, icons
+    |   |-- build/               GN arguments, toolchain settings, manifest
+    |   |-- features/            Feature disabling (Wallet, Ads, Rewards, VPN)
+    |   |-- origin/              Minimal / origin policy configurations
+    |   `-- telemetry/           Disable P3A analytics and metrics reporting
+    |-- scripts/                 Build and validation scripts
+    |   |-- build-android.sh     Phase 2: Compiles the Android APK
+    |   |-- generate-icons.sh    Generates Android launcher icons
+    |   |-- prepare-source.sh    Phase 1: Validates revisions & applies patches
+    |   |-- verify-all.sh        Runs all verifications
+    |   |-- verify-branding.sh   Lints for unintentional Brave trademark remnants
+    |   `-- verify-patches.sh    Verifies patch integrity
+    |-- metadata/                Release manifests and exact upstream commits
+    |-- docs/                    Project documentation and guidelines
+    |-- tests/                   Automated build & branding tests
+    |-- .gitlab-ci.yml           Two-phase GitLab CI pipeline
+    `-- LICENSE                  MPL-2.0
+
+
+3. Building Braving
+-------------------
+
+3.1. Prerequisites
+
+    Building Braving requires a Linux environment (x86_64 or aarch64).
+    You will need the following tools installed:
+
+      - Node.js >= 24.16.0
+      - pnpm >= 11.11.0
+      - Python 3.10+
+      - JDK 17+
+      - Android SDK & NDK
+
+
+3.2. Prepare Source
+
+    To validate revisions, checkout the source code, and apply Braving
+    branding patches, run the preparation script with the desired
+    Brave version:
+
+        ./scripts/prepare-source.sh 1.94.120
+
+
+3.3. Build Android APK
+
+    Once the source is prepared, you can start the Android compilation
+    process. This step handles GN configuration and Ninja compilation:
+
+        ./scripts/build-android.sh --arch=arm64 --release
+
+
+4. Special Thanks
+-----------------
+
+    Braving would not be possible without the incredible work and
+    resources provided by others. Special thanks to:
+
+      - Brave Software (https://brave.com/) for their excellent
+        open-source Android browser code and privacy-preserving Shields.
+        Their commitment to open source makes this project possible.
+
+      - GitLab (https://gitlab.com/) for providing generous and robust
+        Continuous Integration and Continuous Deployment (CI/CD)
+        infrastructure that powers our automated reproducible builds.
+
+
+5. License
+----------
+
+    This project is licensed under the Mozilla Public License 2.0 (MPL-2.0).
+    A copy of the license can be found in the LICENSE file.
+
+    Note that the upstream Chromium code is licensed under the
+    BSD-3-Clause license, and the upstream Brave Core code is
+    licensed under the MPL-2.0 license.
