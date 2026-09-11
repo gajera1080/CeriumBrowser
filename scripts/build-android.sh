@@ -227,6 +227,12 @@ export PYTHONUNBUFFERED="1"
 echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
 (cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow --nohooks -j16)
 
+# Download and extract the Chromium warm cache AFTER the source checkout and patches.
+if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
+  echo -e "\n\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
+  bash ./scripts/download-cache.sh || true
+fi
+
 echo "Installing Chromium build dependencies..."
 if [[ -f "${SRC_DIR}/build/install-build-deps.sh" ]]; then
   # install-build-deps.sh complains if run as root without --no-prompt
@@ -408,6 +414,9 @@ EOF
 echo ""
 echo "Android GN arguments configured:"
 cat "${GN_ARGS_FILE}"
+
+# Configure Siso to store its cache inside the output directory
+export SISO_LOCAL_CACHE_DIR="${OUT_DIR}/siso_cache"
 
 # Step 9: Run GN gen
 echo ""

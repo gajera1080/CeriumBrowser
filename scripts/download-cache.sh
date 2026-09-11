@@ -37,6 +37,6 @@ fi
 
 echo "Extracting cache to ${OUT_DIR}..."
 mkdir -p "${OUT_DIR}"
-cat chunk.tar.gz.* | tar -xzf - -C "${OUT_DIR}"
+cat chunk.tar.gz.* | tar -xzmf - -C "${OUT_DIR}"
 
 echo "Cache restore complete!"

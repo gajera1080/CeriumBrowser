@@ -97,7 +97,6 @@ build_android:
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
-    - ./scripts/download-cache.sh
     - echo "Executing Android compile for release manifest metadata/releases/${BRAVE_VERSION}.yaml"
     - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
   artifacts:
