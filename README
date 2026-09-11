@@ -1,5 +1,5 @@
-Braving Android
-===============
+Braving
+=======
 
     0. Overview
     1. Architecture Overview
@@ -7,7 +7,7 @@ Braving Android
     3. Building Braving
        3.1. Prerequisites
        3.2. Prepare Source
-       3.3. Build Android APK
+       3.3. Build Braving APK
     4. Special Thanks
     5. License
 
@@ -15,7 +15,7 @@ Braving Android
 0. Overview
 -----------
 
-    Braving is an independently branded Android browser based on exact Brave
+    Braving is an independently branded browser based on exact Brave
     and Chromium releases, featuring a maintainable patch-based architecture.
 
     Braving does not simply rebrand an APK. It builds directly from clean
@@ -33,9 +33,9 @@ Braving Android
               |
     Braving patches
               |
-    Braving Android source
+    Braving source
               |
-    reproducible Android build
+    reproducible Braving build
               |
     Braving APK / AAB
 
@@ -44,7 +44,7 @@ Braving Android
 -----------------------
 
     braving/
-    |-- android/                 Android-specific override sources & configs
+    |-- android/                 Override sources & configs
     |-- patches/                 Directory containing source code patches
     |   |-- branding/            App identity, strings, package name, icons
     |   |-- build/               GN arguments, toolchain settings, manifest
@@ -52,8 +52,8 @@ Braving Android
     |   |-- origin/              Minimal / origin policy configurations
     |   `-- telemetry/           Disable P3A analytics and metrics reporting
     |-- scripts/                 Build and validation scripts
-    |   |-- build-android.sh     Phase 2: Compiles the Android APK
-    |   |-- generate-icons.sh    Generates Android launcher icons
+    |   |-- build-android.sh     Phase 2: Compiles the Braving APK
+    |   |-- generate-icons.sh    Generates launcher icons
     |   |-- prepare-source.sh    Phase 1: Validates revisions & applies patches
     |   |-- verify-all.sh        Runs all verifications
     |   |-- verify-branding.sh   Lints for unintentional Brave trademark remnants
@@ -77,7 +77,7 @@ Braving Android
       - pnpm >= 11.11.0
       - Python 3.10+
       - JDK 17+
-      - Android SDK & NDK
+      - Android SDK & NDK (for mobile builds)
 
 
 3.2. Prepare Source
@@ -89,9 +89,9 @@ Braving Android
         ./scripts/prepare-source.sh 1.94.120
 
 
-3.3. Build Android APK
+3.3. Build Braving APK
 
-    Once the source is prepared, you can start the Android compilation
+    Once the source is prepared, you can start the compilation
     process. This step handles GN configuration and Ninja compilation:
 
         ./scripts/build-android.sh --arch=arm64 --release
@@ -104,7 +104,7 @@ Braving Android
     resources provided by others. Special thanks to:
 
       - Brave Software (https://brave.com/) for their excellent
-        open-source Android browser code and privacy-preserving Shields.
+        open-source browser code and privacy-preserving Shields.
         Their commitment to open source makes this project possible.
 
       - GitLab (https://gitlab.com/) for providing generous and robust
