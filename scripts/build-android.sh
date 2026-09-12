@@ -302,6 +302,9 @@ if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
 fi
 
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
+python3 "${REPO_ROOT}/scripts/apply-branding.py" "${BRAVE_DIR}"
+bash "${REPO_ROOT}/scripts/apply-assets.sh" "${BRAVE_DIR}"
+
 echo "Pruning Android Settings UI bloatware..."
 echo "Enforcing strict minimalist UI policies natively..."
 python3 "${REPO_ROOT}/scripts/enforce-policies.py" "${BRAVE_DIR}"
@@ -373,10 +376,12 @@ target_os = "android"
 target_cpu = "${TARGET_ARCH}"
 is_debug = false
 is_official_build = true
-is_component_build = false
+is_java_debug = false
 symbol_level = 0
 blink_symbol_level = 0
 v8_symbol_level = 0
+strip_debug_info = true
+is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"

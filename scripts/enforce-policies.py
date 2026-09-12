@@ -32,3 +32,26 @@ patch_method("android/java/org/chromium/chrome/browser/brave_leo/BraveLeoPrefUti
 
 # Hide Sponsored Images from NTP
 patch_method("android/java/org/chromium/chrome/browser/ntp_background_images/util/NTPImageUtil.java", "shouldEnableNTPFeature", "\n        if (true) return false;")
+
+def patch_cpp(filepath, search, replace):
+    path = os.path.join(repo_root, filepath)
+    if not os.path.exists(path):
+        print(f"File not found: {filepath}")
+        return
+    with open(path, "r") as f:
+        content = f.read()
+    if search in content:
+        content = content.replace(search, replace)
+        with open(path, "w") as f:
+            f.write(content)
+        print(f"Patched C++ {filepath}")
+
+# Force Disable P3A (Privacy Preserving Product Analytics)
+patch_cpp("components/p3a/p3a_service.cc", 
+          "registry->RegisterBooleanPref(kP3AEnabled,\n                                !BUILDFLAG(IS_BRAVE_ORIGIN_BRANDED));", 
+          "registry->RegisterBooleanPref(kP3AEnabled,\n                                false);")
+
+# Force Disable Statistics Ping Reporting
+patch_cpp("browser/brave_local_state_prefs.cc", 
+          "registry->RegisterBooleanPref(kStatsReportingEnabled, true);", 
+          "registry->RegisterBooleanPref(kStatsReportingEnabled, false);")
