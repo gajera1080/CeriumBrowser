@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-CACHE_VERSION="${BRAVE_VERSION}-${TARGET_ARCH}"
+CACHE_VERSION="${BRAVE_VERSION}-${TARGET_ARCH}-${CI_PIPELINE_ID}"
 PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 OUT_DIR="${CI_PROJECT_DIR}/build-workspace/src/out"
 
@@ -38,5 +38,6 @@ fi
 echo "Extracting cache to ${OUT_DIR}..."
 mkdir -p "${OUT_DIR}"
 cat chunk.tar.gz.* | tar -xzmf - -C "${OUT_DIR}"
+rm -f chunk.tar.gz.*
 
 echo "Cache restore complete!"
