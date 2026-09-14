@@ -44,26 +44,24 @@ Braving
 -----------------------
 
     braving/
-    |-- android/                 Override sources & configs
-    |-- patches/                 Directory containing source code patches
-    |   |-- branding/            App identity, strings, package name, icons
-    |   |-- build/               GN arguments, toolchain settings, manifest
-    |   |-- features/            Feature disabling (Wallet, Ads, Rewards, VPN)
-    |   |-- origin/              Minimal / origin policy configurations
-    |   `-- telemetry/           Disable P3A analytics and metrics reporting
-    |-- scripts/                 Build and validation scripts
-    |   |-- build-android.sh     Phase 2: Compiles the Braving APK
-    |   |-- generate-icons.sh    Generates launcher icons
-    |   |-- prepare-source.sh    Phase 1: Validates revisions & applies patches
-    |   |-- verify-all.sh        Runs all verifications
-    |   |-- verify-branding.sh   Lints for unintentional Brave trademark remnants
-    |   `-- verify-patches.sh    Verifies patch integrity
-    |-- metadata/                Release manifests and exact upstream commits
-    |-- docs/                    Project documentation and guidelines
-    |-- tests/                   Automated build & branding tests
-    |-- .gitlab-ci.yml           Two-phase GitLab CI pipeline
-    `-- LICENSE                  MPL-2.0
-
+    |-- branding/            App identity, strings, package name, icons
+    |-- metadata/            Release manifests and exact upstream commits
+    |-- docs/                Architecture and release documentation
+    |-- patches/             Directory containing source code patches
+    |   `-- android/         Android-specific patches
+    |       |-- branding/    App identity, strings, package name, icons
+    |       |-- build/       GN arguments, toolchain settings, manifest
+    |       |-- features/    Feature disabling (Wallet, Ads, Rewards, VPN)
+    |       |-- origin/      Minimal / origin policy configurations
+    |       `-- telemetry/   Disable P3A analytics and metrics reporting
+    `-- scripts/             Build and validation scripts
+        `-- android/         Android-specific build scripts
+            |-- build-android.sh     Phase 2: Compiles the Braving APK
+            |-- generate-icons.sh    Generates launcher icons
+            |-- prepare-source.sh    Phase 1: Validates revisions & applies patches
+            |-- verify-all.sh        Runs all verifications
+            |-- verify-branding.sh   Lints for unintentional Brave trademark remnants
+            `-- verify-patches.sh    Verifies patch integrity
 
 3. Building Braving
 -------------------

@@ -1,0 +1,20 @@
+diff --git a/android/java/brave-res/xml/brave_origin_preferences.xml b/android/java/brave-res/xml/brave_origin_preferences.xml
+index aa92d913b..08f0cbe26 100644
+--- a/android/java/brave-res/xml/brave_origin_preferences.xml
++++ b/android/java/brave-res/xml/brave_origin_preferences.xml
+@@ -87,14 +87,6 @@
+ 
+     </PreferenceCategory>
+ 
+-    <PreferenceCategory
+-        android:key="origin_purchase_section"
+-        android:title="@string/origin_purchase_section_title">
+-
+-        <org.chromium.components.browser_ui.settings.ChromeBasePreference
+-            android:key="link_purchase"
+-            android:title="@string/link_purchase_title_origin" />
+-
+-    </PreferenceCategory>
++
+ 
+ </PreferenceScreen>

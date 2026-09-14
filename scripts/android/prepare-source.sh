@@ -7,19 +7,49 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 BRAVE_VERSION="${1:-${BRAVE_VERSION:-}}"
 
 if [[ -z "${BRAVE_VERSION}" ]]; then
-  LATEST_UPSTREAM=$(ls -t "${REPO_ROOT}/metadata/upstream-"*.yaml 2>/dev/null | head -n 1 || true)
-  if [[ -n "${LATEST_UPSTREAM}" ]]; then
-    BRAVE_VERSION=$(basename "${LATEST_UPSTREAM}" | sed 's/upstream-//;s/\.yaml//')
-    echo "Notice: BRAVE_VERSION not explicitly set. Using latest release definition: ${BRAVE_VERSION}"
-  else
-    echo "ERROR: BRAVE_VERSION is required." >&2
-    echo "Usage: $0 <BRAVE_VERSION>" >&2
-    exit 1
+  echo "BRAVE_VERSION not set. Fetching latest stable release from GitHub..."
+  RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/brave/brave-browser/releases?per_page=50" 2>/dev/null || echo "")
+
+  if [[ -n "${RELEASE_JSON}" ]]; then
+    # Find the first release whose name starts with "Release " (skip Nightly/Beta)
+    RELEASE_INFO=$(echo "${RELEASE_JSON}" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for r in data:
+    name = (r.get('name') or '').strip()
+    if name.startswith('Release '):
+        tag = r['tag_name'].lstrip('v')
+        # Extract Chromium version from name: 'Release v1.95.101 (Chromium 153.0.8010.37)'
+        chromium = ''
+        if '(Chromium ' in name:
+            chromium = name.split('(Chromium ')[1].rstrip(') ')
+        print(f'{tag}|{chromium}')
+        break
+" 2>/dev/null || echo "")
+
+    if [[ -n "${RELEASE_INFO}" ]]; then
+      BRAVE_VERSION=$(echo "${RELEASE_INFO}" | cut -d'|' -f1)
+      GITHUB_CHROMIUM_VERSION=$(echo "${RELEASE_INFO}" | cut -d'|' -f2)
+      echo "Resolved latest stable: Brave v${BRAVE_VERSION} (Chromium ${GITHUB_CHROMIUM_VERSION})"
+    fi
+  fi
+
+  # Fallback to local metadata if GitHub fetch failed
+  if [[ -z "${BRAVE_VERSION}" ]]; then
+    LATEST_UPSTREAM=$(ls -t "${REPO_ROOT}/metadata/upstream-"*.yaml 2>/dev/null | head -n 1 || true)
+    if [[ -n "${LATEST_UPSTREAM}" ]]; then
+      BRAVE_VERSION=$(basename "${LATEST_UPSTREAM}" | sed 's/upstream-//;s/\.yaml//')
+      echo "GitHub fetch failed. Using local metadata: ${BRAVE_VERSION}"
+    else
+      echo "ERROR: Could not resolve BRAVE_VERSION from GitHub or local metadata." >&2
+      echo "Usage: $0 <BRAVE_VERSION>" >&2
+      exit 1
+    fi
   fi
 fi
 
@@ -34,6 +64,8 @@ echo " Overrides     : NONE (Strict Determinism)"
 echo "========================================================"
 
 # Strict Resolution: BRAVE_VERSION -> brave-core tag -> package.json -> Chromium revision
+# If we already got the Chromium version from the GitHub release name, pass it through
+export GITHUB_CHROMIUM_VERSION="${GITHUB_CHROMIUM_VERSION:-}"
 RESOLVED_DATA=$(python3 -c "
 import os, sys, yaml, json, urllib.request, subprocess
 
@@ -49,6 +81,10 @@ if os.path.isfile(metadata_path):
 brave_core_commit = data.get('repositories', {}).get('brave_core', {}).get('commit')
 chromium_commit = data.get('repositories', {}).get('chromium', {}).get('commit')
 chromium_version = data.get('repositories', {}).get('chromium', {}).get('version')
+
+# Use Chromium version from GitHub release name if available (avoids package.json fetch)
+if not chromium_version:
+    chromium_version = os.environ.get('GITHUB_CHROMIUM_VERSION', '') or None
 
 local_brave = os.environ.get('BRAVE_CORE_DIR', '')
 
@@ -68,11 +104,17 @@ if not brave_core_commit:
     if not brave_core_commit:
         try:
             ls_out = subprocess.check_output(
-                ['git', 'ls-remote', 'https://github.com/brave/brave-core.git', f'refs/tags/v{version}'],
+                ['git', 'ls-remote', 'https://github.com/brave/brave-core.git', f'refs/tags/v{version}*'],
                 text=True, stderr=subprocess.DEVNULL
             ).strip()
             if ls_out:
-                brave_core_commit = ls_out.split()[0]
+                # Annotated tags have a peeled ^{} version pointing to the actual commit
+                for line in ls_out.split('\n'):
+                    if line.endswith('^{}'):
+                        brave_core_commit = line.split()[0]
+                        break
+                if not brave_core_commit:
+                    brave_core_commit = ls_out.split()[0]
         except Exception as e:
             pass
 
@@ -111,13 +153,18 @@ if not chromium_version:
 if not chromium_commit:
     try:
         ls_out = subprocess.check_output(
-            ['git', 'ls-remote', 'https://chromium.googlesource.com/chromium/src.git', f'refs/tags/{chromium_version}'],
+            ['git', 'ls-remote', 'https://chromium.googlesource.com/chromium/src.git', f'refs/tags/{chromium_version}*'],
             text=True, stderr=subprocess.DEVNULL
         ).strip()
         if ls_out:
-            chromium_commit = ls_out.split()[0]
-    except Exception:
-        pass
+            for line in ls_out.split('\n'):
+                if line.endswith('^{}'):
+                    chromium_commit = line.split()[0]
+                    break
+            if not chromium_commit:
+                chromium_commit = ls_out.split()[0]
+    except Exception as e:
+        print(f'ERROR: Failed to resolve Chromium commit for tag {chromium_version}: {e}', file=sys.stderr)
 
 if not chromium_commit:
     chromium_commit = chromium_version

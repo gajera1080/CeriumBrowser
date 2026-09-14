@@ -4,7 +4,7 @@ set -euo pipefail
 # Inputs expected from environment:
 # BRAVE_VERSION, TARGET_ARCH, CI_API_V4_URL, CI_PROJECT_ID, CI_JOB_TOKEN, CI_PROJECT_DIR
 
-CACHE_VERSION="${BRAVE_VERSION}-${TARGET_ARCH}-${CI_PIPELINE_ID}"
+CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${CI_PIPELINE_ID}"
 PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 
 OUT_DIR="${CI_PROJECT_DIR}/build-workspace/src/out"

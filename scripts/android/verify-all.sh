@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 TARGET_VERSION="${1:-${BRAVE_VERSION:-}}"
 
@@ -34,11 +34,11 @@ echo "========================================================"
 
 echo ""
 echo "=== Step 1/5: Manifest & Upstream Metadata Validation ==="
-python3 "${REPO_ROOT}/tests/test_manifest.py"
+python3 "${REPO_ROOT}/scripts/tests/test_manifest.py"
 
 echo ""
 echo "=== Step 2/5: Patch Format & Syntax Verification ==="
-python3 "${REPO_ROOT}/tests/test_patches.py"
+python3 "${REPO_ROOT}/scripts/tests/test_patches.py"
 
 echo ""
 echo "=== Step 3/5: Isolated Upstream Patch Application ==="
@@ -46,7 +46,7 @@ echo "=== Step 3/5: Isolated Upstream Patch Application ==="
 
 echo ""
 echo "=== Step 4/5: Branding & Asset Verification ==="
-"${REPO_ROOT}/scripts/verify-branding.sh"
+"${REPO_ROOT}/scripts/android/verify-branding.sh"
 
 echo ""
 echo "=== Step 5/5: Android Build Orchestration Dry-Run ==="
@@ -55,7 +55,7 @@ if [[ ! -f "${MANIFEST_FILE}" ]]; then
   MANIFEST_FILE=$(ls -t "${REPO_ROOT}/metadata/releases"/*.yaml 2>/dev/null | head -n 1 || true)
 fi
 
-"${REPO_ROOT}/scripts/build-android.sh" --manifest="${MANIFEST_FILE}" --arch=arm64 --release --dry-run
+"${REPO_ROOT}/scripts/android/build-android.sh" --manifest="${MANIFEST_FILE}" --arch=arm64 --release --dry-run
 
 echo ""
 echo "========================================================"

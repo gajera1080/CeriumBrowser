@@ -1,11 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BRAVE_DIR="$1"
 
 echo "Generating Android Assets..."
-bash "${REPO_ROOT}/scripts/generate-icons.sh"
 
 echo "Copying generated assets to brave-res..."
 cp -a "${REPO_ROOT}/branding/android/"* "${BRAVE_DIR}/android/java/brave-res/"

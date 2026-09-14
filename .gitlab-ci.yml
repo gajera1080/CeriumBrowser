@@ -10,8 +10,8 @@ stages:
 variables:
   GIT_DEPTH: 1
   BRAVE_VERSION:
-    value: "1.94.120"
-    description: "Exact Brave release version (e.g. 1.94.120). Enforces deterministic brave-core + Chromium resolution."
+    value: ""
+    description: "Brave release version (e.g. 1.94.120). Leave empty to auto-fetch latest stable from GitHub."
   TARGET_ARCH:
     value: "arm64"
     description: "Target Android architecture: arm64, arm, x86_64"
@@ -26,19 +26,22 @@ prepare_source:
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates python3-pil
   script:
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
-    - ./scripts/generate-icons.sh
-    - ./scripts/prepare-source.sh "${BRAVE_VERSION}"
-    - ./scripts/verify-all.sh
+    - ./scripts/android/generate-icons.sh
+    - ./scripts/android/prepare-source.sh "${BRAVE_VERSION}"
+    - ./scripts/android/verify-all.sh
+    - echo "DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep .yaml | sed 's/\.yaml//' | head -n 1)" > build.env
   cache:
-    key: "braving-source-${BRAVE_VERSION}-${CI_COMMIT_SHA}"
+    key: "braving-source-${BRAVE_VERSION}"
     paths:
       - build-workspace/src/brave/
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:
-      - metadata/releases/${BRAVE_VERSION}.yaml
-      - metadata/upstream-${BRAVE_VERSION}.yaml
+      - metadata/releases/*.yaml
+      - metadata/upstream-*.yaml
       - branding/
+    reports:
+      dotenv: build.env
     expire_in: 7 days
 
 # ----------------------------------------------------
@@ -53,7 +56,7 @@ prepare_chromium_cache:
     - job: prepare_source
       artifacts: true
   cache:
-    key: "braving-source-${BRAVE_VERSION}-${CI_COMMIT_SHA}"
+    key: "braving-source-${BRAVE_VERSION}"
     paths:
       - build-workspace/src/brave/
     policy: pull
@@ -68,7 +71,7 @@ prepare_chromium_cache:
     - npm install -g pnpm@11.11.0
   script:
     - echo "Building isolated heavy targets (v8 & blink) to generate warm cache..."
-    - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - ./scripts/upload-cache.sh
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
@@ -85,7 +88,7 @@ build_android:
     - job: prepare_chromium_cache
       artifacts: true
   cache:
-    key: "braving-source-${BRAVE_VERSION}-${CI_COMMIT_SHA}"
+    key: "braving-source-${BRAVE_VERSION}"
     paths:
       - build-workspace/src/brave/
     policy: pull
@@ -97,14 +100,14 @@ build_android:
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
-    - echo "Executing Android compile for release manifest metadata/releases/${BRAVE_VERSION}.yaml"
-    - ./scripts/build-android.sh --manifest="metadata/releases/${BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
+    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
   artifacts:
-    name: "braving-android-${TARGET_ARCH}-${BRAVE_VERSION}"
+    name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
       - out/apks/*.apk
-      - metadata/releases/${BRAVE_VERSION}.yaml
+      - metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml
       - build-workspace/build.log
     expire_in: 30 days
   rules:

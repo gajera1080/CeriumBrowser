@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Braving — Android Compilation Entry Point
-# Usage: ./scripts/build-android.sh [--manifest=<path>] [--arch=arm64|arm|x86_64] [--release]
+# Usage: ./scripts/android/build-android.sh [--manifest=<path>] [--arch=arm64|arm|x86_64] [--release]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 MANIFEST=""
 TARGET_ARCH="arm64"
@@ -137,7 +137,7 @@ T_CHECKOUT_START=${T_START}
 # Phase 2: Checkout Chromium
 if [[ ! -d "${BRAVE_DIR}/.git" ]]; then
   echo "ERROR: Prepared brave-core not found in ${BRAVE_DIR}." >&2
-  echo "Please run scripts/prepare-source.sh (Phase 1) first." >&2
+  echo "Please run scripts/android/prepare-source.sh (Phase 1) first." >&2
   exit 1
 fi
 
@@ -302,13 +302,13 @@ if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
 fi
 
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
-python3 "${REPO_ROOT}/scripts/apply-branding.py" "${BRAVE_DIR}"
-bash "${REPO_ROOT}/scripts/apply-assets.sh" "${BRAVE_DIR}"
+python3 "${REPO_ROOT}/scripts/android/apply-branding.py" "${BRAVE_DIR}"
+bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 
 echo "Pruning Android Settings UI bloatware..."
 echo "Enforcing strict minimalist UI policies natively..."
-python3 "${REPO_ROOT}/scripts/enforce-policies.py" "${BRAVE_DIR}"
-python3 "${REPO_ROOT}/scripts/prune-ui.py" "${BRAVE_DIR}"
+python3 "${REPO_ROOT}/scripts/android/enforce-policies.py" "${BRAVE_DIR}"
+python3 "${REPO_ROOT}/scripts/android/prune-ui.py" "${BRAVE_DIR}"
 
 # Prepare Chromium VERSION and VERSION.chromium sidecar using brave-core version.py
 if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
@@ -380,7 +380,7 @@ is_java_debug = false
 symbol_level = 0
 blink_symbol_level = 0
 v8_symbol_level = 0
-strip_debug_info = true
+enable_resource_allowlist_generation = false
 is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"

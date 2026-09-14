@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-CACHE_VERSION="${BRAVE_VERSION}-${TARGET_ARCH}-${CI_PIPELINE_ID}"
+CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${CI_PIPELINE_ID}"
 PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 OUT_DIR="${CI_PROJECT_DIR}/build-workspace/src/out"
 

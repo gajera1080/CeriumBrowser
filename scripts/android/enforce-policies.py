@@ -56,12 +56,13 @@ patch_cpp("browser/brave_local_state_prefs.cc",
           "registry->RegisterBooleanPref(kStatsReportingEnabled, true);", 
           "registry->RegisterBooleanPref(kStatsReportingEnabled, false);")
 
-# Remove Brave Origin from Settings Menu
-patch_cpp("android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java",
-          "if (ChromeFeatureList.isEnabled(BraveFeatureList.BRAVE_ORIGIN)) {",
-          "if (false) {")
 
 # Hide Web Discovery Project in Settings
 patch_cpp("android/java/org/chromium/chrome/browser/settings/BraveOriginPreferences.java",
           "PREF_WEB_DISCOVERY_PROJECT_SWITCH.equals(preferenceKey)",
           "false")
+
+# Remove Brave Origin from Settings Menu
+patch_cpp("android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java",
+          "if (ChromeFeatureList.isEnabled(BraveFeatureList.BRAVE_ORIGIN)) {",
+          "if (false) {")
