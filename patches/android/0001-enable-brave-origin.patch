@@ -1,5 +1,6 @@
---- a/components/brave_origin/brave_origin_service.cc	2026-09-05 09:58:28.604473590 +0530
-+++ b/components/brave_origin/brave_origin_service.cc	2026-09-15 14:53:28.851935545 +0530
+diff --git a/components/brave_origin/brave_origin_service.cc b/components/brave_origin/brave_origin_service.cc
+--- a/components/brave_origin/brave_origin_service.cc
++++ b/components/brave_origin/brave_origin_service.cc
 @@ -183,6 +183,14 @@
  }
  
@@ -15,8 +16,9 @@
      base::OnceCallback<void(bool)> callback) {
    if (!EnsureSkusConnected()) {
      std::move(callback).Run(IsPurchased());
---- a/components/brave_origin/brave_origin_utils.cc	2026-09-05 09:58:28.604473590 +0530
-+++ b/components/brave_origin/brave_origin_utils.cc	2026-09-15 14:53:36.325254017 +0530
+diff --git a/components/brave_origin/brave_origin_utils.cc b/components/brave_origin/brave_origin_utils.cc
+--- a/components/brave_origin/brave_origin_utils.cc
++++ b/components/brave_origin/brave_origin_utils.cc
 @@ -22,6 +22,7 @@
    if (!IsBraveOriginFeatureEnabled()) {
      return false;

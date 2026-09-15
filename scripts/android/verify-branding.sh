@@ -37,10 +37,11 @@ fi
 
 # 3. Check for application label replacement
 echo "Checking channel_constants patch..."
-if grep -Fq '<string name="app_name" translatable="false">Braving</string>' "${REPO_ROOT}/patches/android/branding/0001-braving-branding.patch"; then
+BRANDING_PATCH=$(find "${REPO_ROOT}/patches" -name "*branding*.patch" 2>/dev/null | head -n 1)
+if [[ -n "${BRANDING_PATCH}" ]] && grep -Fq '<string name="app_name" translatable="false">Braving</string>' "${BRANDING_PATCH}"; then
   echo " [OK] App launcher name successfully rebranded to Braving in branding patch."
 else
-  echo "ERROR: Branding patch missing app_name = Braving" >&2
+  echo "ERROR: Branding patch missing app_name = Braving or patch file not found" >&2
   FAILURES=$((FAILURES + 1))
 fi
 

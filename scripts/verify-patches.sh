@@ -117,10 +117,10 @@ affected_files = set()
 for p in patches:
     with open(p, 'r') as f:
         for line in f:
-            if line.startswith('--- a/'):
-                affected_files.add(line.strip()[6:])
-            elif line.startswith('+++ b/'):
-                affected_files.add(line.strip()[6:])
+            if line.startswith('--- a/') or line.startswith('+++ b/'):
+                clean_path = line[6:].strip().split('\t')[0].split(' ')[0]
+                if clean_path and clean_path not in ('/dev/null', 'dev/null'):
+                    affected_files.add(clean_path)
 
 affected_files = sorted(list(affected_files))
 print(f'Detected {len(affected_files)} target file(s) affected across patch set:')
