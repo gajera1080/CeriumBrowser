@@ -359,4 +359,6 @@ for patch in "${PATCHES[@]}"; do
 done
 
 echo ""
+echo "Copying Adblock Offline Resources..."
+cp -f "${REPO_ROOT}/resources/adblock/"* "${BRAVE_DIR}/components/brave_shields/resources/"
 echo "Phase 1: Source Preparation Complete."
