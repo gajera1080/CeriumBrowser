@@ -451,8 +451,17 @@ set -e
 
 if [[ ${BUILD_RES} -ne 0 ]]; then
   echo "========================================================"
-  echo " BUILD FAILED! Exit code: ${BUILD_RES}. Tail of build.log:"
+  echo " BUILD FAILED! Exit code: ${BUILD_RES}."
   echo "========================================================"
+  if [[ -f "${OUT_DIR}/siso_output" ]]; then
+    echo "--- siso_output ---"
+    cat "${OUT_DIR}/siso_output"
+  fi
+  if [[ -f "${OUT_DIR}/siso_failed_commands.sh" ]]; then
+    echo "--- siso_failed_commands.sh ---"
+    cat "${OUT_DIR}/siso_failed_commands.sh"
+  fi
+  echo "--- Tail of build.log ---"
   tail -n 150 "${WORKSPACE_DIR}/build.log"
   exit 1
 fi
