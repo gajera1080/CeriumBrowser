@@ -121,15 +121,23 @@ patch_cpp("components/brave_shields/core/browser/ad_block_filter_list_catalog_pr
           "// If the path is not ready yet, don't run the callback. An update should be",
           cpp_cat_fallback)
 
-# 5. Resources / GRD
-patch_cpp("components/resources/brave_components_resources.grd",
-          "<if expr=\"not is_android\">",
-          "      <part file=\"brave_shields_resources.grdp\" />\n")
-patch_cpp("components/resources/brave_components_resources.grd",
-          "        <part file=\"brave_shields_resources.grdp\" />\n",
-          "", "<!-- braving patched out -->")
+def replace_exact(filepath, old, new):
+    path = os.path.join(repo_root, filepath)
+    if not os.path.exists(path):
+        return
+    with open(path, "r") as f:
+        content = f.read()
+    if old in content:
+        content = content.replace(old, new)
+        with open(path, "w") as f:
+            f.write(content)
+        print(f"Patched GRD: {filepath}")
 
-patch_cpp("components/resources/brave_shields_resources.grdp",
+replace_exact("components/resources/brave_components_resources.grd",
+              """      <if expr="not is_android">
+        <part file="brave_shields_resources.grdp" />""",
+              """      <part file="brave_shields_resources.grdp" />
+      <if expr="not is_android">""")
           "</grit-part>",
           """  <include name="IDR_BRAVE_SHIELDS_LIST_CATALOG" file="../brave_shields/resources/list_catalog.json" type="BINDATA" />
   <include name="IDR_BRAVE_SHIELDS_RESOURCES_JSON" file="../brave_shields/resources/resources.json" type="BINDATA" />
