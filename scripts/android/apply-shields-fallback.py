@@ -138,6 +138,7 @@ replace_exact("components/resources/brave_components_resources.grd",
         <part file="brave_shields_resources.grdp" />""",
               """      <part file="brave_shields_resources.grdp" />
       <if expr="not is_android">""")
+patch_cpp("components/resources/brave_shields_resources.grdp",
           "</grit-part>",
           """  <include name="IDR_BRAVE_SHIELDS_LIST_CATALOG" file="../brave_shields/resources/list_catalog.json" type="BINDATA" />
   <include name="IDR_BRAVE_SHIELDS_RESOURCES_JSON" file="../brave_shields/resources/resources.json" type="BINDATA" />
