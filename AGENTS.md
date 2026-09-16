@@ -21,9 +21,9 @@ Braving is a customized, de-branded, and modified downstream distribution of the
 - If you need to introduce a new modification to upstream code, write a script in the Braving repo that injects the logic resiliently, rather than committing directly to `brave-core` or creating a `.patch` file.
 
 ## 4. Resource Management & Offline Assets
-- Braving includes custom static assets (like offline Adblock rules in `resources/adblock/` or branding in `branding/`).
-- These custom assets **must be tracked in the Braving Git repository**.
-- During `prepare-source.sh` and `apply-assets.sh`, these tracked resources are copied into the dynamically generated `build-workspace/src/brave/` tree. Always use `mkdir -p` to ensure target directories exist before copying.
+- Braving includes custom static assets (like branding in `branding/`). These must be tracked in the Braving Git repository.
+- **Offline Adblock Rules:** Do not track static adblock lists in Git. The CI pipeline (`prepare-source.sh`) dynamically downloads the latest uBlock Origin default lists (EasyList, EasyPrivacy, Peter Lowe, etc.) at build time.
+- During `prepare-source.sh` and `apply-assets.sh`, resources are copied into the dynamically generated `build-workspace/src/brave/` tree. Always use `mkdir -p` to ensure target directories exist before copying.
 
 ## 5. Architectural Reuse (No Parallel Engines)
 - **Do not reinvent the wheel.** If Brave has an existing system (e.g., `AdBlockComponentServiceManager`, `AdBlockEngine`), reuse it. 

@@ -35,13 +35,12 @@ else
   echo " [OK] No unexpected active references to com.brave.browser in patches."
 fi
 
-# 3. Check for application label replacement
-echo "Checking channel_constants patch..."
-BRANDING_PATCH=$(find "${REPO_ROOT}/patches" -name "*branding*.patch" 2>/dev/null | head -n 1)
-if [[ -n "${BRANDING_PATCH}" ]] && grep -Fq '<string name="app_name" translatable="false">Braving</string>' "${BRANDING_PATCH}"; then
-  echo " [OK] App launcher name successfully rebranded to Braving in branding patch."
+# 3. Check for application label replacement script
+echo "Checking branding mutator script..."
+if [[ -f "${REPO_ROOT}/scripts/android/apply-branding.py" ]] && grep -Fq 'replace_in_file(f, "Brave", "Braving")' "${REPO_ROOT}/scripts/android/apply-branding.py"; then
+  echo " [OK] Branding mutator properly targets Brave -> Braving."
 else
-  echo "ERROR: Branding patch missing app_name = Braving or patch file not found" >&2
+  echo "ERROR: apply-branding.py is missing or missing expected replacements." >&2
   FAILURES=$((FAILURES + 1))
 fi
 

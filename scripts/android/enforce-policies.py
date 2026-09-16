@@ -2,11 +2,16 @@ import sys
 import os
 
 repo_root = sys.argv[1]
+STRICT = "--strict" in sys.argv or os.environ.get("CI")
 
 def patch_method(filepath, method_name, inject_code):
     path = os.path.join(repo_root, filepath)
     if not os.path.exists(path):
-        print(f"File not found: {filepath}")
+        msg = f"MISSING: {filepath}"
+        if STRICT:
+            print(f"ERROR: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"WARNING: {msg}")
         return
         
     with open(path, "r") as f:
@@ -36,7 +41,11 @@ patch_method("android/java/org/chromium/chrome/browser/ntp_background_images/uti
 def patch_cpp(filepath, search, replace):
     path = os.path.join(repo_root, filepath)
     if not os.path.exists(path):
-        print(f"File not found: {filepath}")
+        msg = f"MISSING: {filepath}"
+        if STRICT:
+            print(f"ERROR: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"WARNING: {msg}")
         return
     with open(path, "r") as f:
         content = f.read()

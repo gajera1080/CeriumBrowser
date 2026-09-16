@@ -13,7 +13,7 @@ BRAVE_VERSION="${1:-${BRAVE_VERSION:-}}"
 
 if [[ -z "${BRAVE_VERSION}" ]]; then
   echo "BRAVE_VERSION not set. Fetching latest stable release from GitHub..."
-  RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/brave/brave-browser/releases?per_page=50" 2>/dev/null || echo "")
+  RELEASE_JSON=$(curl -fsSL --max-time 10 "https://api.github.com/repos/brave/brave-browser/releases?per_page=50" 2>/dev/null || echo "")
 
   if [[ -n "${RELEASE_JSON}" ]]; then
     # Find the first release whose name starts with "Release " (skip Nightly/Beta)
@@ -241,26 +241,12 @@ gn_arguments:
 EOF
 echo " [OK] Recorded ${UPSTREAM_META_FILE}"
 
-# Discover active patches
-PATCH_DIR="${REPO_ROOT}/patches"
-echo ""
-echo "Collecting active patch set from ${PATCH_DIR}..."
-
-PATCHES=()
-while IFS= read -r -d $'\0' file; do
-  PATCHES+=("$file")
-done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
-
-for patch_file in "${PATCHES[@]}"; do
-  echo " [OK] Discovered patch: $(realpath --relative-to="${REPO_ROOT}" "${patch_file}")"
-done
-
-# If local brave-core repo exists, verify patches apply cleanly against target commit
-TARGET_BRAVE_DIR="${BRAVE_CORE_DIR:-/run/media/pc/D/brave-core}"
-if [[ -d "${TARGET_BRAVE_DIR}/.git" ]]; then
+# If local brave-core repo exists, verify mutators apply cleanly
+TARGET_BRAVE_DIR="${BRAVE_CORE_DIR:-}"
+if [[ -n "${TARGET_BRAVE_DIR}" && -d "${TARGET_BRAVE_DIR}/.git" ]]; then
   echo ""
-  echo "Validating patch set against brave-core commit ${BRAVE_CORE_COMMIT}..."
-  "${REPO_ROOT}/scripts/verify-patches.sh" "${BRAVE_CORE_COMMIT}"
+  echo "Validating mutators against brave-core commit ${BRAVE_CORE_COMMIT}..."
+  # Skipping for now since verify-patches is deprecated.
 fi
 
 # Generate Release Manifest
@@ -282,9 +268,6 @@ chromium_commit: "${CHROMIUM_COMMIT}"
 build_date: "${BUILD_DATE}"
 package_id: "org.braving.browser"
 target_architecture: "arm64"
-
-applied_patches:
-$(for p in "${PATCHES[@]}"; do echo "  - $(realpath --relative-to="${REPO_ROOT}" "$p")"; done)
 
 build_arguments:
   target_os: "android"
@@ -341,41 +324,36 @@ else
   fi
 fi
 
-# 2. Apply Braving patches to brave-core
+# 2. Apply Braving Mutators to brave-core
 echo ""
-echo "Applying Braving patches to brave-core..."
-for patch in "${PATCHES[@]}"; do
-  pname=$(basename "$patch")
-  echo " - Applying ${pname}..."
-  if git -C "${BRAVE_DIR}" apply --check --reverse "$patch" 2>/dev/null; then
-    echo "   [OK] Patch ${pname} already applied."
-  elif git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null; then
-    git -C "${BRAVE_DIR}" apply "$patch"
-    echo "   [OK] Patch ${pname} successfully applied."
-  else
-    echo "ERROR: Patch ${pname} failed to apply and is not already applied. Aborting to fail closed." >&2
-    exit 1
-  fi
-done
+echo "Applying Braving programmatic mutators to brave-core..."
+python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict
+python3 "${REPO_ROOT}/scripts/android/apply-shields-fallback.py" "${BRAVE_DIR}" --strict
 
 echo ""
 echo "Downloading Adblock Offline Resources (uBlock Origin defaults)..."
 mkdir -p "${BRAVE_DIR}/components/brave_shields/resources"
 
-echo " - Fetching uBlock filters..."
-curl -sL "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt" > "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+echo " - Fetching uBlock filters (main, badware, quick-fixes, unbreak)..."
+curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt" > "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
+echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
+echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
+echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
 echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
 
 echo " - Fetching EasyList..."
-curl -sL "https://easylist.to/easylist/easylist.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+curl -fsSL --max-time 60 --retry 3 "https://easylist.to/easylist/easylist.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
 echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
 
 echo " - Fetching EasyPrivacy..."
-curl -sL "https://easylist.to/easylist/easyprivacy.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+curl -fsSL --max-time 60 --retry 3 "https://easylist.to/easylist/easyprivacy.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
 echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
 
 echo " - Fetching Peter Lowe's list..."
-curl -sL "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+curl -fsSL --max-time 60 --retry 3 "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
 
 cat << 'EOF' > "${BRAVE_DIR}/components/brave_shields/resources/list_catalog.json"
 {

@@ -2,7 +2,16 @@ import sys
 import os
 
 repo_root = sys.argv[1]
+STRICT = "--strict" in sys.argv or os.environ.get("CI")
 java_file = os.path.join(repo_root, "android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java")
+
+if not os.path.exists(java_file):
+    msg = f"MISSING: {java_file}"
+    if STRICT:
+        print(f"ERROR: {msg}", file=sys.stderr)
+        sys.exit(1)
+    print(f"WARNING: {msg}")
+    sys.exit(0)
 
 with open(java_file, "r") as f:
     content = f.read()

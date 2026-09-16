@@ -21,6 +21,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --arch=*)
       TARGET_ARCH="${1#*=}"
+      case "${TARGET_ARCH}" in
+        arm64|arm|x86|x86_64) ;;
+        *) echo "ERROR: Invalid architecture: ${TARGET_ARCH}" >&2; exit 1 ;;
+      esac
       shift
       ;;
     --gn-only)
@@ -233,13 +237,15 @@ echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NO
 # Download and extract the Chromium warm cache AFTER the source checkout and patches.
 if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
   echo -e "\n\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
-  bash ./scripts/download-cache.sh || true
+  if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
+    bash "${REPO_ROOT}/scripts/download-cache.sh"
+  fi
 fi
 
 echo "Installing Chromium build dependencies..."
 if [[ -f "${SRC_DIR}/build/install-build-deps.sh" ]]; then
   # install-build-deps.sh complains if run as root without --no-prompt
-  bash "${SRC_DIR}/build/install-build-deps.sh" --android --no-prompt || echo "WARNING: install-build-deps.sh failed, build might fail"
+  bash "${SRC_DIR}/build/install-build-deps.sh" --android --no-prompt
 fi
 
 
@@ -315,9 +321,7 @@ if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
   echo ""
   echo "3. Preparing Chromium VERSION and VERSION.chromium sidecar (Brave ${BRAVE_VERSION})..."
   if [[ -f "${BRAVE_DIR}/build/util/version.py" && -n "${BRAVE_VERSION}" ]]; then
-    python3 "${BRAVE_DIR}/build/util/version.py" update --brave-version "${BRAVE_VERSION}" "${SRC_DIR}/chrome/VERSION" || {
-      echo "WARNING: version.py update failed."
-    }
+    python3 "${BRAVE_DIR}/build/util/version.py" update --brave-version "${BRAVE_VERSION}" "${SRC_DIR}/chrome/VERSION"
   fi
 fi
 

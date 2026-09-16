@@ -55,7 +55,7 @@ if [[ ! -f "${MANIFEST_FILE}" ]]; then
   MANIFEST_FILE=$(ls -t "${REPO_ROOT}/metadata/releases"/*.yaml 2>/dev/null | head -n 1 || true)
 fi
 
-"${REPO_ROOT}/scripts/android/build-android.sh" --manifest="${MANIFEST_FILE}" --arch=arm64 --release --dry-run
+"${REPO_ROOT}/scripts/android/build-android.sh" --manifest="${MANIFEST_FILE}" --arch="${TARGET_ARCH:-arm64}" --release --dry-run
 
 echo ""
 echo "========================================================"
