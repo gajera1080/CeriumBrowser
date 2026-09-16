@@ -434,14 +434,27 @@ echo ""
 echo "Building target: ${BUILD_TARGET}"
 echo "This will take a long time (hours on first build)..."
 
-# Use autoninja if available (auto-detects parallelism), otherwise ninja
-# We pipe to awk to only show every 100th line in the CI UI to avoid the 4MB limit,
-# but we save the full log to build-workspace/build.log for debugging.
+# Use autoninja if available, otherwise ninja. Restrict to -j 6 to prevent OOM on 32GB RAM CI runners.
+# We pipe to awk to only show every 50th line to avoid the 4MB GitLab CI log limit,
+# but we save the full log and dump the tail on failure.
 echo "Logging full build output to ${WORKSPACE_DIR}/build.log..."
+
+set +e
 if command -v autoninja &>/dev/null; then
-  (cd "${SRC_DIR}" && autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || tolower($0) ~ /error/) print $0; }')
+  (cd "${SRC_DIR}" && autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || /failed:/ || tolower($0) ~ /error/) print $0; }')
+  BUILD_RES=${PIPESTATUS[0]}
 else
-  (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || tolower($0) ~ /error/) print $0; }')
+  (cd "${SRC_DIR}" && ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" | awk '{ if (NR % 50 == 0 || /FAILED:/ || /failed:/ || tolower($0) ~ /error/) print $0; }')
+  BUILD_RES=${PIPESTATUS[0]}
+fi
+set -e
+
+if [[ ${BUILD_RES} -ne 0 ]]; then
+  echo "========================================================"
+  echo " BUILD FAILED! Exit code: ${BUILD_RES}. Tail of build.log:"
+  echo "========================================================"
+  tail -n 150 "${WORKSPACE_DIR}/build.log"
+  exit 1
 fi
 
 
