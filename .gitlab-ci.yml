@@ -73,6 +73,14 @@ prepare_chromium_cache:
     - echo "Building isolated heavy targets (v8 & blink) to generate warm cache..."
     - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - ./scripts/upload-cache.sh
+  artifacts:
+    name: "braving-cache-logs-${DYNAMIC_BRAVE_VERSION}"
+    when: always
+    paths:
+      - build-workspace/build.log
+      - build-workspace/src/out/Release/siso_output
+      - build-workspace/src/out/Release/siso_failed_commands.sh
+    expire_in: 7 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
 
@@ -109,6 +117,8 @@ build_android:
       - out/apks/*.apk
       - metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml
       - build-workspace/build.log
+      - build-workspace/src/out/Release/siso_output
+      - build-workspace/src/out/Release/siso_failed_commands.sh
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'

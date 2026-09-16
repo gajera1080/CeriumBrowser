@@ -442,15 +442,23 @@ echo "This will take a long time (hours on first build)..."
 # We pipe to awk to only show every 50th line to avoid the 4MB GitLab CI log limit,
 # but we save the full log and dump the tail on failure.
 echo "Logging full build output to ${WORKSPACE_DIR}/build.log..."
+set +e
+set +o pipefail
 
 cd "${SRC_DIR}"
 BUILD_RES=0
 
 if command -v autoninja &>/dev/null; then
-  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" || BUILD_RES=${PIPESTATUS[0]}
+  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log"
+  BUILD_RES=${PIPESTATUS[0]}
 else
-  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log" || BUILD_RES=${PIPESTATUS[0]}
+  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log"
+  BUILD_RES=${PIPESTATUS[0]}
 fi
+
+echo "========================================================"
+echo " autoninja exited with: ${BUILD_RES}"
+echo "========================================================"
 
 if [[ ${BUILD_RES} -ne 0 ]]; then
   echo "========================================================"
