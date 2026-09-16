@@ -359,6 +359,39 @@ for patch in "${PATCHES[@]}"; do
 done
 
 echo ""
-echo "Copying Adblock Offline Resources..."
-cp -f "${REPO_ROOT}/resources/adblock/"* "${BRAVE_DIR}/components/brave_shields/resources/"
+echo "Downloading Adblock Offline Resources (uBlock Origin defaults)..."
+mkdir -p "${BRAVE_DIR}/components/brave_shields/resources"
+
+echo " - Fetching uBlock filters..."
+curl -sL "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt" > "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+
+echo " - Fetching EasyList..."
+curl -sL "https://easylist.to/easylist/easylist.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+
+echo " - Fetching EasyPrivacy..."
+curl -sL "https://easylist.to/easylist/easyprivacy.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+
+echo " - Fetching Peter Lowe's list..."
+curl -sL "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
+
+cat << 'EOF' > "${BRAVE_DIR}/components/brave_shields/resources/list_catalog.json"
+{
+  "version": 1,
+  "lists": [
+    {
+      "uuid": "default-offline-list",
+      "name": "Braving Default Rules (uBlock Defaults)",
+      "type": "ad-blocking",
+      "desc": "Bundled offline rules based on uBlock Origin defaults",
+      "filename": "default_rules.txt",
+      "enabled_by_default": true
+    }
+  ]
+}
+EOF
+echo " [OK] Adblock offline resources downloaded and bundled successfully."
 echo "Phase 1: Source Preparation Complete."
+

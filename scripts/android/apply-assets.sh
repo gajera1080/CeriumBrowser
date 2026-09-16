@@ -17,5 +17,4 @@ cp "${REPO_ROOT}/branding/android/res_brave_default/drawable-xxhdpi/fre_product_
 cp "${REPO_ROOT}/branding/android/res_brave_default/drawable-xxxhdpi/fre_product_logo.png" "${BRAVE_DIR}/android/java/brave-res/drawable-xxxhdpi/ic_brave_logo.png" || true
 rm -f "${BRAVE_DIR}/android/java/brave-res/drawable/ic_brave_logo.xml"
 
-echo "Copying Adblock Offline Resources..."
-cp -f "${REPO_ROOT}/resources/adblock/"* "${BRAVE_DIR}/components/brave_shields/resources/"
+
