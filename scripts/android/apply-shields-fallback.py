@@ -149,8 +149,30 @@ patch_cpp("components/resources/brave_shields_resources.grdp",
   <include name="IDR_BRAVE_SHIELDS_MOBILE_RULES" file="../brave_shields/resources/mobile_rules.txt" type="BINDATA" />
 """)
 
-patch_cpp("resources/resource_ids.spec",
-          "\"includes\": [53020],",
-          "", "\"includes\": [54200],  # Braving patched\n")
+def move_resource_id_to_end():
+    spec_path = os.path.join(repo_root, "resources/resource_ids.spec")
+    if not os.path.exists(spec_path):
+        return
+    with open(spec_path, "r") as f:
+        content = f.read()
+    
+    old_block = """  "brave/components/resources/brave_components_resources.grd": {
+    "includes": [53020],
+  },
+"""
+    if old_block in content:
+        content = content.replace(old_block, "")
+        
+        new_block = """  "brave/components/resources/brave_components_resources.grd": {
+    "includes": [54200],  # Braving patched
+  },
+}"""
+        content = content.replace("\n}", "\n" + new_block)
+        
+        with open(spec_path, "w") as f:
+            f.write(content)
+        print("Patched GRD IDs: resources/resource_ids.spec")
+
+move_resource_id_to_end()
 
 print("Successfully injected Shields offline fallback logic!")
