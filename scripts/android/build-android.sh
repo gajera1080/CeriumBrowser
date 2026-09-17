@@ -22,7 +22,8 @@ while [[ $# -gt 0 ]]; do
     --arch=*)
       TARGET_ARCH="${1#*=}"
       case "${TARGET_ARCH}" in
-        arm64|arm|x86|x86_64) ;;
+        arm64|arm|x86|x64) ;;
+        x86_64) TARGET_ARCH="x64" ;;
         *) echo "ERROR: Invalid architecture: ${TARGET_ARCH}" >&2; exit 1 ;;
       esac
       shift
@@ -111,6 +112,8 @@ echo ""
 echo "Verifying build tools..."
 command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 is required." >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "ERROR: git is required." >&2; exit 1; }
+command -v node >/dev/null 2>&1 || { echo "ERROR: node is required." >&2; exit 1; }
+command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm is required." >&2; exit 1; }
 
 # Step 3 & 4: Workspace Setup
 WORKSPACE_DIR="${WORKSPACE_DIR:-${REPO_ROOT}/build-workspace}"
@@ -188,9 +191,21 @@ export DEPOT_TOOLS_UPDATE=0
 # On older Git (e.g. Debian Bookworm's git 2.39), depot_tools passing --end-of-options
 # causes: "error: pathspec '--end-of-options' did not match any file(s) known to git"
 REAL_GIT=$(command -v git)
-if "${REAL_GIT}" checkout --end-of-options 2>&1 | grep -q "pathspec '--end-of-options'"; then
-  echo "Detected Git < 2.43.1 without --end-of-options checkout support (${REAL_GIT})."
-  echo "Installing Git compatibility shim for depot_tools..."
+GIT_NEEDS_SHIM=$(python3 -c "
+import subprocess
+try:
+    ver_str = subprocess.check_output(['${REAL_GIT}', '--version'], text=True).split()[-1]
+    parts = [int(p) for p in ver_str.split('.')[:2] if p.isdigit()]
+    if len(parts) >= 2 and (parts[0] < 2 or (parts[0] == 2 and parts[1] < 43)):
+        print('true')
+    else:
+        print('false')
+except Exception:
+    print('true')
+" 2>/dev/null || echo "true")
+
+if [[ "${GIT_NEEDS_SHIM}" == "true" ]]; then
+  echo "Detected Git < 2.43.1 (${REAL_GIT}). Installing Git compatibility shim for depot_tools..."
   GIT_COMPAT_DIR="${WORKSPACE_DIR}/git-compat"
   mkdir -p "${GIT_COMPAT_DIR}"
   cat <<WRAPPER > "${GIT_COMPAT_DIR}/git"
@@ -217,7 +232,9 @@ fi
 exec "\$REAL_GIT" "\$@"
 WRAPPER
   chmod +x "${GIT_COMPAT_DIR}/git"
+  cp -f "${GIT_COMPAT_DIR}/git" "${DEPOT_TOOLS_DIR}/git"
   export PATH="${GIT_COMPAT_DIR}:${PATH}"
+  echo "Git compatibility shim installed at ${GIT_COMPAT_DIR}/git and ${DEPOT_TOOLS_DIR}/git"
 fi
 
 # Step 7b: Generate .gclient configuration for Android
@@ -265,7 +282,7 @@ EOF
 echo ""
 # Set required PYTHONPATH for upstream Brave hooks (e.g. generate_clang_format.py)
 # Matches pythonPaths array in build/commands/lib/config.ts
-export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools:${PYTHONPATH:-}"
+export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools${PYTHONPATH:+:${PYTHONPATH}}"
 export PYTHONUNBUFFERED="1"
 
 echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
@@ -407,6 +424,9 @@ GN_ARGS_FILE="${OUT_DIR}/args.gn"
 echo ""
 echo "Writing GN build arguments to ${GN_ARGS_FILE}..."
 
+IS_DEBUG_GN=$([[ "${IS_RELEASE}" == "true" ]] && echo "false" || echo "true")
+IS_OFFICIAL_GN=$([[ "${IS_RELEASE}" == "true" ]] && echo "true" || echo "false")
+
 cat <<EOF > "${GN_ARGS_FILE}"
 import("//brave/build/args/brave_defaults.gni")
 import("//brave/build/args/blink_platform_defaults.gni")
@@ -415,9 +435,9 @@ import("//brave/build/args/android_defaults.gni")
 
 target_os = "android"
 target_cpu = "${TARGET_ARCH}"
-is_debug = false
-is_official_build = true
-is_java_debug = false
+is_debug = ${IS_DEBUG_GN}
+is_official_build = ${IS_OFFICIAL_GN}
+is_java_debug = ${IS_DEBUG_GN}
 symbol_level = 0
 blink_symbol_level = 0
 v8_symbol_level = 0
@@ -461,7 +481,8 @@ cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
 
 
 if [[ "${GN_ONLY:-false}" == "true" ]]; then
-  echo "\n========================================================"
+  echo ""
+  echo "========================================================"
   echo " [SUCCESS] GN configuration passed! Skipping compilation (--gn-only)."
   echo "========================================================"
   exit 0
@@ -514,6 +535,9 @@ if [[ ${BUILD_RES} -ne 0 ]]; then
   exit 1
 fi
 
+# Re-enable strict error handling for packaging steps (C1)
+set -e
+set -o pipefail
 
 if [[ "${CACHE_PREP_ONLY:-false}" == "true" ]]; then
   echo "CACHE_PREP_ONLY=true: Skipping APK packaging."
@@ -527,11 +551,15 @@ BRAVING_VERSION=$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unkno
 OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
 
-# Find the built APK
-BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f | head -n 1 || true)
+# Find the built APK (prioritize browser APK over trichrome/library apks)
+BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Brave*.apk" -o -name "Braving*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
 if [[ -z "${BUILT_APK}" ]]; then
-  # Try alternative output location
-  BUILT_APK=$(find "${OUT_DIR}" -name "ChromePublic.apk" -type f | head -n 1 || true)
+  # Fallback: search anywhere in OUT_DIR
+  BUILT_APK=$(find "${OUT_DIR}" \( -name "Brave*.apk" -o -name "Braving*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
+fi
+if [[ -z "${BUILT_APK}" ]]; then
+  # Final fallback to any apk in apks directory
+  BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f 2>/dev/null | head -n 1 || true)
 fi
 
 if [[ -n "${BUILT_APK}" ]]; then

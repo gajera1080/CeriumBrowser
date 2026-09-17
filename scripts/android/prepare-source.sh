@@ -20,16 +20,17 @@ if [[ -z "${BRAVE_VERSION}" ]]; then
     RELEASE_INFO=$(echo "${RELEASE_JSON}" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-for r in data:
-    name = (r.get('name') or '').strip()
-    if name.startswith('Release '):
-        tag = r['tag_name'].lstrip('v')
-        # Extract Chromium version from name: 'Release v1.95.101 (Chromium 153.0.8010.37)'
-        chromium = ''
-        if '(Chromium ' in name:
-            chromium = name.split('(Chromium ')[1].rstrip(') ')
-        print(f'{tag}|{chromium}')
-        break
+if isinstance(data, list):
+    for r in data:
+        name = (r.get('name') or '').strip()
+        if name.startswith('Release '):
+            tag = r['tag_name'].lstrip('v')
+            # Extract Chromium version from name: 'Release v1.95.101 (Chromium 153.0.8010.37)'
+            chromium = ''
+            if '(Chromium ' in name:
+                chromium = name.split('(Chromium ')[1].rstrip(') ')
+            print(f'{tag}|{chromium}')
+            break
 " 2>/dev/null || echo "")
 
     if [[ -n "${RELEASE_INFO}" ]]; then
@@ -91,7 +92,7 @@ local_brave = os.environ.get('BRAVE_CORE_DIR', '')
 # 1. Resolve exact brave-core release tag commit
 if not brave_core_commit:
     # Check local git
-    if os.path.isdir(os.path.join(local_brave, '.git')):
+    if local_brave and os.path.isdir(os.path.join(local_brave, '.git')):
         try:
             brave_core_commit = subprocess.check_output(
                 ['git', '-C', local_brave, 'rev-parse', f'refs/tags/v{version}^{{commit}}'],
@@ -104,7 +105,7 @@ if not brave_core_commit:
     if not brave_core_commit:
         try:
             ls_out = subprocess.check_output(
-                ['git', 'ls-remote', 'https://github.com/brave/brave-core.git', f'refs/tags/v{version}*'],
+                ['git', 'ls-remote', 'https://github.com/brave/brave-core.git', f'refs/tags/v{version}'],
                 text=True, stderr=subprocess.DEVNULL
             ).strip()
             if ls_out:
@@ -153,7 +154,7 @@ if not chromium_version:
 if not chromium_commit:
     try:
         ls_out = subprocess.check_output(
-            ['git', 'ls-remote', 'https://chromium.googlesource.com/chromium/src.git', f'refs/tags/{chromium_version}*'],
+            ['git', 'ls-remote', 'https://chromium.googlesource.com/chromium/src.git', f'refs/tags/{chromium_version}'],
             text=True, stderr=subprocess.DEVNULL
         ).strip()
         if ls_out:

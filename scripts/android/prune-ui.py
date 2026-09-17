@@ -13,7 +13,7 @@ if not os.path.exists(java_file):
     print(f"WARNING: {msg}")
     sys.exit(0)
 
-with open(java_file, "r") as f:
+with open(java_file, "r", encoding="utf-8") as f:
     content = f.read()
 
 injection = """
@@ -29,8 +29,8 @@ injection = """
 
 if "BRAVING UI PRUNING" not in content:
     if "resortPreferenceScreenChildren();" in content:
-        content = content.replace("resortPreferenceScreenChildren();", injection + "\n        resortPreferenceScreenChildren();")
-        with open(java_file, "w") as f:
+        content = content.replace("resortPreferenceScreenChildren();", injection + "\n        resortPreferenceScreenChildren();", 1)
+        with open(java_file, "w", encoding="utf-8") as f:
             f.write(content)
         print("Successfully pruned bloatware from BraveMainPreferencesBase UI!")
     else:

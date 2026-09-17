@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 repo_root = sys.argv[1]
 STRICT = "--strict" in sys.argv or os.environ.get("CI")
@@ -13,11 +14,15 @@ def replace_in_file(filepath, old, new):
             sys.exit(1)
         print(f"WARNING: {msg}")
         return
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     if old in content:
-        content = content.replace(old, new)
-        with open(path, "w") as f:
+        # Avoid replacing attribute names like name="Brave..." or id="Brave..."
+        if old == "Brave":
+            content = re.sub(r'(?<!name=")(?<!id=")Brave', new, content)
+        else:
+            content = content.replace(old, new)
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"Branded: {filepath}")
 

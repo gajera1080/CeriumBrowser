@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 repo_root = sys.argv[1]
 STRICT = "--strict" in sys.argv or os.environ.get("CI")
@@ -14,15 +15,16 @@ def patch_cpp(filepath, search, inject_before, inject_after=""):
         print(f"WARNING: {msg}")
         return
 
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    if search in content and inject_before not in content:
-        content = content.replace(search, inject_before + search + inject_after)
-        with open(path, "w") as f:
+    is_patched = (inject_before and inject_before in content) or (inject_after and inject_after in content)
+    if search in content and not is_patched:
+        content = content.replace(search, inject_before + search + inject_after, 1)
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"Patched C++ {filepath}")
-    elif inject_before in content:
+    elif is_patched:
         print(f"Skipped {filepath} (already patched)")
     else:
         msg = f"Search string not found in {filepath}: {search[:50]}..."
@@ -125,11 +127,11 @@ def replace_exact(filepath, old, new):
     path = os.path.join(repo_root, filepath)
     if not os.path.exists(path):
         return
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     if old in content:
-        content = content.replace(old, new)
-        with open(path, "w") as f:
+        content = content.replace(old, new, 1)
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"Patched GRD: {filepath}")
 
@@ -153,25 +155,34 @@ def move_resource_id_to_end():
     spec_path = os.path.join(repo_root, "resources/resource_ids.spec")
     if not os.path.exists(spec_path):
         return
-    with open(spec_path, "r") as f:
+    with open(spec_path, "r", encoding="utf-8") as f:
         content = f.read()
-    
-    old_block = """  "brave/components/resources/brave_components_resources.grd": {
-    "includes": [53020],
-  },
-"""
-    if old_block in content:
-        content = content.replace(old_block, "")
-        
-        new_block = """  "brave/components/resources/brave_components_resources.grd": {
+
+    target_key = '"brave/components/resources/brave_components_resources.grd"'
+    if "54200" in content and target_key in content:
+        print("Skipped resources/resource_ids.spec (already patched)")
+        return
+
+    # Robustly remove any existing brave_components_resources.grd block
+    content = re.sub(
+        r'[ \t]*"brave/components/resources/brave_components_resources\.grd":\s*\{[^}]*\},?\n?',
+        '',
+        content
+    )
+
+    new_block = """  "brave/components/resources/brave_components_resources.grd": {
     "includes": [54200],  # Braving patched
   },
 }"""
-        content = content.replace("\n}", "\n" + new_block)
-        
-        with open(spec_path, "w") as f:
+    # Replace ONLY the final closing brace of the JSON dictionary
+    last_brace = content.rfind("}")
+    if last_brace != -1:
+        content = content[:last_brace] + new_block + content[last_brace + 1:]
+        with open(spec_path, "w", encoding="utf-8") as f:
             f.write(content)
         print("Patched GRD IDs: resources/resource_ids.spec")
+    else:
+        print("WARNING: Could not find closing brace in resources/resource_ids.spec")
 
 move_resource_id_to_end()
 

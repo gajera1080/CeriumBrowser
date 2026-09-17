@@ -14,15 +14,16 @@ def patch_cpp(filepath, search, inject_before, inject_after=""):
         print(f"WARNING: {msg}")
         return
 
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    if search in content and inject_before not in content:
-        content = content.replace(search, inject_before + search + inject_after)
-        with open(path, "w") as f:
+    is_patched = (inject_before and inject_before in content) or (inject_after and inject_after in content)
+    if search in content and not is_patched:
+        content = content.replace(search, inject_before + search + inject_after, 1)
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"Patched C++ {filepath}")
-    elif inject_before in content:
+    elif is_patched:
         print(f"Skipped {filepath} (already patched)")
     else:
         msg = f"Search string not found in {filepath}: {search[:50]}..."
@@ -41,7 +42,7 @@ def remove_xml_block(filepath, search_start, search_end):
         print(f"WARNING: {msg}")
         return
 
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     
     start_idx = content.find(search_start)
@@ -49,7 +50,7 @@ def remove_xml_block(filepath, search_start, search_end):
         end_idx = content.find(search_end, start_idx)
         if end_idx != -1:
             content = content[:start_idx] + content[end_idx + len(search_end):]
-            with open(path, "w") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(content)
             print(f"Removed block from {filepath}")
             return

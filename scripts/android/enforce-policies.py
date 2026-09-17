@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 repo_root = sys.argv[1]
 STRICT = "--strict" in sys.argv or os.environ.get("CI")
@@ -14,15 +15,16 @@ def patch_method(filepath, method_name, inject_code):
         print(f"WARNING: {msg}")
         return
         
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     
     search = f"public static boolean {method_name}("
     if search in content and inject_code not in content:
-        idx = content.find("{", content.find(search))
-        if idx != -1:
-            content = content[:idx+1] + inject_code + content[idx+1:]
-            with open(path, "w") as f:
+        m = re.search(re.escape(search) + r'[^\{]*\{', content)
+        if m:
+            idx = m.end()
+            content = content[:idx] + inject_code + content[idx:]
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(content)
             print(f"Patched {filepath} -> {method_name}")
     else:
@@ -47,11 +49,11 @@ def patch_cpp(filepath, search, replace):
             sys.exit(1)
         print(f"WARNING: {msg}")
         return
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     if search in content:
-        content = content.replace(search, replace)
-        with open(path, "w") as f:
+        content = content.replace(search, replace, 1)
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"Patched C++ {filepath}")
 

@@ -2,7 +2,11 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BRAVE_DIR="$1"
+BRAVE_DIR="${1:-}"
+if [[ -z "${BRAVE_DIR}" ]]; then
+  echo "Usage: $0 <path-to-brave-core>" >&2
+  exit 1
+fi
 
 echo "Generating Android Assets..."
 
