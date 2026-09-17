@@ -27,12 +27,13 @@ for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   fi
 done
 
-# 2. Check patches for forbidden package IDs
-echo "Checking patches for official Brave package IDs..."
-if grep -rn "^+[^+].*com\.brave\.browser" "${REPO_ROOT}/patches/" | grep -v "\-      args\.chrome_public_manifest_package" | grep -v "\-      chrome_public_manifest_package"; then
-  echo "WARNING: Unexpected active reference to com.brave.browser found in added patch lines." >&2
+# 2. Check branding mutator for package ID remapping
+echo "Checking branding mutator script for package ID..."
+if grep -Fq '"com.brave.browser", "org.braving.browser"' "${REPO_ROOT}/scripts/android/apply-branding.py"; then
+  echo " [OK] Package ID remapping (com.brave.browser -> org.braving.browser) present in mutator."
 else
-  echo " [OK] No unexpected active references to com.brave.browser in patches."
+  echo "ERROR: apply-branding.py does not remap package ID." >&2
+  FAILURES=$((FAILURES + 1))
 fi
 
 # 3. Check for application label replacement script

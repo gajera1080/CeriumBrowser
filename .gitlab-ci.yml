@@ -31,7 +31,7 @@ prepare_source:
     - ./scripts/android/verify-all.sh
     - echo "DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep .yaml | sed 's/\.yaml//' | head -n 1)" > build.env
   cache:
-    key: "braving-source-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
     paths:
       - build-workspace/src/brave/
   artifacts:
@@ -56,7 +56,7 @@ prepare_chromium_cache:
     - job: prepare_source
       artifacts: true
   cache:
-    key: "braving-source-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
     paths:
       - build-workspace/src/brave/
     policy: pull
@@ -96,7 +96,7 @@ build_android:
     - job: prepare_chromium_cache
       artifacts: true
   cache:
-    key: "braving-source-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
     paths:
       - build-workspace/src/brave/
     policy: pull
