@@ -112,8 +112,6 @@ echo ""
 echo "Verifying build tools..."
 command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 is required." >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "ERROR: git is required." >&2; exit 1; }
-command -v node >/dev/null 2>&1 || { echo "ERROR: node is required." >&2; exit 1; }
-command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm is required." >&2; exit 1; }
 
 # Step 3 & 4: Workspace Setup
 WORKSPACE_DIR="${WORKSPACE_DIR:-${REPO_ROOT}/build-workspace}"
@@ -126,6 +124,10 @@ if [[ "${DRY_RUN}" == "true" ]]; then
   echo "Dry-run mode requested. Validation complete."
   exit 0
 fi
+
+# Full build requires node and pnpm
+command -v node >/dev/null 2>&1 || { echo "ERROR: node is required." >&2; exit 1; }
+command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm is required." >&2; exit 1; }
 
 # --- TELEMETRY AND RESOURCE CHECK ---
 echo "========================================================"
