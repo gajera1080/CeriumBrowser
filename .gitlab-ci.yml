@@ -25,6 +25,7 @@ prepare_source:
   before_script:
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates python3-pil
   script:
+    - touch build.env
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/android/generate-icons.sh
     - ./scripts/android/prepare-source.sh "${BRAVE_VERSION}"
