@@ -183,6 +183,43 @@ echo "Bootstrapping depot_tools..."
 "${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
 export DEPOT_TOOLS_UPDATE=0
 
+# Step 7a: Git compatibility shim for depot_tools when running on Git < 2.43.1
+# git checkout only supports --end-of-options starting in Git 2.43.1.
+# On older Git (e.g. Debian Bookworm's git 2.39), depot_tools passing --end-of-options
+# causes: "error: pathspec '--end-of-options' did not match any file(s) known to git"
+REAL_GIT=$(command -v git)
+if "${REAL_GIT}" checkout --end-of-options 2>&1 | grep -q "pathspec '--end-of-options'"; then
+  echo "Detected Git < 2.43.1 without --end-of-options checkout support (${REAL_GIT})."
+  echo "Installing Git compatibility shim for depot_tools..."
+  GIT_COMPAT_DIR="${WORKSPACE_DIR}/git-compat"
+  mkdir -p "${GIT_COMPAT_DIR}"
+  cat <<WRAPPER > "${GIT_COMPAT_DIR}/git"
+#!/usr/bin/env bash
+REAL_GIT="${REAL_GIT}"
+is_subcmd=false
+for arg in "\$@"; do
+  if [[ "\$arg" == "checkout" || "\$arg" == "switch" || "\$arg" == "restore" ]]; then
+    is_subcmd=true
+    break
+  fi
+done
+
+if [[ "\$is_subcmd" == true ]]; then
+  filtered_args=()
+  for arg in "\$@"; do
+    if [[ "\$arg" != "--end-of-options" ]]; then
+      filtered_args+=("\$arg")
+    fi
+  done
+  exec "\$REAL_GIT" "\${filtered_args[@]}"
+fi
+
+exec "\$REAL_GIT" "\$@"
+WRAPPER
+  chmod +x "${GIT_COMPAT_DIR}/git"
+  export PATH="${GIT_COMPAT_DIR}:${PATH}"
+fi
+
 # Step 7b: Generate .gclient configuration for Android
 GCLIENT_CONFIG="${WORKSPACE_DIR}/.gclient"
 echo ""
