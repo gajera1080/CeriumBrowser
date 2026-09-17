@@ -6,9 +6,9 @@ Braving operates strictly in **RELEASE MODE**:
 $$\text{BRAVE\_VERSION} \longrightarrow \text{exact matching brave-core release} \longrightarrow \text{exact Chromium revision}$$
 
 - **No arbitrary overrides**: An arbitrary commit hash cannot be mixed with a mismatched Chromium tree.
-- Selecting `BRAVE_VERSION` (e.g. `1.94.120`) deterministically resolves:
-  1. `brave-core` release tag: `refs/tags/v${BRAVE_VERSION}` (commit `449b91b1c032bd6c94aacd054757a97e128635b5` for 1.94.120)
-  2. Chromium release tag pinned in `package.json` (`config.projects.chrome.tag`): `152.0.7977.76` (commit `0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174` for 1.94.120)
+- Selecting `BRAVE_VERSION` (e.g. `<BRAVE_VERSION>`) deterministically resolves:
+  1. `brave-core` release tag: `refs/tags/v${BRAVE_VERSION}` (commit `449b91b1c032bd6c94aacd054757a97e128635b5` for <BRAVE_VERSION>)
+  2. Chromium release tag pinned in `package.json` (`config.projects.chrome.tag`): `152.0.7977.76` (commit `0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174` for <BRAVE_VERSION>)
   3. `depot_tools` pinned commit in `package.json`: `81577f19a8497ba7e41afac322e8f03553a863ec`
 
 ---

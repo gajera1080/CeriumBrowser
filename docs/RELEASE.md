@@ -7,7 +7,7 @@ This document outlines the standard release lifecycle for Braving Android builds
 ## The Monthly Release Pipeline
 
 ```
-1. Choose Brave version (e.g. BRAVE_VERSION=1.94.120)
+1. Choose Brave version (e.g. BRAVE_VERSION=<BRAVE_VERSION>)
                   ↓
 2. Trigger Phase 1 (prepare-source.sh)
                   ↓
@@ -25,7 +25,7 @@ This document outlines the standard release lifecycle for Braving Android builds
 ## Step-by-Step Instructions
 
 ### Step 1: Select Upstream Brave Version
-Identify the new stable release tag from upstream `brave-core` (e.g. `v1.94.120`).
+Identify the new stable release tag from upstream `brave-core` (e.g. `v<BRAVE_VERSION>`).
 Create the upstream metadata file:
 ```
 metadata/upstream-<BRAVE_VERSION>.yaml
@@ -39,13 +39,13 @@ Execute the Phase 1 script:
 ```bash
 ./scripts/prepare-source.sh <BRAVE_VERSION>
 ```
-This script checks out the exact revisions, verifies all patches apply cleanly, and writes the release manifest to `metadata/releases/<BRAVE_VERSION>.yaml`.
+This script checks out the exact revisions, verifies mutators execute cleanly, and writes the release manifest to `metadata/releases/<BRAVE_VERSION>.yaml`.
 
 ### Step 3: Verify the Manifest
 Inspect `metadata/releases/<BRAVE_VERSION>.yaml` to confirm:
 - `package_id` is `org.braving.browser`
 - No floating versions (`latest`, `master`) are used
-- All patch hashes and target architectures are explicitly declared
+- All mutator hashes and target architectures are explicitly declared
 
 ### Step 4: Build Android Target
 Run the Phase 2 compilation:
@@ -68,7 +68,7 @@ Install the generated APK onto a physical device or emulator to test:
 ### Step 6: Publish Release
 Tag the Braving repository with the release version:
 ```bash
-git tag -a v1.94.120 -m "Braving release 1.94.120"
-git push origin v1.94.120
+git tag -a v<BRAVE_VERSION> -m "Braving release <BRAVE_VERSION>"
+git push origin v<BRAVE_VERSION>
 ```
 Upload the release APKs and SHA256 checksums to the release page.

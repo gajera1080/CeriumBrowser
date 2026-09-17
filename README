@@ -16,10 +16,10 @@ Braving
 -----------
 
     Braving is an independently branded browser based on exact Brave
-    and Chromium releases, featuring a maintainable patch-based architecture.
+    and Chromium releases, featuring a maintainable mutator-based architecture.
 
     Braving does not simply rebrand an APK. It builds directly from clean
-    upstream source code with reproducible, patch-driven modifications.
+    upstream source code with reproducible, mutator-driven modifications.
 
 
 1. Architecture Overview
@@ -31,7 +31,7 @@ Braving
               |
     exact Chromium revision
               |
-    Braving patches
+    Braving mutators
               |
     Braving source
               |
@@ -47,8 +47,8 @@ Braving
     |-- branding/            App identity, strings, package name, icons
     |-- metadata/            Release manifests and exact upstream commits
     |-- docs/                Architecture and release documentation
-    |-- patches/             Directory containing source code patches
-    |   `-- android/         Android-specific patches
+    |-- scripts/android/   Python mutators (e.g. apply-branding.py)
+    
     |       |-- branding/    App identity, strings, package name, icons
     |       |-- build/       GN arguments, toolchain settings, manifest
     |       |-- features/    Feature disabling (Wallet, Ads, Rewards, VPN)
@@ -58,10 +58,10 @@ Braving
         `-- android/         Android-specific build scripts
             |-- build-android.sh     Phase 2: Compiles the Braving APK
             |-- generate-icons.sh    Generates launcher icons
-            |-- prepare-source.sh    Phase 1: Validates revisions & applies patches
+            |-- prepare-source.sh    Phase 1: Validates revisions & applies mutators
             |-- verify-all.sh        Runs all verifications
             |-- verify-branding.sh   Lints for unintentional Brave trademark remnants
-            `-- verify-patches.sh    Verifies patch integrity
+
 
 3. Building Braving
 -------------------
@@ -81,10 +81,10 @@ Braving
 3.2. Prepare Source
 
     To validate revisions, checkout the source code, and apply Braving
-    branding patches, run the preparation script with the desired
+    branding mutators, run the preparation script with the desired
     Brave version:
 
-        ./scripts/prepare-source.sh 1.94.120
+        ./scripts/prepare-source.sh <BRAVE_VERSION>
 
 
 3.3. Build Braving APK

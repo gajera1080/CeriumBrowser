@@ -40,19 +40,19 @@ git clone https://gitlab.com/braving/braving-browser.git "${BRAVING_DIR}"
 
 ## 3. Version Selection & Source Preparation (Phase 1)
 
-Select the target Brave version (e.g. `1.94.120`):
+Select the target Brave version (e.g. `<BRAVE_VERSION>`):
 
 ```bash
 cd "${BRAVING_DIR}"
-./scripts/prepare-source.sh 1.94.120
+./scripts/prepare-source.sh <BRAVE_VERSION>
 ```
 
 What `prepare-source.sh` performs:
-1. Validates `metadata/upstream-1.94.120.yaml`.
-2. Resolves exact brave-core tag (`v1.94.120`) and commit (`449b91b1c032bd6c94aacd054757a97e128635b5`).
+1. Validates `metadata/upstream-<BRAVE_VERSION>.yaml`.
+2. Resolves exact brave-core tag (`v<BRAVE_VERSION>`) and commit (`449b91b1c032bd6c94aacd054757a97e128635b5`).
 3. Resolves exact Chromium revision (`152.0.7977.76` / `0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174`).
-4. Applies Braving patches sequentially and checks clean application.
-5. Generates the release manifest at `metadata/releases/1.94.120.yaml`.
+4. Applies Braving programmatic mutators (e.g. apply-branding.py).
+5. Generates the release manifest at `metadata/releases/<BRAVE_VERSION>.yaml`.
 
 ---
 
@@ -62,7 +62,7 @@ Once the source is prepared, trigger the Android build:
 
 ```bash
 cd "${BRAVING_DIR}"
-./scripts/build-android.sh --manifest="metadata/releases/1.94.120.yaml" --arch=arm64 --release
+./scripts/build-android.sh --manifest="metadata/releases/<BRAVE_VERSION>.yaml" --arch=arm64 --release
 ```
 
 ### Build Arguments Configured by Braving:
@@ -86,7 +86,7 @@ enable_play_services = false
 
 The resulting APK will be placed in:
 ```
-${BRAVING_DIR}/out/apks/Braving-1.94.120-arm64.apk
+${BRAVING_DIR}/out/apks/Braving-<BRAVE_VERSION>-arm64.apk
 ```
 
 ---
@@ -104,5 +104,5 @@ Verify branding integrity:
 
 - **Out of Memory during linking**:
   Add `concurrent_links = 2` or `symbol_level = 0` to `args.gn`.
-- **Patch Application Failure**:
-  Ensure the source checkout matches the exact git commit defined in `metadata/upstream-<version>.yaml`. Braving strictly avoids fuzzy patch application.
+- **Mutator Application Failure**:
+  Ensure the source checkout matches the exact git commit defined in `metadata/upstream-<version>.yaml`. Braving strictly avoids fuzzy mutator application.

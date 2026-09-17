@@ -115,7 +115,7 @@ build_android:
     name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
-      - out/apks/*.apk
+      - build-workspace/src/out/Release/apks/*.apk
       - metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml
       - build-workspace/build.log
       - build-workspace/src/out/Release/siso_output

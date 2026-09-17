@@ -1,8 +1,8 @@
-# Brave Android Feature Audit (Version 1.94.120)
+# Brave Android Feature Audit (Version <BRAVE_VERSION>)
 
 ## Overview
 
-This document presents the detailed architectural and feature audit of the Android implementation in `brave-core` at release `1.94.120` (paired with Chromium `152.0.7977.76`).
+This document presents the detailed architectural and feature audit of the Android implementation in `brave-core` at release `<BRAVE_VERSION>` (paired with Chromium `152.0.7977.76`).
 
 The goal of this audit is to identify all Brave-specific services, components, proprietary SDKs, and third-party integrations, classifying each according to whether it should be kept, disabled, or removed for Braving.
 

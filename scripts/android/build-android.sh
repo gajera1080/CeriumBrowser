@@ -290,7 +290,8 @@ echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NO
 
 # Download and extract the Chromium warm cache AFTER the source checkout and patches.
 if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
-  echo -e "\n\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
+  echo ""
+  echo -e "\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
   if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
     bash "${REPO_ROOT}/scripts/download-cache.sh"
   fi
@@ -408,8 +409,13 @@ mkdir -p "${SRC_DIR}/buildtools/linux64"
 if [[ ! -x "${SRC_DIR}/buildtools/linux64/gn" ]]; then
   echo ""
   echo "Installing hermetic GN binary via CIPD..."
-  cipd install "gn/gn/linux-amd64" "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de" -root "${SRC_DIR}/buildtools/linux64" || \
-  cipd install "gn/gn/linux-amd64" "latest" -root "${SRC_DIR}/buildtools/linux64"
+  HOST_ARCH=$(uname -m)
+  CIPD_ARCH="amd64"
+  if [[ "${HOST_ARCH}" == "aarch64" ]]; then
+    CIPD_ARCH="arm64"
+  fi
+  cipd install "gn/gn/linux-${CIPD_ARCH}" "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de" -root "${SRC_DIR}/buildtools/linux64" || \
+  cipd install "gn/gn/linux-${CIPD_ARCH}" "latest" -root "${SRC_DIR}/buildtools/linux64"
   chmod +x "${SRC_DIR}/buildtools/linux64/gn" 2>/dev/null || true
 fi
 export PATH="${SRC_DIR}/buildtools/linux64:${PATH}"
