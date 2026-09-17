@@ -43,7 +43,7 @@ cpp_filters_incl = """#include "brave/components/resources/grit/brave_components
 #include "ui/base/resource/resource_bundle.h"
 """
 cpp_filters_fallback = """  if (ui::ResourceBundle::HasSharedInstance()) {
-    nint resource_id = GetFallbackResourceIdForComponent(uuid);
+    int resource_id = GetFallbackResourceIdForComponent(uuid);
     if (resource_id != 0) {
       base::ThreadPool::PostTaskAndReplyWithResult(
           FROM_HERE, {base::MayBlock()},
@@ -57,7 +57,7 @@ cpp_filters_fallback = """  if (ui::ResourceBundle::HasSharedInstance()) {
   }
 """
 cpp_filters_helper = """
-nint GetFallbackResourceIdForComponent(const std::string& component_id) {
+int GetFallbackResourceIdForComponent(const std::string& component_id) {
   if (component_id == "iodkpdagapdfkphljnddpjlldadblomo") return IDR_BRAVE_SHIELDS_DEFAULT_RULES;
   if (component_id == "kihnoaefogbkmblfimmibknnmkllbhlf") return IDR_BRAVE_SHIELDS_TRACKER_RULES;
   if (component_id == "adcocjohghhfpidemphmcmlmhnfgikei") return IDR_BRAVE_SHIELDS_FIRST_PARTY_RULES;

@@ -417,6 +417,22 @@ echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.t
 echo " - Fetching Peter Lowe's list..."
 curl -fsSL --max-time 60 --retry 3 "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
 
+echo " - Setting up tracker_rules.txt..."
+curl -fsSL --max-time 60 --retry 3 "https://easylist.to/easylist/easyprivacy.txt" > "${BRAVE_DIR}/components/brave_shields/resources/tracker_rules.txt" || echo "! Braving offline tracker rules" > "${BRAVE_DIR}/components/brave_shields/resources/tracker_rules.txt"
+
+echo " - Setting up additional rule stubs (first-party, cookies, mobile)..."
+echo "! Braving offline first-party rules" > "${BRAVE_DIR}/components/brave_shields/resources/first_party_rules.txt"
+echo "! Braving offline cookie rules" > "${BRAVE_DIR}/components/brave_shields/resources/cookie_rules.txt"
+echo "! Braving offline mobile rules" > "${BRAVE_DIR}/components/brave_shields/resources/mobile_rules.txt"
+
+echo " - Setting up resources.json (redirect & scriptlet resources)..."
+RESOURCES_SRC="${BRAVE_DIR}/ios/brave-ios/Tests/ClientTests/Resources/ad-block-resources/resources.json"
+if [[ -f "${RESOURCES_SRC}" ]]; then
+  cp "${RESOURCES_SRC}" "${BRAVE_DIR}/components/brave_shields/resources/resources.json"
+else
+  curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/brave/brave-core/master/ios/brave-ios/Tests/ClientTests/Resources/ad-block-resources/resources.json" > "${BRAVE_DIR}/components/brave_shields/resources/resources.json" || echo "[]" > "${BRAVE_DIR}/components/brave_shields/resources/resources.json"
+fi
+
 cat << 'EOF' > "${BRAVE_DIR}/components/brave_shields/resources/list_catalog.json"
 {
   "version": 1,
