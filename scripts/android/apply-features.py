@@ -124,5 +124,12 @@ replace_in_file(
     '"--log-level",\n      "error",'
 )
 
+# 6. Fix GN circular includes error for notifications when brave_ads is disabled
+replace_in_file(
+    "browser/sources.gni",
+    '    "//brave/browser/android/preferences",\n    "//brave/browser/notifications",\n  ]',
+    '    "//brave/browser/android/preferences",\n  ]\n  if (enable_brave_ads) {\n    brave_chrome_browser_allow_circular_includes_from += [\n      "//brave/browser/notifications",\n    ]\n  }'
+)
+
 print("Successfully injected Brave Origin feature modifications!")
 
