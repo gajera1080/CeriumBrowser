@@ -74,7 +74,20 @@ prepare_chromium_cache:
   script:
     - echo "Building isolated heavy targets (v8 & blink) to generate warm cache..."
     - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
-    - ./scripts/upload-cache.sh
+  after_script:
+    - |
+      if [ -f "build-workspace/build.log" ]; then
+        echo "=== LAST 100 LINES OF BUILD.LOG ==="
+        tail -n 100 "build-workspace/build.log" || true
+      fi
+      if [ -f "build-workspace/src/out/Release/siso_output" ]; then
+        echo "=== LAST 50 LINES OF SISO OUTPUT ==="
+        tail -n 50 "build-workspace/src/out/Release/siso_output" || true
+      fi
+      if [ -f "build-workspace/src/out/Release/siso_failed_commands.sh" ]; then
+        echo "=== SISO FAILED COMMANDS ==="
+        cat "build-workspace/src/out/Release/siso_failed_commands.sh" || true
+      fi
   artifacts:
     name: "braving-cache-logs-${DYNAMIC_BRAVE_VERSION}"
     when: always
@@ -82,6 +95,7 @@ prepare_chromium_cache:
       - build-workspace/build.log
       - build-workspace/src/out/Release/siso_output
       - build-workspace/src/out/Release/siso_failed_commands.sh
+      - build-workspace/src/out/Release/siso.INFO
     expire_in: 7 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
@@ -113,15 +127,31 @@ build_android:
   script:
     - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
     - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+  after_script:
+    - |
+      if [ -f "build-workspace/build.log" ]; then
+        echo "=== LAST 100 LINES OF BUILD.LOG ==="
+        tail -n 100 "build-workspace/build.log" || true
+      fi
+      if [ -f "build-workspace/src/out/Release/siso_output" ]; then
+        echo "=== LAST 50 LINES OF SISO OUTPUT ==="
+        tail -n 50 "build-workspace/src/out/Release/siso_output" || true
+      fi
+      if [ -f "build-workspace/src/out/Release/siso_failed_commands.sh" ]; then
+        echo "=== SISO FAILED COMMANDS ==="
+        cat "build-workspace/src/out/Release/siso_failed_commands.sh" || true
+      fi
   artifacts:
     name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
       - build-workspace/src/out/Release/apks/*.apk
+      - out/apks/*.apk
       - metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml
       - build-workspace/build.log
       - build-workspace/src/out/Release/siso_output
       - build-workspace/src/out/Release/siso_failed_commands.sh
+      - build-workspace/src/out/Release/siso.INFO
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'

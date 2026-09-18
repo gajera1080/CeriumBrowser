@@ -456,6 +456,21 @@ chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"
 target_android_output_format = "apk"
 
+# Debloating & Feature Disabling
+enable_brave_wallet = false
+enable_brave_vpn = false
+enable_brave_vpn_v1 = false
+enable_brave_vpn_v2 = false
+enable_ai_chat = false
+enable_brave_news = false
+enable_brave_rewards = false
+enable_brave_ads = false
+enable_brave_talk = false
+enable_brave_stats_updater = false
+enable_web_discovery = false
+enable_web_discovery_native = false
+enable_sparkle = false
+
 brave_services_key = "no-key"
 service_key_stt = "no-key"
 service_key_aichat = "no-key"
@@ -499,14 +514,12 @@ fi
 T_NINJA_START=$(date +%s)
 
 # Step 10: Build chrome_public_apk
-BUILD_TARGET="${BUILD_TARGET:-brave}"
+BUILD_TARGET="${BUILD_TARGET:-chrome_public_apk}"
 echo ""
 echo "Building target: ${BUILD_TARGET}"
 echo "This will take a long time (hours on first build)..."
 
-# Use autoninja if available, otherwise ninja. Restrict to -j 6 to prevent OOM on 32GB RAM CI runners.
-# We pipe to awk to only show every 50th line to avoid the 4MB GitLab CI log limit,
-# but we save the full log and dump the tail on failure.
+# Filter console stream to avoid GitLab CI 4MB log limit while preserving all errors and saving complete build.log
 echo "Logging full build output to ${WORKSPACE_DIR}/build.log..."
 set +e
 set +o pipefail
@@ -515,10 +528,10 @@ cd "${SRC_DIR}"
 BUILD_RES=0
 
 if command -v autoninja &>/dev/null; then
-  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log"
+  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${SCRIPT_DIR}/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
   BUILD_RES=${PIPESTATUS[0]}
 else
-  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | tee "${WORKSPACE_DIR}/build.log"
+  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${SCRIPT_DIR}/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
   BUILD_RES=${PIPESTATUS[0]}
 fi
 
@@ -573,6 +586,7 @@ fi
 if [[ -n "${BUILT_APK}" ]]; then
   OUTPUT_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
   cp "${BUILT_APK}" "${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+  cp "${BUILT_APK}" "${OUT_DIR}/apks/${OUTPUT_NAME}" 2>/dev/null || true
   
   T_END=$(date +%s)
   echo ""
