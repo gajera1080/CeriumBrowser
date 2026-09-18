@@ -74,6 +74,7 @@ prepare_chromium_cache:
   script:
     - echo "Building isolated heavy targets (v8 & blink) to generate warm cache..."
     - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - ./scripts/upload-cache.sh
   after_script:
     - |
       if [ -f "build-workspace/build.log" ]; then
