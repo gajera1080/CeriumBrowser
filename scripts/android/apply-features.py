@@ -124,18 +124,50 @@ replace_in_file(
     '"--log-level",\n      "error",'
 )
 
+import re
+
+def replace_regex_in_file(filepath, pattern, replacement):
+    path = os.path.join(repo_root, filepath)
+    if not os.path.exists(path):
+        msg = f"MISSING: {filepath}"
+        if STRICT:
+            print(f"ERROR: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"WARNING: {msg}")
+        return
+
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # If already patched in a way that includes the replacement condition, skip
+    if replacement in content or "enable_brave_ads" in replacement and "enable_brave_ads" in content:
+        print(f"Skipped {filepath} (already patched)")
+        return
+
+    new_content, count = re.subn(pattern, replacement, content, 1)
+    if count > 0:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print(f"Patched regex {filepath}")
+    else:
+        msg = f"Regex pattern not found in {filepath}: {pattern[:50]}..."
+        if STRICT:
+            print(f"ERROR: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"WARNING: {msg}")
+
 # 6. Fix GN circular includes error for notifications when brave_ads is disabled
-replace_in_file(
+replace_regex_in_file(
     "browser/sources.gni",
-    '    "//brave/browser/android/preferences",\n    "//brave/browser/notifications",\n  ]',
-    '    "//brave/browser/android/preferences",\n  ]\n  if (enable_brave_ads) {\n    brave_chrome_browser_allow_circular_includes_from += [\n      "//brave/browser/notifications",\n    ]\n  }'
+    r'(\s*)"//brave/browser/notifications",\n(\s*)\]',
+    r'\n\2]\n\2if (enable_brave_ads) {\n\2  brave_chrome_browser_allow_circular_includes_from += [\n\2    "//brave/browser/notifications",\n\2  ]\n\2}'
 )
 
 # 7. Fix GN list subtraction error for brave_news test when brave_news is disabled
-replace_in_file(
+replace_regex_in_file(
     "android/android_browser_tests.gni",
-    '  "//brave/browser/autoplay:browser_tests",\n  "//brave/browser/brave_news:browser_tests",\n  "//brave/browser/browsing_data:browser_tests",',
-    '  "//brave/browser/autoplay:browser_tests",\n  "//brave/browser/browsing_data:browser_tests",\n]\nif (enable_brave_news) {\n  android_test_exception_deps += [ "//brave/browser/brave_news:browser_tests" ]\n}\nandroid_test_exception_deps += ['
+    r'(\s*)"//brave/browser/brave_news:browser_tests",\n',
+    r''
 )
 
 print("Successfully injected Brave Origin feature modifications!")
