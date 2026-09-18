@@ -386,11 +386,35 @@ else
   fi
 fi
 
-# 2. Apply Braving Mutators to brave-core
+# 2. Apply Braving git patches to brave-core
+PATCH_DIR="${REPO_ROOT}/patches"
 echo ""
-echo "Applying Braving programmatic mutators to brave-core..."
+echo "Applying Braving patches to brave-core..."
+
+PATCHES=()
+while IFS= read -r -d $'\0' file; do
+  PATCHES+=("$file")
+done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
+
+for patch in "${PATCHES[@]}"; do
+  pname=$(basename "$patch")
+  echo " - Applying ${pname}..."
+  if git -C "${BRAVE_DIR}" apply --check --reverse "$patch" 2>/dev/null; then
+    echo "   [OK] Patch ${pname} already applied."
+  elif git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null; then
+    git -C "${BRAVE_DIR}" apply "$patch"
+    echo "   [OK] Patch ${pname} successfully applied."
+  else
+    echo "ERROR: Patch ${pname} failed to apply and is not already applied. Aborting to fail closed." >&2
+    exit 1
+  fi
+done
+
+# 3. Apply GN-only programmatic fixes (these handle conditional GN array modifications
+#    that standard patches cannot do safely across upstream version bumps)
+echo ""
+echo "Applying GN build fixes..."
 python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict
-python3 "${REPO_ROOT}/scripts/android/apply-shields-fallback.py" "${BRAVE_DIR}" --strict
 
 echo ""
 echo "Downloading Adblock Offline Resources (uBlock Origin defaults)..."

@@ -30,9 +30,21 @@ def replace_in_file(filepath, old, new):
         else:
             print(f"Skipped: {filepath} (already branded)")
 
-# Safe Package ID and Application Name Branding ONLY
-# Note: Global regex replacement of "Brave" to "Braving" in .grd files was removed 
-# because it broke C++ translation dependencies (e.g., IDS_Brave_Rewards). 
-# Any specific user-facing string debranding should be done via semantic patching.
+# Target Android GRD files and channel constants
+grd_files = [
+    "browser/ui/android/strings/android_brave_strings.grd",
+    "browser/ui/android/strings/android_chrome_strings_override.grd",
+    "components/browser_ui/strings/android/browser_ui_strings_override.grd",
+    "components/browser_ui/strings/android/browser_ui_strings.grd",
+    "app/brave_strings.grd",
+    "app/brave_strings_override.grd",
+    "components/components_brave_strings.grd",
+    "app/theme/brave/android/res_brave_base/values/channel_constants.xml",
+    "app/theme/brave/android/res_brave_default_base/values/channel_constants.xml",
+    "app/theme/brave/android/values/channel_constants.xml"
+]
+
+for f in grd_files:
+    replace_in_file(f, "Brave", "Braving")
 
 replace_in_file("build/commands/lib/buildArgs.ts", "com.brave.browser", "org.braving.browser")

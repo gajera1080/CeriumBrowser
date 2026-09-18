@@ -41,8 +41,17 @@ echo "=== Step 2/5: Mutator Script Syntax Verification ==="
 echo " [OK] Python mutators are validated dynamically during execution."
 
 echo ""
-echo "=== Step 3/5: Isolated Upstream Patch Application ==="
-echo " [OK] Patches migrated to dynamic python mutators."
+echo "=== Step 3/5: Patch Set Verification ==="
+PATCH_DIR="${REPO_ROOT}/patches"
+PATCH_COUNT=$(find "${PATCH_DIR}" -name "*.patch" 2>/dev/null | wc -l)
+if [[ ${PATCH_COUNT} -gt 0 ]]; then
+  echo " [OK] Found ${PATCH_COUNT} patch file(s) in ${PATCH_DIR}/"
+  find "${PATCH_DIR}" -name "*.patch" | sort | while read -r p; do
+    echo "      - $(basename "$p")"
+  done
+else
+  echo " [WARN] No .patch files found in ${PATCH_DIR}/"
+fi
 
 echo ""
 echo "=== Step 4/5: Branding & Asset Verification ==="
