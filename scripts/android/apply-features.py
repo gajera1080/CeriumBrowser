@@ -131,5 +131,12 @@ replace_in_file(
     '    "//brave/browser/android/preferences",\n  ]\n  if (enable_brave_ads) {\n    brave_chrome_browser_allow_circular_includes_from += [\n      "//brave/browser/notifications",\n    ]\n  }'
 )
 
+# 7. Fix GN list subtraction error for brave_news test when brave_news is disabled
+replace_in_file(
+    "android/android_browser_tests.gni",
+    '  "//brave/browser/autoplay:browser_tests",\n  "//brave/browser/brave_news:browser_tests",\n  "//brave/browser/browsing_data:browser_tests",',
+    '  "//brave/browser/autoplay:browser_tests",\n  "//brave/browser/browsing_data:browser_tests",\n]\nif (enable_brave_news) {\n  android_test_exception_deps += [ "//brave/browser/brave_news:browser_tests" ]\n}\nandroid_test_exception_deps += ['
+)
+
 print("Successfully injected Brave Origin feature modifications!")
 
