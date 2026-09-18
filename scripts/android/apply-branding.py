@@ -19,28 +19,20 @@ def replace_in_file(filepath, old, new):
     if old in content:
         # Avoid replacing attribute names like name="Brave..." or id="Brave..."
         if old == "Brave":
-            content = re.sub(r'(?<!name=")(?<!id=")Brave', new, content)
+            new_content = re.sub(r'(?<!name=")(?<!id=")Brave', new, content)
         else:
-            content = content.replace(old, new)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"Branded: {filepath}")
+            new_content = content.replace(old, new)
+            
+        if new_content != content:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"Branded: {filepath}")
+        else:
+            print(f"Skipped: {filepath} (already branded)")
 
-# Target Android GRD files
-grd_files = [
-    "browser/ui/android/strings/android_brave_strings.grd",
-    "browser/ui/android/strings/android_chrome_strings_override.grd",
-    "components/browser_ui/strings/android/browser_ui_strings_override.grd",
-    "components/browser_ui/strings/android/browser_ui_strings.grd",
-    "app/brave_strings.grd",
-    "app/brave_strings_override.grd",
-    "components/components_brave_strings.grd",
-    "app/theme/brave/android/res_brave_base/values/channel_constants.xml",
-    "app/theme/brave/android/res_brave_default_base/values/channel_constants.xml",
-    "app/theme/brave/android/values/channel_constants.xml"
-]
-
-for f in grd_files:
-    replace_in_file(f, "Brave", "Braving")
+# Safe Package ID and Application Name Branding ONLY
+# Note: Global regex replacement of "Brave" to "Braving" in .grd files was removed 
+# because it broke C++ translation dependencies (e.g., IDS_Brave_Rewards). 
+# Any specific user-facing string debranding should be done via semantic patching.
 
 replace_in_file("build/commands/lib/buildArgs.ts", "com.brave.browser", "org.braving.browser")

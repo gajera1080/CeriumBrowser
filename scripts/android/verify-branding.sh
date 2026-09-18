@@ -36,14 +36,10 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
-# 3. Check for application label replacement script
-echo "Checking branding mutator script..."
-if [[ -f "${REPO_ROOT}/scripts/android/apply-branding.py" ]] && grep -Fq 'replace_in_file(f, "Brave", "Braving")' "${REPO_ROOT}/scripts/android/apply-branding.py"; then
-  echo " [OK] Branding mutator properly targets Brave -> Braving."
-else
-  echo "ERROR: apply-branding.py is missing or missing expected replacements." >&2
-  FAILURES=$((FAILURES + 1))
-fi
+# 3. Check for application label replacement script (REMOVED)
+# Global regex string replacement for "Brave" to "Braving" was removed 
+# because it broke C++ translation IDs and GN targets.
+echo " [OK] Global string replacement check bypassed (dangerous mutator removed)."
 
 # 4. Check master logo
 echo "Checking Braving master logo..."

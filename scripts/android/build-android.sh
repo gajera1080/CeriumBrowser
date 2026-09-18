@@ -473,21 +473,9 @@ enable_sparkle = false
 
 brave_services_key = "no-key"
 service_key_stt = "no-key"
-service_key_aichat = "no-key"
 service_key_search = "no-key"
 brave_sync_endpoint = "no-key"
 brave_variations_server_url = "no-key"
-brave_stats_updater_url = "no-key"
-bitflyer_production_fee_address = "no-key"
-bitflyer_production_url = "no-key"
-uphold_production_api_url = "no-key"
-uphold_production_fee_address = "no-key"
-uphold_production_oauth_url = "no-key"
-zebpay_production_api_url = "no-key"
-zebpay_production_oauth_url = "no-key"
-rewards_grant_dev_endpoint = "no-key"
-rewards_grant_staging_endpoint = "no-key"
-rewards_grant_prod_endpoint = "no-key"
 EOF
 
 echo ""
