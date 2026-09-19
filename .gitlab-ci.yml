@@ -112,6 +112,8 @@ build_android:
   needs:
     - job: prepare_chromium_cache
       artifacts: true
+    - job: prepare_source
+      artifacts: true
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
     paths:
