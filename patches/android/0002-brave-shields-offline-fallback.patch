@@ -214,16 +214,4 @@ index 177fe35f9..a8725bb14 100644
 +  <include name="IDR_BRAVE_SHIELDS_COOKIE_RULES" file="../brave_shields/resources/cookie_rules.txt" type="BINDATA" />
 +  <include name="IDR_BRAVE_SHIELDS_MOBILE_RULES" file="../brave_shields/resources/mobile_rules.txt" type="BINDATA" />
  </grit-part>
-diff --git a/resources/resource_ids.spec b/resources/resource_ids.spec
-index 4255b4cbf..0e973ab32 100644
---- a/resources/resource_ids.spec
-+++ b/resources/resource_ids.spec
-@@ -11,7 +11,7 @@
-     "includes": [53000],
-   },
-   "brave/components/resources/brave_components_resources.grd": {
--    "includes": [53020],
-+    "includes": [54200],
-   },
-   # This file is generated during the build.
-   "<(SHARED_INTERMEDIATE_DIR)/brave/web-ui-brave_adblock/brave_adblock.grd": {
+
