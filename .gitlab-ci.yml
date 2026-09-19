@@ -43,7 +43,7 @@ prepare_source:
       - branding/
     reports:
       dotenv: build.env
-    expire_in: 7 days
+    expire_in: 2 days
 
 # ----------------------------------------------------
 # Stage 2: Cache Preparation (Build Heavy Sub-targets)
@@ -97,7 +97,7 @@ prepare_chromium_cache:
       - build-workspace/src/out/Release/siso_output
       - build-workspace/src/out/Release/siso_failed_commands.sh
       - build-workspace/src/out/Release/siso.INFO
-    expire_in: 7 days
+    expire_in: 2 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
 
