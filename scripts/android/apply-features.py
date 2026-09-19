@@ -105,4 +105,16 @@ replace_regex_in_file(
     r''
 )
 
+# 6. Fix GN Unresolved dependencies for brave_news in Android preferences
+replace_regex_in_file(
+    "browser/android/preferences/BUILD.gn",
+    r'(\s*)"//brave/components/brave_news/common",\n',
+    r''
+)
+replace_regex_in_file(
+    "browser/android/preferences/BUILD.gn",
+    r'(\s*)"//brave/components/brave_news/common/pref_names\.h",\n',
+    r''
+)
+
 print("Successfully applied GN build fixes!")
