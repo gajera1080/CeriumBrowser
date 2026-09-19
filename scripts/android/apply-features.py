@@ -98,4 +98,11 @@ replace_regex_in_file(
     r''
 )
 
+# 5. Fix GN assertion failure for ai_chat when enable_ai_chat is disabled
+replace_regex_in_file(
+    "browser/android/BUILD.gn",
+    r'(\s*)"//brave/browser/ai_chat",\n',
+    r''
+)
+
 print("Successfully applied GN build fixes!")
