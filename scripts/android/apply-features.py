@@ -53,12 +53,12 @@ def replace_regex_in_file(filepath, pattern, replacement):
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # If the replacement text is already present, skip
-    if replacement and replacement in content:
-        print(f"Skipped {filepath} (already patched)")
+    # If the pattern is not found, assume it was already patched/removed
+    if not re.search(pattern, content):
+        print(f"Skipped {filepath} (pattern not found, assuming already patched)")
         return
 
-    new_content, count = re.subn(pattern, replacement, content, 1)
+    new_content, count = re.subn(pattern, replacement, content, count=1)
     if count > 0:
         with open(path, "w", encoding="utf-8") as f:
             f.write(new_content)
@@ -115,6 +115,12 @@ replace_regex_in_file(
     "browser/android/preferences/BUILD.gn",
     r'(\s*)"//brave/components/brave_news/common/pref_names\.h",\n',
     r''
+)
+# 7. Fix GN missing ic_brave_logo.xml because it was replaced by pngs
+replace_in_file(
+    "android/BUILD.gn",
+    '    "java/brave-res/drawable/ic_brave_logo.xml",\n',
+    '    "java/brave-res/drawable-mdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-hdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-xhdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-xxhdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-xxxhdpi/ic_brave_logo.png",\n'
 )
 
 print("Successfully applied GN build fixes!")

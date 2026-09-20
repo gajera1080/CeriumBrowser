@@ -16,9 +16,10 @@ mkdir -p "${BRAVE_DIR}/android/java/brave-res/drawable-xxxhdpi"
 
 cp -a "${REPO_ROOT}/branding/android/"* "${BRAVE_DIR}/android/java/brave-res/"
 
-# Replace ic_brave_logo.xml with the generated fre_product_logo.png
-cp "${REPO_ROOT}/branding/android/res_brave_default/drawable-xxhdpi/fre_product_logo.png" "${BRAVE_DIR}/android/java/brave-res/drawable-xxhdpi/ic_brave_logo.png"
-cp "${REPO_ROOT}/branding/android/res_brave_default/drawable-xxxhdpi/fre_product_logo.png" "${BRAVE_DIR}/android/java/brave-res/drawable-xxxhdpi/ic_brave_logo.png"
+for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+  mkdir -p "${BRAVE_DIR}/android/java/brave-res/drawable-${density}"
+  cp "${REPO_ROOT}/branding/android/res_brave_default/drawable-${density}/fre_product_logo.png" "${BRAVE_DIR}/android/java/brave-res/drawable-${density}/ic_brave_logo.png"
+done
 rm -f "${BRAVE_DIR}/android/java/brave-res/drawable/ic_brave_logo.xml"
 
 
