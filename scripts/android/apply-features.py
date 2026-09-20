@@ -84,38 +84,7 @@ replace_in_file(
     '"--log-level",\n      "error",'
 )
 
-# 3. Fix GN circular includes error for notifications when brave_ads is disabled
-replace_regex_in_file(
-    "browser/sources.gni",
-    r'(\s*)"//brave/browser/notifications",\n(\s*)\]',
-    r'\n\2]\n\2if (enable_brave_ads) {\n\2  brave_chrome_browser_allow_circular_includes_from += [\n\2    "//brave/browser/notifications",\n\2  ]\n\2}'
-)
 
-# 4. Fix GN list subtraction error for brave_news test when brave_news is disabled
-replace_regex_in_file(
-    "android/android_browser_tests.gni",
-    r'(\s*)"//brave/browser/brave_news:browser_tests",\n',
-    r''
-)
-
-# 5. Fix GN assertion failure for ai_chat when enable_ai_chat is disabled
-replace_regex_in_file(
-    "browser/android/BUILD.gn",
-    r'(\s*)"//brave/browser/ai_chat",\n',
-    r''
-)
-
-# 6. Fix GN Unresolved dependencies for brave_news in Android preferences
-replace_regex_in_file(
-    "browser/android/preferences/BUILD.gn",
-    r'(\s*)"//brave/components/brave_news/common",\n',
-    r''
-)
-replace_regex_in_file(
-    "browser/android/preferences/BUILD.gn",
-    r'(\s*)"//brave/components/brave_news/common/pref_names\.h",\n',
-    r''
-)
 # 7. Fix GN missing ic_brave_logo.xml because it was replaced by pngs
 replace_in_file(
     "android/BUILD.gn",

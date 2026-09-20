@@ -77,3 +77,30 @@ patch_cpp("android/java/org/chromium/chrome/browser/settings/BraveOriginPreferen
 patch_cpp("android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java",
           "if (ChromeFeatureList.isEnabled(BraveFeatureList.BRAVE_ORIGIN)) {",
           "if (false) {")
+
+# Unlock Brave Origin for Backend Changes
+patch_cpp("components/brave_origin/brave_origin_utils.cc",
+          "bool IsBraveOriginFeatureEnabled() {\n  return base::FeatureList::IsEnabled(features::kBraveOrigin);\n}",
+          "bool IsBraveOriginFeatureEnabled() {\n  return true;\n}")
+
+# Force Enforce Braving Debloat Enterprise Policies in C++
+patch_cpp("components/brave_policy/brave_browser_policy_provider.cc",
+          "  return bundle;\n}",
+          """
+  // Braving: Enforce debloat policies via Enterprise Policy
+  policy::PolicyMap& pm = bundle.Get(policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, std::string()));
+  auto enforce = [&](const char* name, bool val) {
+    pm.Set(name, policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_PLATFORM, base::Value(val), nullptr);
+  };
+  enforce("BraveWalletDisabled", true);
+  enforce("BraveVPNDisabled", true);
+  enforce("BraveAIChatEnabled", false);
+  enforce("BraveNewsDisabled", true);
+  enforce("BraveRewardsDisabled", true);
+  enforce("BraveSearchResultAdsEnabled", false);
+  enforce("BraveTalkDisabled", true);
+  enforce("BraveStatsPingEnabled", false);
+  enforce("BraveWebDiscoveryEnabled", false);
+
+  return bundle;
+}""")

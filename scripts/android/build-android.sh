@@ -456,20 +456,20 @@ chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"
 target_android_output_format = "apk"
 
-# Debloating & Feature Disabling
-enable_brave_wallet = false
-enable_brave_vpn = false
-enable_brave_vpn_v1 = false
-enable_brave_vpn_v2 = false
-enable_ai_chat = false
-enable_brave_news = false
-enable_brave_rewards = false
-enable_brave_ads = false
-enable_brave_talk = false
-enable_brave_stats_updater = false
-enable_web_discovery = false
-enable_web_discovery_native = false
-enable_sparkle = false
+# Debloating & Feature Disabling (Now handled by Enterprise Policies)
+# enable_brave_wallet = false
+# enable_brave_vpn = false
+# enable_brave_vpn_v1 = false
+# enable_brave_vpn_v2 = false
+# enable_ai_chat = false
+# enable_brave_news = false
+# enable_brave_rewards = false
+# enable_brave_ads = false
+# enable_brave_talk = false
+# enable_brave_stats_updater = false
+# enable_web_discovery = false
+# enable_web_discovery_native = false
+# enable_sparkle = false
 
 brave_services_key = "no-key"
 service_key_stt = "no-key"

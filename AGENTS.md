@@ -83,14 +83,12 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
   - Strings: "Brave" $\to$ "Braving", package ID `com.brave.browser` $\to$ `org.braving.browser`.
 - Brand assets are tracked in `branding/` and applied deterministically via `scripts/android/apply-assets.sh` and `apply-branding.py`.
 
-### 2. Radical Debloating
+### 2. Radical Debloating (Enterprise Policy Approach)
 Braving strips all unneeded promotional, cryptocurrency, and auxiliary subsystems:
-- **Stripped Subsystems**: Brave Wallet / Crypto, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards / BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle auto-updater.
-- **Enforced at Two Layers**:
-  1. **GN Build Arguments (`args.gn`)**:
-     Setting `enable_brave_wallet = false`, `enable_ai_chat = false`, `enable_brave_vpn = false`, `enable_brave_news = false`, `enable_brave_rewards = false`, etc. This halts compilation of hundreds of megabytes of C++, WebUI (Dart Sass), and Rust (`opaque_ke`) packages.
-  2. **UI & Policy Mutators**:
-     `prune-ui.py` and `enforce-policies.py` remove settings UI elements and enforce native policies so hidden features cannot be reached.
+- **Hidden Subsystems**: Brave Wallet / Crypto, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards / BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle auto-updater.
+- **Enforced via Native Policies**:
+  To avoid constant build breakages caused by upstream dependency mismatches, Braving for Android does *not* use compile-time GN arguments (`enable_brave_wallet = false`) to strip code. Instead, we compile the modules but strictly lock them down at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` (or similar policy mutators).
+  - UI & Policy Mutators: `prune-ui.py` and `enforce-policies.py` remove settings UI elements and enforce native policies so hidden features cannot be reached.
 
 ---
 
