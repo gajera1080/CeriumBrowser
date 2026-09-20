@@ -393,62 +393,6 @@ echo ""
 echo "Applying GN build fixes..."
 python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict
 
-echo ""
-echo "Downloading Adblock Offline Resources (uBlock Origin defaults)..."
-mkdir -p "${BRAVE_DIR}/components/brave_shields/resources"
 
-echo " - Fetching uBlock filters (main, badware, quick-fixes, unbreak)..."
-curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt" > "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
-echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
-curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
-echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
-curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
-echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
-curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
-echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
-
-echo " - Fetching EasyList..."
-curl -fsSL --max-time 60 --retry 3 "https://easylist.to/easylist/easylist.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
-echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
-
-echo " - Fetching EasyPrivacy..."
-curl -fsSL --max-time 60 --retry 3 "https://easylist.to/easylist/easyprivacy.txt" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
-echo -e "\n" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt"
-
-echo " - Fetching Peter Lowe's list..."
-curl -fsSL --max-time 60 --retry 3 "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext" >> "${BRAVE_DIR}/components/brave_shields/resources/default_rules.txt" || exit 1
-
-echo " - Setting up tracker_rules.txt..."
-curl -fsSL --max-time 60 --retry 3 "https://easylist.to/easylist/easyprivacy.txt" > "${BRAVE_DIR}/components/brave_shields/resources/tracker_rules.txt" || echo "! Braving offline tracker rules" > "${BRAVE_DIR}/components/brave_shields/resources/tracker_rules.txt"
-
-echo " - Setting up additional rule stubs (first-party, cookies, mobile)..."
-echo "! Braving offline first-party rules" > "${BRAVE_DIR}/components/brave_shields/resources/first_party_rules.txt"
-echo "! Braving offline cookie rules" > "${BRAVE_DIR}/components/brave_shields/resources/cookie_rules.txt"
-echo "! Braving offline mobile rules" > "${BRAVE_DIR}/components/brave_shields/resources/mobile_rules.txt"
-
-echo " - Setting up resources.json (redirect & scriptlet resources)..."
-RESOURCES_SRC="${BRAVE_DIR}/ios/brave-ios/Tests/ClientTests/Resources/ad-block-resources/resources.json"
-if [[ -f "${RESOURCES_SRC}" ]]; then
-  cp "${RESOURCES_SRC}" "${BRAVE_DIR}/components/brave_shields/resources/resources.json"
-else
-  curl -fsSL --max-time 60 --retry 3 "https://raw.githubusercontent.com/brave/brave-core/master/ios/brave-ios/Tests/ClientTests/Resources/ad-block-resources/resources.json" > "${BRAVE_DIR}/components/brave_shields/resources/resources.json" || echo "[]" > "${BRAVE_DIR}/components/brave_shields/resources/resources.json"
-fi
-
-cat << 'EOF' > "${BRAVE_DIR}/components/brave_shields/resources/list_catalog.json"
-{
-  "version": 1,
-  "lists": [
-    {
-      "uuid": "default-offline-list",
-      "name": "Braving Default Rules (uBlock Defaults)",
-      "type": "ad-blocking",
-      "desc": "Bundled offline rules based on uBlock Origin defaults",
-      "filename": "default_rules.txt",
-      "enabled_by_default": true
-    }
-  ]
-}
-EOF
-echo " [OK] Adblock offline resources downloaded and bundled successfully."
 echo "Phase 1: Source Preparation Complete."
 

@@ -371,7 +371,7 @@ bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 echo "Pruning Android Settings UI bloatware..."
 echo "Enforcing strict minimalist UI policies natively..."
 python3 "${REPO_ROOT}/scripts/android/enforce-policies.py" "${BRAVE_DIR}"
-python3 "${REPO_ROOT}/scripts/android/prune-ui.py" "${BRAVE_DIR}"
+
 
 # Prepare Chromium VERSION and VERSION.chromium sidecar using brave-core version.py
 if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then

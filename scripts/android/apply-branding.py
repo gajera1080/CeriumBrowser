@@ -16,19 +16,24 @@ def replace_in_file(filepath, old, new):
         return
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
+    
     if old in content:
-        # Avoid replacing attribute names like name="Brave..." or id="Brave..."
-        if old == "Brave":
-            new_content = re.sub(r'(?<!name=")(?<!id=")Brave', new, content)
-        else:
-            new_content = content.replace(old, new)
+        # AGENTS.md rule 3: For UI strings, only mutate inner text of nodes.
+        # Split by XML tags to protect all attributes (like name="IDS_Brave_Rewards")
+        parts = re.split(r'(<[^>]+>)', content)
+        for i in range(len(parts)):
+            # Even indices are text nodes outside of < >
+            if i % 2 == 0:
+                parts[i] = parts[i].replace(old, new)
+        
+        new_content = "".join(parts)
             
         if new_content != content:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(new_content)
             print(f"Branded: {filepath}")
         else:
-            print(f"Skipped: {filepath} (already branded)")
+            print(f"Skipped: {filepath} (already branded or no text nodes to brand)")
 
 # Target Android GRD files and channel constants
 grd_files = [
@@ -38,10 +43,7 @@ grd_files = [
     "components/browser_ui/strings/android/browser_ui_strings.grd",
     "app/brave_strings.grd",
     "app/brave_strings_override.grd",
-    "components/components_brave_strings.grd",
-    "app/theme/brave/android/res_brave_base/values/channel_constants.xml",
-    "app/theme/brave/android/res_brave_default_base/values/channel_constants.xml",
-    "app/theme/brave/android/values/channel_constants.xml"
+    "components/components_brave_strings.grd"
 ]
 
 for f in grd_files:

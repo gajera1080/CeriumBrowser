@@ -47,11 +47,13 @@ fi
 
 # 4. Check master logo
 echo "Checking Braving master logo..."
-if [[ ! -f "${REPO_ROOT}/branding/logo.png" ]]; then
-  echo "ERROR: Missing master logo at ${REPO_ROOT}/branding/logo.png" >&2
-  FAILURES=$((FAILURES + 1))
-else
+if [[ -f "${REPO_ROOT}/branding/logo.svg" ]]; then
+  echo " [OK] Master logo exists: branding/logo.svg"
+elif [[ -f "${REPO_ROOT}/branding/logo.png" ]]; then
   echo " [OK] Master logo exists: branding/logo.png"
+else
+  echo "ERROR: Missing master logo at ${REPO_ROOT}/branding/logo.svg" >&2
+  FAILURES=$((FAILURES + 1))
 fi
 
 # 5. Check launcher icon densities (legacy & adaptive)

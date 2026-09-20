@@ -51,6 +51,9 @@ def patch_cpp(filepath, search, replace):
         return
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
+    if replace in content:
+        print(f"Skipped C++ {filepath} (already patched)")
+        return
     if search in content:
         content = content.replace(search, replace, 1)
         with open(path, "w", encoding="utf-8") as f:
@@ -104,3 +107,26 @@ patch_cpp("components/brave_policy/brave_browser_policy_provider.cc",
 
   return bundle;
 }""")
+
+# Pre-seed direct uBlock Origin & EasyList subscriptions in Shields
+patch_cpp("components/brave_shields/content/browser/ad_block_service.cc",
+          "  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions);",
+          """  // Braving: Pre-seed direct uBlock Origin & EasyList subscription sources
+  base::Value::Dict default_subscriptions;
+  auto add_sub = [&](const char* url, const char* title) {
+    base::Value::Dict sub;
+    sub.Set("enabled", true);
+    sub.Set("last_update_attempt", 0);
+    sub.Set("last_successful_update_attempt", 0);
+    sub.Set("expires", 72);
+    sub.Set("title", title);
+    default_subscriptions.Set(url, std::move(sub));
+  };
+  add_sub("https://easylist.to/easylist/easylist.txt", "EasyList");
+  add_sub("https://easylist.to/easylist/easyprivacy.txt", "EasyPrivacy");
+  add_sub("https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", "uBlock filters");
+  add_sub("https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt", "uBlock filters - Badware risks");
+  add_sub("https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext", "Peter Lowe's list");
+
+  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions, std::move(default_subscriptions));""")
+
