@@ -290,15 +290,7 @@ export PYTHONUNBUFFERED="1"
 echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
 (cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow --nohooks -j16)
 
-# Download and extract the Chromium warm cache AFTER the source checkout and patches.
-if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
-  echo ""
-  echo -e "\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
-  if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
-    bash "${REPO_ROOT}/scripts/download-cache.sh"
-  fi
-fi
-
+# Step 7d: Install build dependencies
 echo "Installing Chromium build dependencies..."
 if [[ -f "${SRC_DIR}/build/install-build-deps.sh" ]]; then
   # install-build-deps.sh complains if run as root without --no-prompt
@@ -509,6 +501,18 @@ if [[ "${GN_ONLY:-false}" == "true" ]]; then
   echo " [SUCCESS] GN configuration passed! Skipping compilation (--gn-only)."
   echo "========================================================"
   exit 0
+fi
+
+# Download and extract the Chromium warm cache AFTER source checkout, patches, hooks, and gn gen.
+# Extracting here ensures that restored object files and compilation artifacts have timestamps
+# strictly NEWER than all source files, generated headers, and ninja build graphs, preventing
+# false dirty rebuilds and allowing Siso/Ninja to skip already-built targets (v8, blink, etc.).
+if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
+  echo ""
+  echo -e "\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
+  if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
+    bash "${REPO_ROOT}/scripts/download-cache.sh"
+  fi
 fi
 
 T_NINJA_START=$(date +%s)

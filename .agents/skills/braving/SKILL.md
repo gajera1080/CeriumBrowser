@@ -156,9 +156,9 @@ We split compilation across stages and bridge them using the **GitLab Generic Pa
 - **Stage 2 (`prepare_chromium_cache`)**: Heavy runner (`2xlarge`). Syncs Chromium dependencies, generates GN args, compiles heavy common sub-targets (`v8` and `blink`).
   - Calls `scripts/upload-cache.sh`: compresses `out/Release` (excluding APKs and temporary ThinLTO files), splits into 4.5 GB chunks (`chunk.tar.gz.*`), generates SHA256 checksums (`checksums.sha256`), and uploads to the GitLab Generic Package Registry under `${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}-${CI_PIPELINE_ID}` using the runner's ephemeral `CI_JOB_TOKEN`.
 - **Stage 3 (`build_android`)**: Heavy runner (`2xlarge`).
-  - Automatically invokes `scripts/download-cache.sh` right after `gclient sync` and before `gn gen`.
+  - Automatically invokes `scripts/download-cache.sh` right after `gn gen` and before `autoninja`.
   - Verifies SHA256 checksums and streams `cat chunk.* | tar -xzmf -` directly into `out/Release`.
-  - Siso/Ninja sees pre-compiled object files for `v8` and `blink`, skipping thousands of heavy steps and finishing target compilation and APK packaging well before runner timeouts.
+  - Siso/Ninja sees pre-compiled object files for `v8` and `blink` with timestamps newer than all source files and generated headers, skipping thousands of heavy steps and finishing target compilation and APK packaging well before runner timeouts.
 
 ```mermaid
 sequenceDiagram

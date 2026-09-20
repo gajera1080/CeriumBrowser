@@ -111,7 +111,7 @@ Chromium + Brave compilation is massive: over 43,000 compilation steps, requirin
    - Uses GitLab's official Package Registry API authenticated via `CI_JOB_TOKEN`:
      `PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"`
      where `CACHE_VERSION="${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}-${CI_PIPELINE_ID}"`.
-   - In `build_android`, `download-cache.sh` verifies SHA256 checksums and extracts the cache stream (`cat chunk.* | tar -xzmf -`) directly into `out/Release` right after `gclient sync`.
+   - In `build_android`, `download-cache.sh` verifies SHA256 checksums and extracts the cache stream (`cat chunk.* | tar -xzmf -`) directly into `out/Release` right after `gn gen` and before `autoninja`, ensuring cached object timestamps are newer than all source files, generated headers, and ninja graphs to prevent false dirty rebuilds.
    - If no package exists (e.g. local builds), it logs `Starting cold build` and exits 0 cleanly.
 
 ---

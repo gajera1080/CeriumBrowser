@@ -13,7 +13,9 @@ fi
 
 CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${CI_PIPELINE_ID}"
 PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
-OUT_DIR="${CI_PROJECT_DIR}/build-workspace/src/out"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+OUT_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-${REPO_ROOT}}/build-workspace}/src/out"
 
 echo "=========================================="
 echo " Restoring Chromium Cache for ${CACHE_VERSION}"
@@ -50,4 +52,7 @@ mkdir -p "${OUT_DIR}"
 cat chunk.tar.gz.* | tar -xzmf - -C "${OUT_DIR}"
 rm -f chunk.tar.gz.*
 
-echo "Cache restore complete!"
+RESTORED_SIZE=$(du -sh "${OUT_DIR}/Release" 2>/dev/null | cut -f1 || echo "unknown")
+echo "Cache restore complete! Restored ${RESTORED_SIZE} into ${OUT_DIR}/Release."
+echo " [NOTE] Siso reports reused cached targets under 'skip:'."
+echo "        The 'cache:' metric is for remote cloud RBE and is expected to be 0 for local builds."

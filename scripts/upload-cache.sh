@@ -17,7 +17,9 @@ fi
 CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${CI_PIPELINE_ID}"
 PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 
-OUT_DIR="${CI_PROJECT_DIR}/build-workspace/src/out"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+OUT_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-${REPO_ROOT}}/build-workspace}/src/out"
 
 echo "=========================================="
 echo " Packaging Chromium Cache for ${CACHE_VERSION}"
@@ -31,12 +33,11 @@ fi
 mkdir -p /tmp/cache-upload
 cd /tmp/cache-upload
 
-# We only cache the specific Siso state and object files to save space
-# We exclude apks, thinlto cache, args.gn (since it can change slightly between jobs but shouldn't break hashes)
+# We cache compiled objects, generated headers, Ninja graph, and Siso state.
+# We exclude final apks and temporary thinlto-cache to save package storage.
 echo "Compressing and splitting out/Release..."
 tar -czf - -C "${OUT_DIR}" \
   --exclude="Release/apks" \
-  --exclude="Release/args.gn" \
   --exclude="Release/thinlto-cache" \
   Release/ | split -b 4500M - chunk.tar.gz.
 
