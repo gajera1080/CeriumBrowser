@@ -85,11 +85,51 @@ replace_in_file(
 )
 
 
-# 7. Fix GN missing ic_brave_logo.xml because it was replaced by pngs
-replace_in_file(
-    "android/BUILD.gn",
-    '    "java/brave-res/drawable/ic_brave_logo.xml",\n',
-    '    "java/brave-res/drawable-mdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-hdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-xhdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-xxhdpi/ic_brave_logo.png",\n    "java/brave-res/drawable-xxxhdpi/ic_brave_logo.png",\n'
+print("Successfully applied GN build fixes!")
+
+# 8. Fix external_js_bundles crash on Android by removing it from unconditional GN block
+replace_regex_in_file(
+    "ui/webui/resources/BUILD.gn",
+    r'\s*":external_js_bundles",\n',
+    r'\n'
 )
 
-print("Successfully applied GN build fixes!")
+# 8c. Remove external_js.grdp from unconditional sources
+replace_regex_in_file(
+    "ui/webui/resources/sources.gni",
+    r'\s*"\$root_gen_dir/brave/web-ui-external_js/external_js\.grdp",\n',
+    r'\n'
+)
+# 8d. Add it to the !is_android block
+replace_in_file(
+    "ui/webui/resources/sources.gni",
+    '      [ "$brave_resources_extra_grdps_path/resources.grdp" ]',
+    '      [\n        "$brave_resources_extra_grdps_path/resources.grdp",\n        "$root_gen_dir/brave/web-ui-external_js/external_js.grdp",\n      ]'
+)
+
+# 9. Also remove opaque_ke to prevent similar Android errors
+replace_regex_in_file(
+    "ui/webui/resources/BUILD.gn",
+    r'\s*"//brave/components/brave_account/resources/opaque_ke",\n',
+    r'\n'
+)
+
+# 9b. Add both to include_polymer block in BUILD.gn
+replace_in_file(
+    "ui/webui/resources/BUILD.gn",
+    '    public_deps += [ ":build_grdp" ]',
+    '    public_deps += [\n      ":build_grdp",\n      ":external_js_bundles",\n      "//brave/components/brave_account/resources/opaque_ke",\n    ]'
+)
+
+# 9c. Remove opaque_ke.grdp from unconditional sources
+replace_regex_in_file(
+    "ui/webui/resources/sources.gni",
+    r'\s*"\$root_gen_dir/brave/web-ui-opaque_ke/opaque_ke\.grdp",\n',
+    r'\n'
+)
+# 9d. Add it to the !is_android block
+replace_in_file(
+    "ui/webui/resources/sources.gni",
+    '        "$root_gen_dir/brave/web-ui-external_js/external_js.grdp",\n      ]',
+    '        "$root_gen_dir/brave/web-ui-external_js/external_js.grdp",\n        "$root_gen_dir/brave/web-ui-opaque_ke/opaque_ke.grdp",\n      ]'
+)
