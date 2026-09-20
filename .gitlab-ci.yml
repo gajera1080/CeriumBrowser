@@ -27,7 +27,6 @@ prepare_source:
   script:
     - touch build.env
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
-    - ./scripts/android/generate-icons.sh
     - ./scripts/android/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/android/verify-all.sh
     - echo "DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep .yaml | sed 's/\.yaml//' | head -n 1)" > build.env
