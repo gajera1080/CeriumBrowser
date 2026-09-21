@@ -14,7 +14,8 @@ if [[ -z "${DYNAMIC_BRAVE_VERSION:-}" && -z "${BRAVE_VERSION:-}" ]]; then
   exit 1
 fi
 
-CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${CI_COMMIT_REF_SLUG}"
+TARGET_ARCH="${TARGET_ARCH:-arm64}"
+CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
 PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,8 +31,32 @@ if [[ ! -d "${OUT_DIR}/Release" ]]; then
   exit 1
 fi
 
-mkdir -p /tmp/cache-upload
-cd /tmp/cache-upload
+# Clean transient process locks before packaging (preserve .ninja_deps for incremental builds)
+rm -f "${OUT_DIR}/Release/.siso_lock"
+
+# Verify required Siso metadata and compilation artifacts
+echo "Checking Siso state files and compilation artifacts..."
+for f in ".siso_fs_state" ".siso_deps" ".ninja_log" ".ninja_deps"; do
+  if [[ -f "${OUT_DIR}/Release/${f}" ]]; then
+    echo "  [FOUND] ${f} ($(stat -c%s "${OUT_DIR}/Release/${f}" 2>/dev/null || stat -f%z "${OUT_DIR}/Release/${f}" 2>/dev/null || echo "present") bytes)"
+  else
+    echo "  [WARNING] ${f} not found in ${OUT_DIR}/Release"
+  fi
+done
+
+if [[ -d "${OUT_DIR}/Release/.siso_local_cache" ]]; then
+  echo "  [FOUND] .siso_local_cache directory"
+fi
+if [[ -d "${OUT_DIR}/Release/obj" ]]; then
+  echo "  [FOUND] obj/ directory ($(find "${OUT_DIR}/Release/obj" -name "*.o" 2>/dev/null | wc -l) object files)"
+fi
+if [[ -d "${OUT_DIR}/Release/gen" ]]; then
+  echo "  [FOUND] gen/ directory"
+fi
+
+UPLOAD_TMP_DIR=$(mktemp -d /tmp/cache-upload-XXXXXX)
+trap 'rm -rf "${UPLOAD_TMP_DIR}"' EXIT
+cd "${UPLOAD_TMP_DIR}"
 
 # We cache compiled objects, generated headers, Ninja graph, and Siso state.
 # We exclude final apks and temporary thinlto-cache to save package storage.

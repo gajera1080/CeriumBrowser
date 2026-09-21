@@ -314,6 +314,11 @@ if [[ -d "${REPO_ROOT}/branding/android" ]]; then
     fi
   done
 
+  if [[ -f "${BRANDING_DIR}/res_brave_base/values/channel_constants.xml" ]]; then
+    mkdir -p "${THEME_DIR}/values"
+    cp -f "${BRANDING_DIR}/res_brave_base/values/channel_constants.xml" "${THEME_DIR}/values/channel_constants.xml"
+  fi
+
   if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium_base" ]]; then
     cp -rf "${BRANDING_DIR}/res_brave_base/"* "${SRC_DIR}/chrome/android/java/res_chromium_base/"
   fi
@@ -447,6 +452,7 @@ disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"
 target_android_output_format = "apk"
+use_siso = true
 
 # Debloating & Feature Disabling (Now handled by Enterprise Policies)
 # enable_brave_wallet = false
@@ -486,14 +492,75 @@ echo ""
 echo "Android GN arguments configured:"
 cat "${GN_ARGS_FILE}"
 
-# Configure Siso to store its cache inside the output directory
-export SISO_LOCAL_CACHE_DIR="${OUT_DIR}/siso_cache"
+# Configure Siso cache environment variables
+export SISO_CACHE_DIR="${OUT_DIR}/.siso_local_cache"
+export SISO_LOCAL_CACHE_DIR="${SISO_CACHE_DIR}"
 
-# Step 9: Run GN gen
-echo ""
-echo "Running gn gen from source root..."
-cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
+# Step 9: Cache Restore OR GN Gen
+#
+# CRITICAL ORDER OF OPERATIONS FOR SISO INCREMENTAL BUILDS:
+# Siso determines if a target needs rebuilding by comparing command hashes (cmdhash)
+# stored in .siso_deps/.ninja_log against the commands defined in build.ninja.
+# If we run gn gen BEFORE restoring the cache, one of two things happens:
+#   (a) gn gen generates build.ninja (A), cache overwrites it with Stage 2's build.ninja (B),
+#       but Siso finds build.ninja.d listing freshly-checked-out .gn files with newer timestamps,
+#       auto-triggers gn gen again producing build.ninja (C) — command hashes mismatch → full rebuild.
+#   (b) Even without auto-regen, the cached .siso_deps contains cmdhashes from build.ninja (B)
+#       that may differ from the local gn gen output (A), causing Siso to consider ALL targets dirty.
+#
+# SOLUTION: Download cache FIRST. If cache is present, its build.ninja is authoritative
+# (it's the exact one Stage 2 compiled against), so skip gn gen entirely. The cached
+# .siso_deps/.ninja_log cmdhashes will match perfectly → Siso skips compiled targets.
 
+CACHE_RESTORED=false
+if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
+  echo ""
+  echo -e "\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
+  if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
+    bash "${REPO_ROOT}/scripts/download-cache.sh"
+  fi
+  # Check if download-cache.sh successfully restored the cache
+  if [[ -f "${OUT_DIR}/.cache_restored" ]]; then
+    CACHE_RESTORED=true
+    echo ""
+    echo "[CACHE] Warm cache restored from Stage 2. Skipping gn gen to preserve build.ninja integrity."
+    echo "        Siso will use the cached build.ninja and skip already-compiled targets (v8, blink, etc.)."
+    # Clean the marker file
+    rm -f "${OUT_DIR}/.cache_restored"
+  fi
+fi
+
+if [[ "${CACHE_RESTORED}" == "false" ]]; then
+  # No cache available (cold build or Stage 2 cache_prep job) — run gn gen normally
+  echo ""
+  echo "Running gn gen from source root (no cache available)..."
+  cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
+else
+  # Cache restored — the cached build.ninja is authoritative for Siso.
+  # args.gn was already written at Step 8 above, and the cache extract may have overwritten
+  # it with an identical copy from Stage 2 (both stages use the same manifest and flags).
+  # Touch args.gn to match build.ninja timestamp to prevent staleness detection.
+  if [[ -f "${OUT_DIR}/build.ninja" ]]; then
+    touch -r "${OUT_DIR}/build.ninja" "${GN_ARGS_FILE}"
+  fi
+  echo "Running gn gen skipped — using cached build.ninja from Stage 2."
+  cd "${SRC_DIR}"
+fi
+
+# Configure Siso runtime settings via .sisorc and ensure backend files exist
+# -fs_keep_tainted: preserves HashFS cmdhash when local file timestamps are newer than entTime
+# -local_cache_enable & -cache_dir: enables local disk caching of action outputs
+mkdir -p "${SRC_DIR}/build/config/siso"
+cat <<EOF > "${SRC_DIR}/build/config/siso/.sisorc"
+ninja -fs_keep_tainted -local_cache_enable -cache_dir=${SISO_CACHE_DIR}
+EOF
+
+if [[ -d "${SRC_DIR}/build/config/siso/backend_config" && ! -f "${SRC_DIR}/build/config/siso/backend_config/backend.star" ]]; then
+  cp "${SRC_DIR}/build/config/siso/backend_config/template.star" "${SRC_DIR}/build/config/siso/backend_config/backend.star" 2>/dev/null || true
+fi
+if [[ ! -f "${SRC_DIR}/build/config/siso/.sisoenv" ]]; then
+  touch "${SRC_DIR}/build/config/siso/.sisoenv"
+fi
 
 if [[ "${GN_ONLY:-false}" == "true" ]]; then
   echo ""
@@ -501,18 +568,6 @@ if [[ "${GN_ONLY:-false}" == "true" ]]; then
   echo " [SUCCESS] GN configuration passed! Skipping compilation (--gn-only)."
   echo "========================================================"
   exit 0
-fi
-
-# Download and extract the Chromium warm cache AFTER source checkout, patches, hooks, and gn gen.
-# Extracting here ensures that restored object files and compilation artifacts have timestamps
-# strictly NEWER than all source files, generated headers, and ninja build graphs, preventing
-# false dirty rebuilds and allowing Siso/Ninja to skip already-built targets (v8, blink, etc.).
-if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
-  echo ""
-  echo -e "\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
-  if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
-    bash "${REPO_ROOT}/scripts/download-cache.sh"
-  fi
 fi
 
 T_NINJA_START=$(date +%s)
