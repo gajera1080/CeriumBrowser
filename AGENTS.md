@@ -110,9 +110,14 @@ Chromium + Brave compilation is massive: over 43,000 compilation steps, requirin
    - Compresses the `out/Release` directory, splitting into 4.5 GB chunks (`chunk.tar.gz.*`) with SHA256 verification (`checksums.sha256`).
    - Uses GitLab's official Package Registry API authenticated via `CI_JOB_TOKEN`:
      `PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"`
-     where `CACHE_VERSION="${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}-${CI_COMMIT_REF_SLUG}"`.
-   - In `build_android`, `download-cache.sh` verifies SHA256 checksums and extracts the cache stream (`cat chunk.* | tar -xzmf -`) directly into `out/Release` right after `gn gen` and before `autoninja`, ensuring cached object timestamps are newer than all source files, generated headers, and ninja graphs to prevent false dirty rebuilds.
+     where `CACHE_VERSION="${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}"`.
    - If no package exists (e.g. local builds), it logs `Starting cold build` and exits 0 cleanly.
+4. **Siso vs. Ninja Cache State Files (`.siso_deps` vs. `.ninja_deps`)**:
+   - Braving enables Siso (`use_siso = true` in `args.gn`) as its primary build executor.
+   - Siso uses its own HashFS and dependency database (`.siso_deps` and `.siso_fs_state`) along with `.ninja_log` to track target dependencies and command hashes (`cmdhash`).
+   - **Siso never writes or uses Ninja's legacy `.ninja_deps` binary log.** Checking for `.ninja_deps` will produce false-positive warnings.
+   - **Rule for Agents**: Never require or verify `.ninja_deps` in cache upload/download routines or validation scripts. The authoritative state files for Siso are `.siso_fs_state`, `.siso_deps`, and `.ninja_log`.
+   - **Preventing Manifest Regeneration**: `download-cache.sh` intentionally removes `build.ninja.d` upon restore so Siso does not compare freshly checked-out source timestamps against `build.ninja` inputs, preserving the cached build graph and command hashes.
 
 ---
 

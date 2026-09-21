@@ -154,11 +154,16 @@ Compiling Chromium + Brave takes 40,000+ steps (~1.5 to 3.5 hours on 32-core run
 We split compilation across stages and bridge them using the **GitLab Generic Package Registry**:
 - **Stage 1 (`prepare_source`)**: Lightweight runner. Resolves versions, shallow-fetches `brave-core`, applies mutators, downloads offline filter lists, generates branding icons.
 - **Stage 2 (`prepare_chromium_cache`)**: Heavy runner (`2xlarge`). Syncs Chromium dependencies, generates GN args, compiles heavy common sub-targets (`v8` and `blink`).
-  - Calls `scripts/upload-cache.sh`: compresses `out/Release` (excluding APKs and temporary ThinLTO files), splits into 4.5 GB chunks (`chunk.tar.gz.*`), generates SHA256 checksums (`checksums.sha256`), and uploads to the GitLab Generic Package Registry under `${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}-${CI_COMMIT_REF_SLUG}` using the runner's ephemeral `CI_JOB_TOKEN`.
+  - Calls `scripts/upload-cache.sh`: compresses `out/Release` (excluding APKs and temporary ThinLTO files), splits into 4.5 GB chunks (`chunk.tar.gz.*`), generates SHA256 checksums (`checksums.sha256`), and uploads to the GitLab Generic Package Registry under `${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}` using the runner's ephemeral `CI_JOB_TOKEN`.
 - **Stage 3 (`build_android`)**: Heavy runner (`2xlarge`).
   - Automatically invokes `scripts/download-cache.sh` right after `gn gen` and before `autoninja`.
-  - Verifies SHA256 checksums and streams `cat chunk.* | tar -xzmf -` directly into `out/Release`.
+  - Verifies SHA256 checksums and streams `cat chunk.* | tar -xzf -` directly into `out/Release`.
   - Siso/Ninja sees pre-compiled object files for `v8` and `blink` with timestamps newer than all source files and generated headers, skipping thousands of heavy steps and finishing target compilation and APK packaging well before runner timeouts.
+
+#### Siso Cache State Files vs. Ninja (`.siso_deps` vs. `.ninja_deps`)
+- When `use_siso = true`, Siso tracks dependencies through `.siso_deps` and `.siso_fs_state` (and command history in `.ninja_log`).
+- **Siso never creates or updates `.ninja_deps`**. Never add checks, warnings, or scripts expecting `.ninja_deps`.
+- `download-cache.sh` automatically deletes `build.ninja.d` to prevent Siso from triggering an accidental `gn gen` due to source file checkout timestamps.
 
 ```mermaid
 sequenceDiagram
