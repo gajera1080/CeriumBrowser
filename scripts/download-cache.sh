@@ -55,10 +55,7 @@ mkdir -p "${OUT_DIR}"
 # Use -m to touch extracted files to extraction time
 cat chunk.tar.gz.* | tar -xzmf - -C "${OUT_DIR}"
 
-# Clean only the process lock file (preserve .ninja_deps for incremental builds!)
-# .ninja_deps contains the implicit header dependency database that Siso/Ninja
-# needs to determine which object files depend on which headers. Without it,
-# Siso cannot skip already-compiled targets and must rebuild everything.
+# Clean the process lock file
 rm -f "${OUT_DIR}/Release/.siso_lock"
 
 # CRITICAL: Delete build.ninja.d to prevent Siso from auto-triggering gn gen.
@@ -99,8 +96,10 @@ fi
 touch "${OUT_DIR}/Release/.cache_restored"
 
 # Verify restored Siso state
+# NOTE: .ninja_deps is NOT checked because Siso (use_siso=true) uses its own
+# .siso_deps/.siso_fs_state for dependency tracking and never writes .ninja_deps.
 echo "Restored Siso state files:"
-for f in ".siso_fs_state" ".siso_deps" ".ninja_log" ".ninja_deps"; do
+for f in ".siso_fs_state" ".siso_deps" ".ninja_log"; do
   if [[ -f "${OUT_DIR}/Release/${f}" ]]; then
     echo "  [RESTORED] ${f} ($(stat -c%s "${OUT_DIR}/Release/${f}" 2>/dev/null || stat -f%z "${OUT_DIR}/Release/${f}" 2>/dev/null || echo "present") bytes)"
   else

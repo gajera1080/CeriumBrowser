@@ -31,12 +31,14 @@ if [[ ! -d "${OUT_DIR}/Release" ]]; then
   exit 1
 fi
 
-# Clean transient process locks before packaging (preserve .ninja_deps for incremental builds)
+# Clean transient process locks before packaging
 rm -f "${OUT_DIR}/Release/.siso_lock"
 
 # Verify required Siso metadata and compilation artifacts
+# NOTE: .ninja_deps is NOT checked because Siso (use_siso=true) uses its own
+# .siso_deps/.siso_fs_state for dependency tracking and never writes .ninja_deps.
 echo "Checking Siso state files and compilation artifacts..."
-for f in ".siso_fs_state" ".siso_deps" ".ninja_log" ".ninja_deps"; do
+for f in ".siso_fs_state" ".siso_deps" ".ninja_log"; do
   if [[ -f "${OUT_DIR}/Release/${f}" ]]; then
     echo "  [FOUND] ${f} ($(stat -c%s "${OUT_DIR}/Release/${f}" 2>/dev/null || stat -f%z "${OUT_DIR}/Release/${f}" 2>/dev/null || echo "present") bytes)"
   else
