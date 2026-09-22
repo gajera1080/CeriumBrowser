@@ -369,23 +369,29 @@ echo ""
 echo "Applying Braving patches to brave-core..."
 
 PATCHES=()
-while IFS= read -r -d $'\0' file; do
-  PATCHES+=("$file")
-done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
+if [[ -d "${PATCH_DIR}" ]]; then
+  while IFS= read -r -d $'\0' file; do
+    PATCHES+=("$file")
+  done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
+fi
 
-for patch in "${PATCHES[@]}"; do
-  pname=$(basename "$patch")
-  echo " - Applying ${pname}..."
-  if git -C "${BRAVE_DIR}" apply --check --reverse "$patch" 2>/dev/null; then
-    echo "   [OK] Patch ${pname} already applied."
-  elif git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null; then
-    git -C "${BRAVE_DIR}" apply "$patch"
-    echo "   [OK] Patch ${pname} successfully applied."
-  else
-    echo "ERROR: Patch ${pname} failed to apply and is not already applied. Aborting to fail closed." >&2
-    exit 1
-  fi
-done
+if [[ ${#PATCHES[@]} -eq 0 ]]; then
+  echo " - No patches found in ${PATCH_DIR} (all modifications handled via mutators)."
+else
+  for patch in "${PATCHES[@]}"; do
+    pname=$(basename "$patch")
+    echo " - Applying ${pname}..."
+    if git -C "${BRAVE_DIR}" apply --check --reverse "$patch" 2>/dev/null; then
+      echo "   [OK] Patch ${pname} already applied."
+    elif git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null; then
+      git -C "${BRAVE_DIR}" apply "$patch"
+      echo "   [OK] Patch ${pname} successfully applied."
+    else
+      echo "ERROR: Patch ${pname} failed to apply and is not already applied. Aborting to fail closed." >&2
+      exit 1
+    fi
+  done
+fi
 
 # 3. Apply GN-only programmatic fixes (these handle conditional GN array modifications
 #    that standard patches cannot do safely across upstream version bumps)

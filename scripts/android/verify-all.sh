@@ -37,20 +37,26 @@ echo "=== Step 1/5: Manifest & Upstream Metadata Validation ==="
 python3 "${REPO_ROOT}/scripts/tests/test_manifest.py"
 
 echo ""
-echo "=== Step 2/5: Mutator Script Syntax Verification ==="
-echo " [OK] Python mutators are validated dynamically during execution."
+echo "=== Step 2/5: Mutator Script Syntax & Unit Tests Verification ==="
+python3 -m py_compile "${REPO_ROOT}/scripts/android"/*.py
+python3 "${REPO_ROOT}/scripts/tests/test_mutators.py"
+python3 "${REPO_ROOT}/scripts/tests/test_cache_scripts.py"
+echo " [OK] Python mutators and unit tests verified successfully."
 
 echo ""
 echo "=== Step 3/5: Patch Set Verification ==="
 PATCH_DIR="${REPO_ROOT}/patches"
-PATCH_COUNT=$(find "${PATCH_DIR}" -name "*.patch" 2>/dev/null | wc -l)
+PATCH_COUNT=0
+if [[ -d "${PATCH_DIR}" ]]; then
+  PATCH_COUNT=$(find "${PATCH_DIR}" -name "*.patch" 2>/dev/null | wc -l)
+fi
 if [[ ${PATCH_COUNT} -gt 0 ]]; then
   echo " [OK] Found ${PATCH_COUNT} patch file(s) in ${PATCH_DIR}/"
   find "${PATCH_DIR}" -name "*.patch" | sort | while read -r p; do
     echo "      - $(basename "$p")"
   done
 else
-  echo " [WARN] No .patch files found in ${PATCH_DIR}/"
+  echo " [OK] No .patch files found in ${PATCH_DIR}/ (all modifications handled via mutators)."
 fi
 
 echo ""

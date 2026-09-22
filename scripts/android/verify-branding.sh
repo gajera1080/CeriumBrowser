@@ -27,12 +27,18 @@ for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   fi
 done
 
-# 2. Check branding mutator for package ID remapping
-echo "Checking branding mutator script for package ID..."
-if grep -Fq '"com.brave.browser", "org.braving.browser"' "${REPO_ROOT}/scripts/android/apply-branding.py"; then
-  echo " [OK] Package ID remapping (com.brave.browser -> org.braving.browser) present in mutator."
+# 2. Check channel constants branding and build package ID enforcement
+echo "Checking channel constants branding and package ID enforcement..."
+if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/values/channel_constants.xml" ]] && grep -Fq '<string name="app_name" translatable="false">Braving</string>' "${REPO_ROOT}/branding/android/res_brave_base/values/channel_constants.xml"; then
+  echo " [OK] Channel constants (res_brave_base/values/channel_constants.xml) specify app_name: Braving."
 else
-  echo "ERROR: apply-branding.py does not remap package ID." >&2
+  echo "ERROR: Missing or invalid channel_constants.xml." >&2
+  FAILURES=$((FAILURES + 1))
+fi
+if grep -Fq 'chrome_public_manifest_package = "${PACKAGE_ID}"' "${REPO_ROOT}/scripts/android/build-android.sh"; then
+  echo " [OK] Package ID enforcement (chrome_public_manifest_package) present in build-android.sh."
+else
+  echo "ERROR: build-android.sh does not configure chrome_public_manifest_package." >&2
   FAILURES=$((FAILURES + 1))
 fi
 

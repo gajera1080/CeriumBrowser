@@ -15,3 +15,6 @@ __pycache__/
 *~
 /metadata/
 __pycache__/
+.agents/ORIGINAL_REQUEST.md
+.agents/sentinel/
+.agents/teamwork_preview_*/

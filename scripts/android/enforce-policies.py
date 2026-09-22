@@ -59,37 +59,62 @@ def patch_cpp(filepath, search, replace):
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"Patched C++ {filepath}")
-
-# Force Disable P3A (Privacy Preserving Product Analytics)
-patch_cpp("components/p3a/p3a_service.cc", 
-          "registry->RegisterBooleanPref(kP3AEnabled,\n                                !BUILDFLAG(IS_BRAVE_ORIGIN_BRANDED));", 
-          "registry->RegisterBooleanPref(kP3AEnabled,\n                                false);")
-
-# Force Disable Statistics Ping Reporting
-patch_cpp("browser/brave_local_state_prefs.cc", 
-          "registry->RegisterBooleanPref(kStatsReportingEnabled, true);", 
-          "registry->RegisterBooleanPref(kStatsReportingEnabled, false);")
-
-
-# Hide Web Discovery Project in Settings
-patch_cpp("android/java/org/chromium/chrome/browser/settings/BraveOriginPreferences.java",
-          "PREF_WEB_DISCOVERY_PROJECT_SWITCH.equals(preferenceKey)",
-          "false")
+    else:
+        msg = f"Search string not found in {filepath}: {search[:50]}..."
+        if STRICT:
+            print(f"ERROR: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"WARNING: {msg}")
 
 # Remove Brave Origin from Settings Menu
 patch_cpp("android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java",
           "if (ChromeFeatureList.isEnabled(BraveFeatureList.BRAVE_ORIGIN)) {",
           "if (false) {")
 
-# Unlock Brave Origin for Backend Changes
+# Safe Brave Origin Backend Enablement
+# 1. Feature flag enabled and IsBraveOriginPurchased safely returns manager->IsInitialized()
 patch_cpp("components/brave_origin/brave_origin_utils.cc",
           "bool IsBraveOriginFeatureEnabled() {\n  return base::FeatureList::IsEnabled(features::kBraveOrigin);\n}",
           "bool IsBraveOriginFeatureEnabled() {\n  return true;\n}")
 
+patch_cpp("components/brave_origin/brave_origin_utils.cc",
+          "  auto* manager = BraveOriginPolicyManager::GetInstance();\n  return manager->IsInitialized() && manager->IsPurchased();",
+          "  auto* manager = BraveOriginPolicyManager::GetInstance();\n  return manager->IsInitialized();")
+
+# 2. Stub CheckPurchaseState and IsPurchased in BraveOriginService
+patch_cpp("components/brave_origin/brave_origin_service.cc",
+          """void BraveOriginService::CheckPurchaseState(
+    base::OnceCallback<void(bool)> callback) {
+  if (!EnsureSkusConnected()) {
+    std::move(callback).Run(IsPurchased());
+    return;
+  }
+
+  skus_service_->CredentialSummary(
+      origin_sku_domain_,
+      base::BindOnce(&BraveOriginService::OnCredentialSummary,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+bool BraveOriginService::IsPurchased() const {
+  return BraveOriginPolicyManager::GetInstance()->IsPurchased();
+}""",
+          """void BraveOriginService::CheckPurchaseState(
+    base::OnceCallback<void(bool)> callback) {
+  std::move(callback).Run(true);
+}
+
+bool BraveOriginService::IsPurchased() const {
+  return true;
+}""")
+
 # Force Enforce Braving Debloat Enterprise Policies in C++
+# Anchored inside LoadPolicies() after policy::PolicyBundle bundle;
 patch_cpp("components/brave_policy/brave_browser_policy_provider.cc",
-          "  return bundle;\n}",
-          """
+          "policy::PolicyBundle BraveBrowserPolicyProvider::LoadPolicies() {\n  policy::PolicyBundle bundle;",
+          """policy::PolicyBundle BraveBrowserPolicyProvider::LoadPolicies() {
+  policy::PolicyBundle bundle;
+
   // Braving: Enforce debloat policies via Enterprise Policy
   policy::PolicyMap& pm = bundle.Get(policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, std::string()));
   auto enforce = [&](const char* name, bool val) {
@@ -104,11 +129,15 @@ patch_cpp("components/brave_policy/brave_browser_policy_provider.cc",
   enforce("BraveTalkDisabled", true);
   enforce("BraveStatsPingEnabled", false);
   enforce("BraveWebDiscoveryEnabled", false);
-
-  return bundle;
-}""")
+  enforce("BraveP3AEnabled", false);
+  enforce("BraveWaybackMachineEnabled", false);
+  enforce("BraveLocalAIEnabled", false);""")
 
 # Pre-seed direct uBlock Origin & EasyList subscriptions in Shields
+patch_cpp("components/brave_shields/content/browser/ad_block_service.cc",
+          '#include "brave/components/brave_shields/content/browser/ad_block_service.h"',
+          '#include "brave/components/brave_shields/content/browser/ad_block_service.h"\n#include "base/values.h"')
+
 patch_cpp("components/brave_shields/content/browser/ad_block_service.cc",
           "  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions);",
           """  // Braving: Pre-seed direct uBlock Origin & EasyList subscription sources

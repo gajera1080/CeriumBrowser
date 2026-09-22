@@ -71,6 +71,17 @@ prepare_chromium_cache:
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
+    - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
+    - |
+      if [ "${FORCE_CACHE_REBUILD:-false}" == "true" ]; then
+        echo "FORCE_CACHE_REBUILD is true. Forcing a cold build."
+      else
+        echo "Checking if cache ${CACHE_VERSION} exists in the Packages API..."
+        if curl -s --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages?package_type=generic&package_name=braving-cache" | grep -q "\"version\":\"${CACHE_VERSION}\""; then
+          echo "Cache ${CACHE_VERSION} already exists in registry! Skipping Stage 2."
+          exit 0
+        fi
+      fi
     - echo "Building isolated heavy targets (v8 & blink) to generate warm cache..."
     - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - ./scripts/upload-cache.sh

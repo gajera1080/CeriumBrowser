@@ -49,4 +49,3 @@ grd_files = [
 for f in grd_files:
     replace_in_file(f, "Brave", "Braving")
 
-replace_in_file("build/commands/lib/buildArgs.ts", "com.brave.browser", "org.braving.browser")

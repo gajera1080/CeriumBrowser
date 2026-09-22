@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <string name="app_name" translatable="false">Braving</string>
+    <string name="bookmark_widget_title" translatable="false">Braving bookmarks</string>
+    <string name="search_widget_title" translatable="false">Braving search</string>
+    <string name="quick_action_search_widget_title" translatable="false">Braving quick action search</string>
+</resources>
