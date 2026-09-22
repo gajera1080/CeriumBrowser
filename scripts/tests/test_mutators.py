@@ -220,45 +220,13 @@ void RegisterPrefsForAdBlockService(PrefRegistrySimple* registry) {
 
         print("PASS: test_enforce_policies")
 
-def test_apply_branding():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        grd_path = os.path.join(tmpdir, "browser/ui/android/strings/android_brave_strings.grd")
-        os.makedirs(os.path.dirname(grd_path), exist_ok=True)
-        with open(grd_path, "w") as f:
-            f.write("""<?xml version="1.0" encoding="utf-8"?>
-<grit>
-  <messages>
-    <message name="IDS_BRAVE_TITLE" desc="Title of Brave app">
-      Welcome to Brave Browser
-    </message>
-  </messages>
-</grit>
-""")
-
-        script = os.path.join(REPO_ROOT, "scripts/android/apply-branding.py")
-        res = subprocess.run([sys.executable, script, tmpdir], capture_output=True, text=True)
-        assert res.returncode == 0, f"apply-branding failed: {res.stderr}\n{res.stdout}"
-
-        with open(grd_path) as f:
-            content = f.read()
-        # Verify XML name attribute is preserved
-        assert 'name="IDS_BRAVE_TITLE"' in content
-        # Verify text node is de-branded
-        assert "Welcome to Braving Browser" in content
-
-        # Verify idempotence
-        res_idem = subprocess.run([sys.executable, script, tmpdir], capture_output=True, text=True)
-        assert res_idem.returncode == 0, f"apply-branding idempotence failed: {res_idem.stderr}"
-        assert "Skipped" in res_idem.stdout
-
-        print("PASS: test_apply_branding")
 
 if __name__ == "__main__":
     try:
         test_apply_features()
         test_enforce_policies()
-        test_apply_branding()
         print("ALL MUTATOR TESTS PASSED.")
     except Exception as e:
+        import sys
         print(f"FAILED: {e}", file=sys.stderr)
         sys.exit(1)

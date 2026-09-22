@@ -27,27 +27,19 @@ for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   fi
 done
 
-# 2. Check channel constants branding and build package ID enforcement
-echo "Checking channel constants branding and package ID enforcement..."
-if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/values/channel_constants.xml" ]] && grep -Fq '<string name="app_name" translatable="false">Braving</string>' "${REPO_ROOT}/branding/android/res_brave_base/values/channel_constants.xml"; then
-  echo " [OK] Channel constants (res_brave_base/values/channel_constants.xml) specify app_name: Braving."
+# 2. Check for branding patch
+echo "Checking branding patch..."
+if [[ -f "${REPO_ROOT}/patches/android/0001-braving-branding.patch" ]]; then
+  echo " [OK] Branding patch found."
 else
-  echo "ERROR: Missing or invalid channel_constants.xml." >&2
+  echo "ERROR: patches/android/0001-braving-branding.patch is missing." >&2
   FAILURES=$((FAILURES + 1))
 fi
+
 if grep -Fq 'chrome_public_manifest_package = "${PACKAGE_ID}"' "${REPO_ROOT}/scripts/android/build-android.sh"; then
   echo " [OK] Package ID enforcement (chrome_public_manifest_package) present in build-android.sh."
 else
   echo "ERROR: build-android.sh does not configure chrome_public_manifest_package." >&2
-  FAILURES=$((FAILURES + 1))
-fi
-
-# 3. Check for application label replacement script
-echo "Checking branding mutator script..."
-if [[ -f "${REPO_ROOT}/scripts/android/apply-branding.py" ]] && grep -Fq 'replace_in_file(f, "Brave", "Braving")' "${REPO_ROOT}/scripts/android/apply-branding.py"; then
-  echo " [OK] Branding mutator properly targets Brave -> Braving."
-else
-  echo "ERROR: apply-branding.py is missing or missing expected replacements." >&2
   FAILURES=$((FAILURES + 1))
 fi
 

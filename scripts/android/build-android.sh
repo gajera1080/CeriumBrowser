@@ -362,7 +362,6 @@ if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
 fi
 
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
-python3 "${REPO_ROOT}/scripts/android/apply-branding.py" "${BRAVE_DIR}"
 bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 
 echo "Pruning Android Settings UI bloatware..."
