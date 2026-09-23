@@ -43,57 +43,33 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
-# 4. Check master logo
-echo "Checking Braving master logo..."
+# 4. Check master vector logo
+echo "Checking Braving master vector logo..."
 if [[ -f "${REPO_ROOT}/branding/logo.svg" ]]; then
-  echo " [OK] Master logo exists: branding/logo.svg"
-elif [[ -f "${REPO_ROOT}/branding/logo.png" ]]; then
-  echo " [OK] Master logo exists: branding/logo.png"
+  echo " [OK] Master vector logo exists: branding/logo.svg"
 else
   echo "ERROR: Missing master logo at ${REPO_ROOT}/branding/logo.svg" >&2
   FAILURES=$((FAILURES + 1))
 fi
 
-# 5. Check launcher icon densities (legacy & adaptive)
-echo "Checking Android launcher icon densities..."
-DENSITIES=("mdpi" "hdpi" "xhdpi" "xxhdpi" "xxxhdpi")
-for d in "${DENSITIES[@]}"; do
-  # Standard launcher icon
-  f="${REPO_ROOT}/branding/android/res_brave_base/mipmap-${d}/app_icon.png"
-  if [[ ! -f "${f}" ]]; then
-    echo "ERROR: Missing app_icon.png for density ${d}" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  
-  # Adaptive foreground
-  fg="${REPO_ROOT}/branding/android/res_brave_base/mipmap-${d}/layered_app_icon.png"
-  if [[ ! -f "${fg}" ]]; then
-    echo "ERROR: Missing layered_app_icon.png (foreground) for density ${d}" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  
-  # Adaptive background
-  bg="${REPO_ROOT}/branding/android/res_brave_base/mipmap-${d}/layered_app_icon_background.png"
-  if [[ ! -f "${bg}" ]]; then
-    echo "ERROR: Missing layered_app_icon_background.png (background) for density ${d}" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-done
-if [[ ${FAILURES} -eq 0 ]]; then
-  echo " [OK] All legacy & adaptive launcher icon densities verified (foreground & background)."
+# 5. Check Android Vector Drawable logo
+echo "Checking Android vector logo drawable..."
+if [[ -f "${REPO_ROOT}/branding/android/drawable/ic_brave_logo.xml" ]]; then
+  echo " [OK] Vector drawable exists: branding/android/drawable/ic_brave_logo.xml"
+else
+  echo "ERROR: Missing vector logo drawable at ${REPO_ROOT}/branding/android/drawable/ic_brave_logo.xml" >&2
+  FAILURES=$((FAILURES + 1))
 fi
 
-# 6. Check First Run Experience (FRE) splash screen logos
-echo "Checking FRE splash screen logos..."
-for d in "${DENSITIES[@]}"; do
-  fre="${REPO_ROOT}/branding/android/res_brave/drawable-${d}/fre_product_logo.png"
-  if [[ ! -f "${fre}" ]]; then
-    echo "ERROR: Missing fre_product_logo.png for density ${d}" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-done
-if [[ ${FAILURES} -eq 0 ]]; then
-  echo " [OK] All FRE splash logo densities verified."
+# 6. Verify zero raster PNG files exist in branding/ (pure vector policy)
+echo "Checking for illegal raster PNG files in branding/..."
+FOUND_PNGS=$(find "${REPO_ROOT}/branding" -name "*.png" 2>/dev/null || true)
+if [[ -n "${FOUND_PNGS}" ]]; then
+  echo "ERROR: Found raster PNG files in branding/ (pure vector required):" >&2
+  echo "${FOUND_PNGS}" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] Pure vector policy verified (no raster PNG files in branding/)."
 fi
 
 # 7. Check Android 13+ Themed Vector Icon (in drawable and drawable-night)

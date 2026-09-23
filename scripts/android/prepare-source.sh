@@ -400,23 +400,7 @@ echo "Applying GN build fixes..."
 python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict
 
 # 4. Apply Braving branding overlay and vector assets to brave-core
-BRANDING_DIR="${REPO_ROOT}/branding"
-if [[ -d "${BRANDING_DIR}" ]]; then
-  echo ""
-  echo "Applying Braving branding overlay to brave-core..."
-  THEME_DIR="${BRAVE_DIR}/app/theme/brave/android/res_brave_base"
-  mkdir -p "${THEME_DIR}"
-
-  for density_dir in "${BRANDING_DIR}/android/res_brave_base"/mipmap-*; do
-    if [[ -d "${density_dir}" ]]; then
-      density=$(basename "$density_dir")
-      mkdir -p "${THEME_DIR}/${density}"
-      cp -f "${density_dir}/app_icon.png" "${THEME_DIR}/${density}/app_icon.png" 2>/dev/null || true
-    fi
-  done
-  echo " [OK] Braving branding overlay applied to brave-core."
-fi
-
+echo ""
 bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 
 # 5. Enforce C++ native debloat policies and Brave Origin backend enablement

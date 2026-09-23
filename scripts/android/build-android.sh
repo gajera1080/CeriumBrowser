@@ -302,68 +302,15 @@ if [[ -f "${SRC_DIR}/build/install-build-deps.sh" ]]; then
 fi
 
 
-# Apply Deterministic Braving Asset Overlay to brave-core and Chromium
-if [[ -d "${REPO_ROOT}/branding/android" ]]; then
-  echo ""
-  echo "Applying Braving branding assets overlay..."
-  THEME_DIR="${BRAVE_DIR}/app/theme/brave/android"
-  BRANDING_DIR="${REPO_ROOT}/branding/android"
-
-  for base_name in "res_brave_base" "res_brave_default_base" "res_brave_beta_base" "res_brave_dev_base" "res_brave_nightly_base"; do
-    src_base="${BRANDING_DIR}/${base_name}"
-    [[ ! -d "${src_base}" ]] && src_base="${BRANDING_DIR}/res_brave_base"
-    if [[ -d "${src_base}" ]]; then
-      mkdir -p "${THEME_DIR}/${base_name}"
-      cp -rf "${src_base}/"* "${THEME_DIR}/${base_name}/"
-    fi
-  done
-
-  if [[ -f "${BRANDING_DIR}/res_brave_base/values/channel_constants.xml" ]]; then
-    mkdir -p "${THEME_DIR}/values"
-    cp -f "${BRANDING_DIR}/res_brave_base/values/channel_constants.xml" "${THEME_DIR}/values/channel_constants.xml"
-  fi
-
-  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium_base" ]]; then
-    cp -rf "${BRANDING_DIR}/res_brave_base/"* "${SRC_DIR}/chrome/android/java/res_chromium_base/"
-  fi
-
-  for fre_name in "res_brave" "res_brave_default" "res_brave_beta" "res_brave_dev" "res_brave_nightly"; do
-    src_fre="${BRANDING_DIR}/${fre_name}"
-    [[ ! -d "${src_fre}" ]] && src_fre="${BRANDING_DIR}/res_brave"
-    if [[ -d "${src_fre}" ]]; then
-      mkdir -p "${THEME_DIR}/${fre_name}"
-      cp -rf "${src_fre}/"* "${THEME_DIR}/${fre_name}/"
-    fi
-  done
-
-  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium" ]]; then
-    cp -rf "${BRANDING_DIR}/res_brave/"* "${SRC_DIR}/chrome/android/java/res_chromium/"
-  fi
-
-  for density_dir in "${BRANDING_DIR}/mipmap-"*; do
-    if [[ -d "${density_dir}" ]]; then
-      density=$(basename "$density_dir")
-      mkdir -p "${THEME_DIR}/${density}"
-      cp -f "${density_dir}/app_icon.png" "${THEME_DIR}/${density}/app_icon.png" 2>/dev/null || true
-    fi
-  done
-
-  echo " [OK] Braving branding overlay applied to brave-core."
-fi
+# Apply Braving vector assets overlay strictly into brave-core
+bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 
 echo ""
 echo "2. Applying Brave patches (1108+) to Chromium..."
 (cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
 
-if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
-  echo " Overlaying dedicated Braving Shields toolbar vector drawables..."
-  LEO_DRAWABLE="${BRAVE_DIR}/node_modules/@brave/leo/tokens/android/drawable"
-  if [[ -d "${LEO_DRAWABLE}" ]]; then
-    cp -f "${BRANDING_DIR}/shields_drawables/"*.xml "${LEO_DRAWABLE}/"
-  else
-    echo "WARNING: ${LEO_DRAWABLE} not found after pnpm install."
-  fi
-fi
+# Re-run apply-assets to overlay Shields vector drawables into newly installed @brave/leo node_modules
+bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
 
@@ -384,16 +331,6 @@ echo "4. Running gclient hooks on patched Chromium..."
 echo ""
 echo "5. Propagating branding and touching overridden files..."
 (cd "${BRAVE_DIR}" && pnpm run build --prepare_only --target_os=android --target_arch="${TARGET_ARCH}")
-
-# Ensure Braving branding assets (including themed_app_icon.xml in drawable & drawable-night) are present in res_chromium_base
-if [[ -d "${BRANDING_DIR}" ]]; then
-  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium_base" && -d "${BRANDING_DIR}/res_brave_base" ]]; then
-    cp -rf "${BRANDING_DIR}/res_brave_base/"* "${SRC_DIR}/chrome/android/java/res_chromium_base/"
-  fi
-  if [[ -d "${SRC_DIR}/chrome/android/java/res_chromium" && -d "${BRANDING_DIR}/res_brave" ]]; then
-    cp -rf "${BRANDING_DIR}/res_brave/"* "${SRC_DIR}/chrome/android/java/res_chromium/"
-  fi
-fi
 
 # Verify //brave/build/version.gni was generated, or generate it now
 if [[ -f "${BRAVE_DIR}/build/util/version.py" && -f "${SRC_DIR}/chrome/VERSION" && ! -f "${BRAVE_DIR}/build/version.gni" ]]; then
