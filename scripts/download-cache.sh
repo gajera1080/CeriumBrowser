@@ -27,21 +27,21 @@ DOWNLOAD_TMP_DIR=$(mktemp -d /tmp/cache-download-XXXXXX)
 trap 'rm -rf "${DOWNLOAD_TMP_DIR}"' EXIT
 cd "${DOWNLOAD_TMP_DIR}"
 
-echo "Fetching checksums..."
-# If checksums file doesn't exist, this means no cache was found. Fail gracefully.
-HTTP_CODE=$(curl -s -o checksums.sha256 -w "%{http_code}" --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${PKG_URL}/checksums.sha256")
+echo "Fetching checksums from ${PKG_URL}/checksums.sha256..."
+# Use -sL (--location) so curl follows 302 redirects to object storage (e.g. Google Cloud Storage on GitLab SaaS)
+HTTP_CODE=$(curl -sL -o checksums.sha256 -w "%{http_code}" --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${PKG_URL}/checksums.sha256")
 
 if [[ "${HTTP_CODE}" != "200" ]]; then
   echo "No cache found for ${CACHE_VERSION} (HTTP ${HTTP_CODE}). Starting cold build."
   exit 0
 fi
 
-echo "Cache manifest found:"
+echo "Cache manifest found (HTTP ${HTTP_CODE}):"
 cat checksums.sha256
 
 for chunk in $(awk '{print $2}' checksums.sha256); do
   echo "Downloading ${chunk}..."
-  curl --fail --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${PKG_URL}/${chunk}" -o "${chunk}"
+  curl --fail --silent --show-error --location --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${PKG_URL}/${chunk}" -o "${chunk}"
 done
 
 echo "Verifying SHA256 checksums..."
@@ -52,8 +52,8 @@ fi
 
 echo "Extracting cache to ${OUT_DIR}..."
 mkdir -p "${OUT_DIR}"
-# Use -m to touch extracted files to extraction time
-cat chunk.tar.gz.* | tar -xzmf - -C "${OUT_DIR}"
+# Extract without -m to preserve original compiler timestamps from Stage 2
+cat chunk.tar.gz.* | tar -xzf - -C "${OUT_DIR}"
 
 # Clean the process lock file
 rm -f "${OUT_DIR}/Release/.siso_lock"

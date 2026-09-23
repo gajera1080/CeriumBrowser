@@ -102,6 +102,10 @@ CHROMIUM_COMMIT=$(extract_manifest_val "chromium_commit")
 CHROMIUM_VERSION=$(extract_manifest_val "chromium_version")
 PACKAGE_ID=$(extract_manifest_val "package_id" "org.braving.browser")
 
+export BRAVE_VERSION
+export DYNAMIC_BRAVE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}"
+export TARGET_ARCH
+
 echo "Manifest Target Revisions:"
 echo " - brave-core version: ${BRAVE_VERSION} (${BRAVE_CORE_COMMIT})"
 echo " - Chromium version  : ${CHROMIUM_VERSION} (${CHROMIUM_COMMIT})"

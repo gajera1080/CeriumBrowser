@@ -86,10 +86,10 @@ class TestSisoCachePipeline(unittest.TestCase):
             source_file.write_text("// fresh source checked out in Stage 3")
             t_source = source_file.stat().st_mtime
 
-            # 4. Extract cache with tar -xzmf
+            # 4. Extract cache with tar -xzf (preserve timestamps)
             extract_dir = src_dir / "out"
             extract_dir.mkdir(parents=True, exist_ok=True)
-            subprocess.run(["tar", "-xzmf", str(pkg_tar), "-C", str(extract_dir)], check=True)
+            subprocess.run(["tar", "-xzf", str(pkg_tar), "-C", str(extract_dir)], check=True)
 
             # 5. Clean lock and ninja deps as download-cache.sh does
             (out_release / ".siso_lock").unlink(missing_ok=True)

@@ -74,10 +74,10 @@ cat checksums.sha256
 
 for chunk in chunk.tar.gz.*; do
   echo "Uploading ${chunk} (limit 5GB) to Generic Package Registry..."
-  curl --fail --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "${chunk}" "${PKG_URL}/${chunk}"
+  curl --fail --silent --show-error --location --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "${chunk}" "${PKG_URL}/${chunk}"
 done
 
 echo "Uploading checksums.sha256..."
-curl --fail --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file checksums.sha256 "${PKG_URL}/checksums.sha256"
+curl --fail --silent --show-error --location --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file checksums.sha256 "${PKG_URL}/checksums.sha256"
 
 echo "Cache upload complete!"
