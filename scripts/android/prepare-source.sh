@@ -141,7 +141,17 @@ if not brave_core_commit:
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
-                brave_core_commit = data.get('object', {}).get('sha')
+                obj = data.get('object', {})
+                if obj.get('type') == 'tag' and obj.get('url'):
+                    tag_req = urllib.request.Request(
+                        obj.get('url'),
+                        headers={'User-Agent': 'Braving-CI', 'Accept': 'application/vnd.github+json'}
+                    )
+                    with urllib.request.urlopen(tag_req, timeout=10) as tag_resp:
+                        tag_data = json.loads(tag_resp.read().decode('utf-8'))
+                        brave_core_commit = tag_data.get('object', {}).get('sha')
+                else:
+                    brave_core_commit = obj.get('sha')
         except Exception:
             pass
 
@@ -355,8 +365,11 @@ if [[ ! -d "${BRAVE_DIR}/.git" ]]; then
   git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
 else
   echo "brave-core directory already exists, verifying commit..."
-  CURRENT_BRAVE_COMMIT=$(git -C "${BRAVE_DIR}" rev-parse HEAD 2>/dev/null || echo "")
-  if [[ "${CURRENT_BRAVE_COMMIT}" != "${BRAVE_CORE_COMMIT}" ]]; then
+  CURRENT_BRAVE_COMMIT=$(git -C "${BRAVE_DIR}" rev-parse "HEAD^{commit}" 2>/dev/null || echo "")
+  TARGET_BRAVE_COMMIT=$(git -C "${BRAVE_DIR}" rev-parse "${BRAVE_CORE_COMMIT}^{commit}" 2>/dev/null || echo "${BRAVE_CORE_COMMIT}")
+  if [[ -n "${CURRENT_BRAVE_COMMIT}" && "${CURRENT_BRAVE_COMMIT}" == "${TARGET_BRAVE_COMMIT}" ]]; then
+    echo "Existing brave-core is already at target revision ${CURRENT_BRAVE_COMMIT}."
+  else
     echo "Existing brave-core is at ${CURRENT_BRAVE_COMMIT}, fetching exact revision ${BRAVE_CORE_COMMIT}..."
     git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
     git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
@@ -407,6 +420,11 @@ bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 echo ""
 echo "Enforcing strict minimalist UI policies and Origin backend natively..."
 python3 "${REPO_ROOT}/scripts/android/enforce-policies.py" "${BRAVE_DIR}" --strict
+
+# 6. Apply Shields offline fallback and bundle filter lists (eliminating reliance on Brave authenticated updater)
+echo ""
+echo "Applying Shields offline fallback and bundling filter lists..."
+python3 "${REPO_ROOT}/scripts/android/apply-shields-fallback.py" "${BRAVE_DIR}" --strict
 
 echo "Phase 1: Source Preparation Complete."
 

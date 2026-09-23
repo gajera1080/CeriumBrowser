@@ -41,6 +41,7 @@ echo "=== Step 2/5: Mutator Script Syntax & Unit Tests Verification ==="
 python3 -m py_compile "${REPO_ROOT}/scripts/android"/*.py
 python3 "${REPO_ROOT}/scripts/tests/test_mutators.py"
 python3 "${REPO_ROOT}/scripts/tests/test_cache_scripts.py"
+python3 "${REPO_ROOT}/scripts/tests/test_branding.py"
 echo " [OK] Python mutators and unit tests verified successfully."
 
 echo ""
