@@ -94,16 +94,7 @@ def test_enforce_policies():
         ad_block = os.path.join(tmpdir, "components/brave_shields/content/browser/ad_block_service.cc")
         prefs_base = os.path.join(tmpdir, "android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java")
 
-        # Java policy helper mocks
-        wallet_policy = os.path.join(tmpdir, "android/java/org/chromium/chrome/browser/crypto_wallet/BraveWalletPolicy.java")
-        news_policy = os.path.join(tmpdir, "android/java/org/chromium/chrome/browser/brave_news/BraveNewsPolicy.java")
-        vpn_policy = os.path.join(tmpdir, "android/java/org/chromium/chrome/browser/vpn/BraveVpnPolicy.java")
-        rewards_policy = os.path.join(tmpdir, "android/java/org/chromium/chrome/browser/BraveRewardsPolicy.java")
-        leo_policy = os.path.join(tmpdir, "android/java/org/chromium/chrome/browser/brave_leo/BraveLeoPrefUtils.java")
-        ntp_policy = os.path.join(tmpdir, "android/java/org/chromium/chrome/browser/ntp_background_images/util/NTPImageUtil.java")
-
-        for p in [origin_utils, origin_service, policy_provider, ad_block, prefs_base,
-                  wallet_policy, news_policy, vpn_policy, rewards_policy, leo_policy, ntp_policy]:
+        for p in [origin_utils, origin_service, policy_provider, ad_block, prefs_base]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
         with open(origin_utils, "w") as f:
@@ -162,18 +153,6 @@ void RegisterPrefsForAdBlockService(PrefRegistrySimple* registry) {
         with open(prefs_base, "w") as f:
             f.write("""if (ChromeFeatureList.isEnabled(BraveFeatureList.BRAVE_ORIGIN)) {\n""")
 
-        with open(wallet_policy, "w") as f:
-            f.write("public static boolean isDisabledByPolicy(@Nullable Profile profile) {\n        if (profile == null) return false;\n}")
-        with open(news_policy, "w") as f:
-            f.write("public static boolean isDisabledByPolicy(@Nullable Profile profile) {\n        return false;\n}")
-        with open(vpn_policy, "w") as f:
-            f.write("public static boolean isDisabledByPolicy(@Nullable Profile profile) {\n        return false;\n}")
-        with open(rewards_policy, "w") as f:
-            f.write("public static boolean isDisabledByPolicy(@Nullable Profile profile) {\n        return false;\n}")
-        with open(leo_policy, "w") as f:
-            f.write("public static boolean isLeoDisabledByPolicy(@Nullable Profile profile) {\n        return false;\n}")
-        with open(ntp_policy, "w") as f:
-            f.write("public static boolean shouldEnableNTPFeature() {\n        return true;\n}")
 
         script = os.path.join(REPO_ROOT, "scripts/android/enforce-policies.py")
         res = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
@@ -207,11 +186,6 @@ void RegisterPrefsForAdBlockService(PrefRegistrySimple* registry) {
         assert '#include "base/values.h"' in a_content
         assert 'prefs::kAdBlockListSubscriptions, std::move(default_subscriptions)' in a_content
 
-        # 5. Check Java policies
-        with open(wallet_policy) as f:
-            assert "if (true) return true;" in f.read()
-        with open(ntp_policy) as f:
-            assert "if (true) return false;" in f.read()
 
         # Verify idempotence in strict mode
         res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)

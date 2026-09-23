@@ -90,9 +90,8 @@ prepare_chromium_cache:
     when: always
     paths:
       - build-workspace/build.log
-      - build-workspace/src/out/Release/siso_output
-      - build-workspace/src/out/Release/siso_failed_commands.sh
-      - build-workspace/src/out/Release/siso.INFO
+      - build-workspace/src/out/Release/siso*
+      - build-workspace/src/out/Release/.ninja_log
     expire_in: 2 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
@@ -134,9 +133,8 @@ build_android:
       - out/apks/*.apk
       - metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml
       - build-workspace/build.log
-      - build-workspace/src/out/Release/siso_output
-      - build-workspace/src/out/Release/siso_failed_commands.sh
-      - build-workspace/src/out/Release/siso.INFO
+      - build-workspace/src/out/Release/siso*
+      - build-workspace/src/out/Release/.ninja_log
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'

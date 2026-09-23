@@ -362,11 +362,6 @@ if [[ -d "${BRANDING_DIR}/shields_drawables" ]]; then
 fi
 
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
-bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
-
-echo "Pruning Android Settings UI bloatware..."
-echo "Enforcing strict minimalist UI policies natively..."
-python3 "${REPO_ROOT}/scripts/android/enforce-policies.py" "${BRAVE_DIR}"
 
 
 # Prepare Chromium VERSION and VERSION.chromium sidecar using brave-core version.py
@@ -593,9 +588,12 @@ else
   BUILD_RES=${PIPESTATUS[0]}
 fi
 
-echo "========================================================"
-echo " autoninja exited with: ${BUILD_RES}"
-echo "========================================================"
+# Collect any Siso glog files from /tmp into OUT_DIR for CI artifact upload
+for f in /tmp/siso.* /tmp/siso_*; do
+  if [[ -f "$f" ]]; then
+    cp -f "$f" "${OUT_DIR}/" 2>/dev/null || true
+  fi
+done
 
 if [[ ${BUILD_RES} -ne 0 ]]; then
   echo "========================================================"
