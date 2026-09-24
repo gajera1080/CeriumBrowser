@@ -243,8 +243,12 @@ patch_file("components/resources/brave_shields_resources.grdp",
 
 # 7. Update component updater endpoints
 patch_file("components/update_client/BUILD.gn",
-           '  updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"\n  updater_prod_endpoint = "https://go-updater.brave.com/extensions"',
-           '  updater_dev_endpoint = "https://updates.braving.org/components"\n  updater_prod_endpoint = "https://updates.braving.org/components"')
+           'updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"',
+           'updater_dev_endpoint = "https://updates.braving.org/components"')
+
+patch_file("components/update_client/BUILD.gn",
+           'updater_prod_endpoint = "https://go-updater.brave.com/extensions"',
+           'updater_prod_endpoint = "https://updates.braving.org/components"')
 
 patch_file("browser/net/brave_network_audit_allowed_lists.h",
            '"https://go-updater.brave.com/",',
