@@ -203,10 +203,11 @@ def test_apply_shields_fallback():
         cat_prov = os.path.join(tmpdir, "components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.cc")
         grd = os.path.join(tmpdir, "components/resources/brave_components_resources.grd")
         grdp = os.path.join(tmpdir, "components/resources/brave_shields_resources.grdp")
-        spec = os.path.join(tmpdir, "resources/resource_ids.spec")
         ios_res = os.path.join(tmpdir, "ios/brave-ios/Tests/ClientTests/Resources/ad-block-resources/resources.json")
+        updater_build_gn = os.path.join(tmpdir, "components/update_client/BUILD.gn")
+        allowed_lists_h = os.path.join(tmpdir, "browser/net/brave_network_audit_allowed_lists.h")
 
-        for p in [build_gn, filters_prov, res_prov, cat_prov, grd, grdp, spec, ios_res]:
+        for p in [build_gn, filters_prov, res_prov, cat_prov, grd, grdp, ios_res, updater_build_gn, allowed_lists_h]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
         with open(build_gn, "w") as f:
@@ -281,22 +282,17 @@ void AdBlockFilterListCatalogProvider::LoadFilterListCatalog(
 </grit-part>
 """)
 
-        with open(spec, "w") as f:
-            f.write("""{
-  "brave/common/extensions/api/brave_api_resources.grd": {
-    "includes": [53000],
-  },
-  "brave/components/resources/brave_components_resources.grd": {
-    "includes": [53020],
-  },
-  "brave/other/other_resources.grd": {
-    "includes": [54165],
-  },
-}
-""")
-
         with open(ios_res, "w") as f:
             f.write('[{"name": "test"}]\n')
+
+        with open(updater_build_gn, "w") as f:
+            f.write("""  updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"
+  updater_prod_endpoint = "https://go-updater.brave.com/extensions"
+""")
+
+        with open(allowed_lists_h, "w") as f:
+            f.write("""    "https://go-updater.brave.com/",
+""")
 
         script = os.path.join(REPO_ROOT, "scripts/android/apply-shields-fallback.py")
         res = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
@@ -335,18 +331,21 @@ void AdBlockFilterListCatalogProvider::LoadFilterListCatalog(
             assert 'IDR_BRAVE_SHIELDS_DEFAULT_RULES' in grdp_content
             assert 'IDR_BRAVE_SHIELDS_RESOURCES_JSON' in grdp_content
 
-        # 6. Check resource_ids.spec
-        with open(spec) as f:
-            spec_content = f.read()
-            assert '"includes": [54200]' in spec_content
-            assert spec_content.strip().endswith('},\n}')
-
-        # 7. Check provisioned fallback resources
+        # 6. Check provisioned fallback resources
         res_dir = os.path.join(tmpdir, "components/brave_shields/resources")
         assert os.path.exists(os.path.join(res_dir, "default_rules.txt"))
         assert os.path.exists(os.path.join(res_dir, "tracker_rules.txt"))
         assert os.path.exists(os.path.join(res_dir, "list_catalog.json"))
         assert os.path.exists(os.path.join(res_dir, "resources.json"))
+        
+        # 7. Check updater endpoints
+        with open(updater_build_gn) as f:
+            updater_content = f.read()
+            assert '"https://updates.braving.org/components"' in updater_content
+            
+        with open(allowed_lists_h) as f:
+            allowed_lists_content = f.read()
+            assert '"https://updates.braving.org/components/",' in allowed_lists_content
 
         # Verify idempotence
         res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)

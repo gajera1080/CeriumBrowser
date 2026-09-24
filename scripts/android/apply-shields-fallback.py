@@ -241,49 +241,17 @@ patch_file("components/resources/brave_shields_resources.grdp",
            grdp_includes)
 
 
-# 7. resources/resource_ids.spec
-def move_resource_id_to_end():
-    spec_path = os.path.join(repo_root, "resources/resource_ids.spec")
-    if not os.path.exists(spec_path):
-        msg = f"MISSING: {spec_path}"
-        if STRICT:
-            print(f"ERROR: {msg}", file=sys.stderr)
-            sys.exit(1)
-        print(f"WARNING: {msg}")
-        return
+# 7. Update component updater endpoints
+patch_file("components/update_client/BUILD.gn",
+           '"https://go-updater.brave.com/extensions"',
+           '"https://updates.braving.org/components"')
 
-    with open(spec_path, "r", encoding="utf-8") as f:
-        content = f.read()
+patch_file("components/update_client/BUILD.gn",
+           '"https://go-updater-dev.bravesoftware.com/extensions"',
+           '"https://updates.braving.org/components"')
 
-    target_key = '"brave/components/resources/brave_components_resources.grd"'
-    if "54200" in content and target_key in content:
-        print("Skipped resources/resource_ids.spec (already patched)")
-        return
+patch_file("browser/net/brave_network_audit_allowed_lists.h",
+           '"https://go-updater.brave.com/",',
+           '"https://updates.braving.org/components/",')
 
-    # Remove existing brave_components_resources.grd block
-    content = re.sub(
-        r'[ \t]*"brave/components/resources/brave_components_resources\.grd":\s*\{[^}]*\},?\n?',
-        '',
-        content
-    )
-
-    new_block = """  "brave/components/resources/brave_components_resources.grd": {
-    "includes": [54200],
-  },
-}"""
-    last_brace = content.rfind("}")
-    if last_brace != -1:
-        content = content[:last_brace] + new_block + content[last_brace + 1:]
-        with open(spec_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        print("Patched GRD IDs: resources/resource_ids.spec")
-    else:
-        msg = "Could not find closing brace in resources/resource_ids.spec"
-        if STRICT:
-            print(f"ERROR: {msg}", file=sys.stderr)
-            sys.exit(1)
-        print(f"WARNING: {msg}")
-
-move_resource_id_to_end()
-
-print("Successfully applied Shields offline fallback and resource bundling!")
+print("Successfully applied Shields offline fallback, resource bundling, and updater endpoints!")
