@@ -341,7 +341,10 @@ void AdBlockFilterListCatalogProvider::LoadFilterListCatalog(
         # 7. Check updater endpoints
         with open(updater_build_gn) as f:
             updater_content = f.read()
-            assert '"https://updates.braving.org/components"' in updater_content
+            assert 'updater_dev_endpoint = "https://updates.braving.org/components"' in updater_content
+            assert 'updater_prod_endpoint = "https://updates.braving.org/components"' in updater_content
+            assert "go-updater-dev.bravesoftware.com" not in updater_content
+            assert "go-updater.brave.com" not in updater_content
             
         with open(allowed_lists_h) as f:
             allowed_lists_content = f.read()
