@@ -363,16 +363,20 @@ if [[ ! -d "${BRAVE_DIR}/.git" ]]; then
   git -C "${BRAVE_DIR}" fetch --depth 1 origin "refs/tags/v${BRAVE_VERSION}:refs/tags/v${BRAVE_VERSION}" 2>/dev/null || \
   git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
   git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
+  git -C "${BRAVE_DIR}" clean -ffd
 else
   echo "brave-core directory already exists, verifying commit..."
   CURRENT_BRAVE_COMMIT=$(git -C "${BRAVE_DIR}" rev-parse "HEAD^{commit}" 2>/dev/null || echo "")
   TARGET_BRAVE_COMMIT=$(git -C "${BRAVE_DIR}" rev-parse "${BRAVE_CORE_COMMIT}^{commit}" 2>/dev/null || echo "${BRAVE_CORE_COMMIT}")
   if [[ -n "${CURRENT_BRAVE_COMMIT}" && "${CURRENT_BRAVE_COMMIT}" == "${TARGET_BRAVE_COMMIT}" ]]; then
-    echo "Existing brave-core is already at target revision ${CURRENT_BRAVE_COMMIT}."
+    echo "Existing brave-core is already at target revision ${CURRENT_BRAVE_COMMIT}, resetting to clean state..."
+    git -C "${BRAVE_DIR}" reset --hard "${CURRENT_BRAVE_COMMIT}"
+    git -C "${BRAVE_DIR}" clean -ffd
   else
     echo "Existing brave-core is at ${CURRENT_BRAVE_COMMIT}, fetching exact revision ${BRAVE_CORE_COMMIT}..."
     git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
     git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
+    git -C "${BRAVE_DIR}" clean -ffd
   fi
 fi
 
@@ -401,6 +405,7 @@ else
       echo "   [OK] Patch ${pname} successfully applied."
     else
       echo "ERROR: Patch ${pname} failed to apply and is not already applied. Aborting to fail closed." >&2
+      git -C "${BRAVE_DIR}" apply --check -v "$patch" >&2 || true
       exit 1
     fi
   done
