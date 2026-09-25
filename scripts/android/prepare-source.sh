@@ -416,15 +416,5 @@ python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict
 echo ""
 bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 
-# 5. Enforce C++ native debloat policies and Brave Origin backend enablement
-echo ""
-echo "Enforcing strict minimalist UI policies and Origin backend natively..."
-python3 "${REPO_ROOT}/scripts/android/enforce-policies.py" "${BRAVE_DIR}" --strict
-
-# 6. Apply Shields offline fallback and bundle filter lists (eliminating reliance on Brave authenticated updater)
-echo ""
-echo "Applying Shields offline fallback and bundling filter lists..."
-python3 "${REPO_ROOT}/scripts/android/apply-shields-fallback.py" "${BRAVE_DIR}" --strict
-
 echo "Phase 1: Source Preparation Complete."
 

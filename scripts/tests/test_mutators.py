@@ -98,70 +98,6 @@ if (!is_android && !is_ios) {
         print("PASS: test_apply_features")
 
 
-def test_enforce_policies():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        script = os.path.join(REPO_ROOT, "scripts/android/enforce-policies.py")
-        res = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
-        assert res.returncode == 0, f"enforce-policies failed: {res.stderr}\n{res.stdout}"
-
-        # Verify idempotence
-        res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
-        assert res_idem.returncode == 0, f"enforce-policies idempotence failed: {res_idem.stderr}"
-
-        # Verify policy patch existence and content
-        patch_path = os.path.join(REPO_ROOT, "patches/android/0003-enforce-debloat-policies.patch")
-        assert os.path.isfile(patch_path), f"Missing patch file: {patch_path}"
-        with open(patch_path, "r", encoding="utf-8") as f:
-            patch_content = f.read()
-
-        for pol in ["BraveWalletDisabled", "BraveVPNDisabled", "BraveAIChatEnabled", "BraveNewsDisabled",
-                    "BraveRewardsDisabled", "BraveSearchResultAdsEnabled", "BraveTalkDisabled",
-                    "BraveStatsPingEnabled", "BraveWebDiscoveryEnabled", "BraveP3AEnabled",
-                    "BraveWaybackMachineEnabled", "BraveLocalAIEnabled"]:
-            assert f'enforce("{pol}", ' in patch_content, f"Missing policy in patch 0003: {pol}"
-
-        assert "BraveOriginPolicyManager::GetInstance()->IsPurchased()" in patch_content
-        assert 'prefs::kAdBlockListSubscriptions, std::move(default_subscriptions)' in patch_content
-
-        print("PASS: test_enforce_policies")
-
-
-def test_apply_shields_fallback():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create mock source for ios resources.json
-        ios_res = os.path.join(tmpdir, "ios/brave-ios/Tests/ClientTests/Resources/ad-block-resources/resources.json")
-        os.makedirs(os.path.dirname(ios_res), exist_ok=True)
-        with open(ios_res, "w") as f:
-            f.write('[{"name": "test_resource"}]\n')
-
-        script = os.path.join(REPO_ROOT, "scripts/android/apply-shields-fallback.py")
-        res = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
-        assert res.returncode == 0, f"apply-shields-fallback failed: {res.stderr}\n{res.stdout}"
-
-        # Verify provisioned offline resources
-        res_dir = os.path.join(tmpdir, "components/brave_shields/resources")
-        assert os.path.isfile(os.path.join(res_dir, "default_rules.txt")), "Missing default_rules.txt"
-        assert os.path.isfile(os.path.join(res_dir, "tracker_rules.txt")), "Missing tracker_rules.txt"
-        assert os.path.isfile(os.path.join(res_dir, "first_party_rules.txt")), "Missing first_party_rules.txt"
-        assert os.path.isfile(os.path.join(res_dir, "cookie_rules.txt")), "Missing cookie_rules.txt"
-        assert os.path.isfile(os.path.join(res_dir, "mobile_rules.txt")), "Missing mobile_rules.txt"
-        assert os.path.isfile(os.path.join(res_dir, "list_catalog.json")), "Missing list_catalog.json"
-        assert os.path.isfile(os.path.join(res_dir, "resources.json")), "Missing resources.json"
-
-        # Check content
-        with open(os.path.join(res_dir, "resources.json")) as f:
-            assert "test_resource" in f.read()
-
-        with open(os.path.join(res_dir, "list_catalog.json")) as f:
-            assert "default-offline-list" in f.read()
-
-        # Verify idempotence on second run
-        res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
-        assert res_idem.returncode == 0, f"apply-shields-fallback idempotence failed: {res_idem.stderr}"
-
-        print("PASS: test_apply_shields_fallback")
-
-
 def test_patch_suite():
     patch_dir = os.path.join(REPO_ROOT, "patches")
     patches = []
@@ -174,18 +110,18 @@ def test_patch_suite():
     for p in patches:
         assert os.path.getsize(p) > 50, f"Patch {p} is suspiciously small"
 
-    # Verify 0002 compilation fixes and include paths
-    patch_0002 = os.path.join(REPO_ROOT, "patches/android/0002-brave-shields-offline-fallback.patch")
+    # Verify 0002 custom updater endpoint patch
+    patch_0002 = os.path.join(REPO_ROOT, "patches/android/0002-custom-updater-endpoint.patch")
+    assert os.path.isfile(patch_0002), f"Missing patch file: {patch_0002}"
     with open(patch_0002, "r", encoding="utf-8") as f:
         c0002 = f.read()
-    assert '#include "components/grit/brave_components_resources.h"' in c0002
-    assert '#include "brave/components/resources/grit/brave_components_resources.h"' not in c0002
-    assert '"//brave/components/resources:static_resources_grit"' in c0002
-    assert '"//ui/base"' in c0002
     assert 'https://updates.braving.org/components' in c0002
+    assert 'updater_dev_endpoint' in c0002
+    assert 'updater_prod_endpoint' in c0002
 
     # Verify 0003 enterprise policies and origin hooks
     patch_0003 = os.path.join(REPO_ROOT, "patches/android/0003-enforce-debloat-policies.patch")
+    assert os.path.isfile(patch_0003), f"Missing patch file: {patch_0003}"
     with open(patch_0003, "r", encoding="utf-8") as f:
         c0003 = f.read()
     assert "BraveWalletDisabled" in c0003
@@ -216,8 +152,6 @@ def test_patch_suite():
 if __name__ == "__main__":
     try:
         test_apply_features()
-        test_enforce_policies()
-        test_apply_shields_fallback()
         test_patch_suite()
         print("ALL MUTATOR & PATCH TESTS PASSED.")
     except Exception as e:

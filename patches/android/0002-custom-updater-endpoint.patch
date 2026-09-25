@@ -1,0 +1,28 @@
+diff --git a/browser/net/brave_network_audit_allowed_lists.h b/browser/net/brave_network_audit_allowed_lists.h
+index b827b398e..e7bde0e08 100644
+--- a/browser/net/brave_network_audit_allowed_lists.h
++++ b/browser/net/brave_network_audit_allowed_lists.h
+@@ -69,7 +69,7 @@ inline constexpr auto kAllowedUrlPrefixes = std::to_array<std::string_view>({
+     // Other
+     "https://brave-core-ext.s3.brave.com/",
+     "https://dict.brave.com/",
+-    "https://go-updater.brave.com/",
++    "https://updates.braving.org/components",
+     "https://redirector.brave.com/",
+     "https://safebrowsing.brave.com/",
+     "https://static.brave.com/",
+diff --git a/components/update_client/BUILD.gn b/components/update_client/BUILD.gn
+index a3c19dfff..d9f2d4eb6 100644
+--- a/components/update_client/BUILD.gn
++++ b/components/update_client/BUILD.gn
+@@ -6,8 +6,8 @@
+ import("//build/buildflag_header.gni")
+ 
+ declare_args() {
+-  updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"
+-  updater_prod_endpoint = "https://go-updater.brave.com/extensions"
++  updater_dev_endpoint = "https://updates.braving.org/components"
++  updater_prod_endpoint = "https://updates.braving.org/components"
+ }
+ 
+ if (is_official_build) {
