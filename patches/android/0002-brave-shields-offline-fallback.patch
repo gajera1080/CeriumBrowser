@@ -1,0 +1,211 @@
+From: Braving Authors <support@braving.org>
+Date: Fri, 5 Sep 2026 10:20:00 +0000
+Subject: [PATCH] [shields] Offline ad-block fallback and updater endpoints
+
+This patch bundles offline fallback rules for brave shields and updates
+the component updater endpoints to Braving infrastructure.
+---
+
+diff --git a/browser/net/brave_network_audit_allowed_lists.h b/browser/net/brave_network_audit_allowed_lists.h
+index b827b398e..5a93fbdf8 100644
+--- a/browser/net/brave_network_audit_allowed_lists.h
++++ b/browser/net/brave_network_audit_allowed_lists.h
+@@ -69,7 +69,7 @@ inline constexpr auto kAllowedUrlPrefixes = std::to_array<std::string_view>({
+     // Other
+     "https://brave-core-ext.s3.brave.com/",
+     "https://dict.brave.com/",
+-    "https://go-updater.brave.com/",
++    "https://updates.braving.org/components",
+     "https://redirector.brave.com/",
+     "https://safebrowsing.brave.com/",
+     "https://static.brave.com/",
+diff --git a/components/brave_shields/core/browser/BUILD.gn b/components/brave_shields/core/browser/BUILD.gn
+index d626c8bc6..d44483303 100644
+--- a/components/brave_shields/core/browser/BUILD.gn
++++ b/components/brave_shields/core/browser/BUILD.gn
+@@ -42,6 +42,9 @@ static_library("browser") {
+   ]
+   deps = [
+     "//base",
++    "//brave/components/resources",
++    "//brave/components/resources:static_resources_grit",
++    "//ui/base",
+     "//brave/components/brave_component_updater/browser",
+     "//brave/components/brave_shields/core/common",
+     "//brave/components/brave_shields/core/common:mojom",
+diff --git a/components/brave_shields/core/browser/DEPS b/components/brave_shields/core/browser/DEPS
+index cdd38a88b..834d5343b 100644
+--- a/components/brave_shields/core/browser/DEPS
++++ b/components/brave_shields/core/browser/DEPS
+@@ -1,4 +1,6 @@
+ include_rules = [
++  "+components/grit/brave_components_resources.h",
++  "+ui/base/resource/resource_bundle.h",
+   "+components/component_updater",
+   "+components/content_settings/core",
+   "+components/keyed_service/core/keyed_service.h",
+diff --git a/components/brave_shields/core/browser/ad_block_component_filters_provider.cc b/components/brave_shields/core/browser/ad_block_component_filters_provider.cc
+index 3e81a8eef..863540f87 100644
+--- a/components/brave_shields/core/browser/ad_block_component_filters_provider.cc
++++ b/components/brave_shields/core/browser/ad_block_component_filters_provider.cc
+@@ -5,6 +5,9 @@
+ 
+ #include "brave/components/brave_shields/core/browser/ad_block_component_filters_provider.h"
+ 
++#include "components/grit/brave_components_resources.h"
++#include "ui/base/resource/resource_bundle.h"
++
+ #include <memory>
+ #include <string>
+ #include <utility>
+@@ -26,6 +29,15 @@ namespace brave_shields {
+ 
+ namespace {
+ 
++int GetFallbackResourceIdForComponent(const std::string& component_id) {
++  if (component_id == "iodkpdagapdfkphljnddpjlldadblomo") return IDR_BRAVE_SHIELDS_DEFAULT_RULES;
++  if (component_id == "kihnoaefogbkmblfimmibknnmkllbhlf") return IDR_BRAVE_SHIELDS_TRACKER_RULES;
++  if (component_id == "adcocjohghhfpidemphmcmlmhnfgikei") return IDR_BRAVE_SHIELDS_FIRST_PARTY_RULES;
++  if (component_id == "cdbbhgbmjhfnhnmgeddbliobbofkgdhe") return IDR_BRAVE_SHIELDS_COOKIE_RULES;
++  if (component_id == "bfpgedeaaibpoidldhjcknekahbikncb") return IDR_BRAVE_SHIELDS_MOBILE_RULES;
++  return 0;
++}
++
+ void AddNothingToFilterSet(rust::Box<adblock::FilterSet>*) {}
+ 
+ // static
+@@ -121,7 +133,8 @@ void AdBlockComponentFiltersProvider::OnComponentReady(
+ }
+ 
+ bool AdBlockComponentFiltersProvider::IsInitialized() const {
+-  return !component_path_.empty();
++  if (!component_path_.empty()) return true;
++  return GetFallbackResourceIdForComponent(component_id_) != 0;
+ }
+ 
+ base::FilePath AdBlockComponentFiltersProvider::GetFilterSetPath() {
+@@ -143,6 +156,17 @@ void AdBlockComponentFiltersProvider::LoadFilterSet(
+               flow);
+ 
+   if (list_file_path.empty()) {
++    int resource_id = GetFallbackResourceIdForComponent(component_id_);
++    if (resource_id != 0 && ui::ResourceBundle::HasSharedInstance()) {
++      base::ThreadPool::PostTaskAndReplyWithResult(
++          FROM_HERE, {base::MayBlock()},
++          base::BindOnce([](int id) -> DATFileDataBuffer {
++            std::string data = ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(id);
++            return DATFileDataBuffer(data.begin(), data.end());
++          }, resource_id),
++          base::BindOnce(&OnReadDATFileData, std::move(cb), permission_mask_, flow));
++      return;
++    }
+     // If the path is not ready yet, provide a no-op callback immediately. An
+     // update will be pushed later to notify about the newly available list.
+     std::move(cb).Run(base::BindOnce(AddNothingToFilterSet));
+diff --git a/components/brave_shields/core/browser/ad_block_default_resource_provider.cc b/components/brave_shields/core/browser/ad_block_default_resource_provider.cc
+index e0f1eed57..0f29ccec0 100644
+--- a/components/brave_shields/core/browser/ad_block_default_resource_provider.cc
++++ b/components/brave_shields/core/browser/ad_block_default_resource_provider.cc
+@@ -5,6 +5,9 @@
+ 
+ #include "brave/components/brave_shields/core/browser/ad_block_default_resource_provider.h"
+ 
++#include "components/grit/brave_components_resources.h"
++#include "ui/base/resource/resource_bundle.h"
++
+ #include <string>
+ #include <utility>
+ 
+@@ -76,6 +79,16 @@ void AdBlockDefaultResourceProvider::LoadResources(
+     base::OnceCallback<void(AdblockResourceStorageBox)> cb) {
+   base::FilePath resources_path = GetResourcesPath();
+   if (resources_path.empty()) {
++    if (ui::ResourceBundle::HasSharedInstance()) {
++      std::string resources_json = ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(IDR_BRAVE_SHIELDS_RESOURCES_JSON);
++      if (!resources_json.empty()) {
++        base::ThreadPool::PostTaskAndReplyWithResult(
++            FROM_HERE, {base::MayBlock()},
++            base::BindOnce([](std::string json) { return adblock::new_resource_storage(json); }, std::move(resources_json)),
++            std::move(cb));
++        return;
++      }
++    }
+     // If the path is not ready yet, run the callback with empty resources to
+     // avoid blocking filter data loads.
+     auto empty_storage = adblock::new_empty_resource_storage();
+diff --git a/components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.cc b/components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.cc
+index 4522b1d60..324a8c1d8 100644
+--- a/components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.cc
++++ b/components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.cc
+@@ -5,6 +5,9 @@
+ 
+ #include "brave/components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.h"
+ 
++#include "components/grit/brave_components_resources.h"
++#include "ui/base/resource/resource_bundle.h"
++
+ #include <string>
+ #include <utility>
+ 
+@@ -73,6 +76,16 @@ void AdBlockFilterListCatalogProvider::OnComponentReady(
+ void AdBlockFilterListCatalogProvider::LoadFilterListCatalog(
+     base::OnceCallback<void(const std::string& catalog_json)> cb) {
+   if (component_path_.empty()) {
++    if (ui::ResourceBundle::HasSharedInstance()) {
++      std::string catalog_json = ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(IDR_BRAVE_SHIELDS_LIST_CATALOG);
++      if (!catalog_json.empty()) {
++        base::ThreadPool::PostTaskAndReplyWithResult(
++            FROM_HERE, {base::MayBlock()},
++            base::BindOnce([](std::string json) { return json; }, std::move(catalog_json)),
++            std::move(cb));
++        return;
++      }
++    }
+     // If the path is not ready yet, don't run the callback. An update should be
+     // pushed soon.
+     return;
+diff --git a/components/resources/brave_components_resources.grd b/components/resources/brave_components_resources.grd
+index 160a72ea3..32097c7be 100644
+--- a/components/resources/brave_components_resources.grd
++++ b/components/resources/brave_components_resources.grd
+@@ -103,8 +103,8 @@
+       <if expr="not is_ios and enable_brave_wallet">
+         <part file="decentralized_dns_resources.grdp" />
+       </if>
++      <part file="brave_shields_resources.grdp" />
+       <if expr="not is_android">
+-        <part file="brave_shields_resources.grdp" />
+         <part file="brave_private_new_tab_resources.grdp" />
+       </if>
+       <if expr="enable_ai_chat">
+diff --git a/components/resources/brave_shields_resources.grdp b/components/resources/brave_shields_resources.grdp
+index 177fe35f9..a8725bb14 100644
+--- a/components/resources/brave_shields_resources.grdp
++++ b/components/resources/brave_shields_resources.grdp
+@@ -4,4 +4,11 @@
+   <include name="IDR_BRAVE_SHIELDS_ICON_64_DISABLED" file="../brave_shields/resources/icon-off.png" type="BINDATA" />
+   <include name="IDR_SHIELDS_PANEL_HTML" file="../brave_shields/resources/panel/brave_shields.html" type="BINDATA" />
+   <include name="IDR_SHIELDS_PANEL_NEW_HTML" file="../brave_shields/resources/panel_new/shields_panel.html" type="BINDATA" />
++  <include name="IDR_BRAVE_SHIELDS_LIST_CATALOG" file="../brave_shields/resources/list_catalog.json" type="BINDATA" />
++  <include name="IDR_BRAVE_SHIELDS_RESOURCES_JSON" file="../brave_shields/resources/resources.json" type="BINDATA" />
++  <include name="IDR_BRAVE_SHIELDS_DEFAULT_RULES" file="../brave_shields/resources/default_rules.txt" type="BINDATA" />
++  <include name="IDR_BRAVE_SHIELDS_TRACKER_RULES" file="../brave_shields/resources/tracker_rules.txt" type="BINDATA" />
++  <include name="IDR_BRAVE_SHIELDS_FIRST_PARTY_RULES" file="../brave_shields/resources/first_party_rules.txt" type="BINDATA" />
++  <include name="IDR_BRAVE_SHIELDS_COOKIE_RULES" file="../brave_shields/resources/cookie_rules.txt" type="BINDATA" />
++  <include name="IDR_BRAVE_SHIELDS_MOBILE_RULES" file="../brave_shields/resources/mobile_rules.txt" type="BINDATA" />
+ </grit-part>
+diff --git a/components/update_client/BUILD.gn b/components/update_client/BUILD.gn
+index a3c19dfff..d9f2d4eb6 100644
+--- a/components/update_client/BUILD.gn
++++ b/components/update_client/BUILD.gn
+@@ -6,8 +6,8 @@
+ import("//build/buildflag_header.gni")
+ 
+ declare_args() {
+-  updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"
+-  updater_prod_endpoint = "https://go-updater.brave.com/extensions"
++  updater_dev_endpoint = "https://updates.braving.org/components"
++  updater_prod_endpoint = "https://updates.braving.org/components"
+ }
+ 
+ if (is_official_build) {

@@ -1,38 +1,20 @@
 #!/usr/bin/env python3
+"""
+Braving — Shields Offline Rules Provisioning
+Provisions bundled offline ad-blocking filter lists and catalog stubs
+in components/brave_shields/resources/.
+
+C++ fallback hooks, Grit definitions, and updater endpoints are maintained
+declaratively via git patches (patches/android/0002-brave-shields-offline-fallback.patch).
+Python scripting is used strictly for rule file provisioning per project guidelines.
+"""
 import sys
 import os
-import re
 import shutil
+import subprocess
 
 repo_root = sys.argv[1]
 STRICT = "--strict" in sys.argv or os.environ.get("CI")
-
-
-def patch_file(filepath, search, replace):
-    path = os.path.join(repo_root, filepath)
-    if not os.path.exists(path):
-        msg = f"MISSING: {filepath}"
-        if STRICT:
-            print(f"ERROR: {msg}", file=sys.stderr)
-            sys.exit(1)
-        print(f"WARNING: {msg}")
-        return
-    with open(path, "r", encoding="utf-8") as f:
-        content = f.read()
-    if replace in content:
-        print(f"Skipped {filepath} (already patched)")
-        return
-    if search in content:
-        content = content.replace(search, replace, 1)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"Patched {filepath}")
-    else:
-        msg = f"Search string not found in {filepath}: {search[:50]}..."
-        if STRICT:
-            print(f"ERROR: {msg}", file=sys.stderr)
-            sys.exit(1)
-        print(f"WARNING: {msg}")
 
 
 # 0. Provision default offline rules and catalog stubs
@@ -86,172 +68,30 @@ for fname, default_content in rule_files.items():
         print(f"Created rule file: {fpath}")
 
 
-# 1. BUILD.gn deps
-patch_file("components/brave_shields/core/browser/BUILD.gn",
-           '    "//base",',
-           '    "//base",\n    "//brave/components/resources",\n    "//ui/base",')
+# 1. Verify / ensure Shields offline fallback patch is in place
+def ensure_shields_patch_applied():
+    git_dir = os.path.join(repo_root, ".git")
+    if os.path.isdir(git_dir):
+        patch_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../patches/android/0002-brave-shields-offline-fallback.patch"))
+        if not os.path.isfile(patch_path):
+            print(f"Note: Shields patch not found at {patch_path}")
+            return
+
+        res_rev = subprocess.run(["git", "-C", repo_root, "apply", "--check", "--reverse", patch_path], capture_output=True)
+        if res_rev.returncode == 0:
+            print("Shields offline fallback patch already applied (Skipped)")
+            return
+        res_fwd = subprocess.run(["git", "-C", repo_root, "apply", "--check", patch_path], capture_output=True)
+        if res_fwd.returncode == 0:
+            subprocess.run(["git", "-C", repo_root, "apply", patch_path], check=True)
+            print("Applied 0002-brave-shields-offline-fallback.patch")
+            return
+        if STRICT:
+            print("ERROR: 0002-brave-shields-offline-fallback.patch failed to apply", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print("Note: Target is not a git repository; shields patch verification skipped.")
 
 
-# 2. AdBlockComponentFiltersProvider
-patch_file("components/brave_shields/core/browser/ad_block_component_filters_provider.cc",
-           '#include "brave/components/brave_shields/core/browser/ad_block_component_filters_provider.h"',
-           '#include "brave/components/brave_shields/core/browser/ad_block_component_filters_provider.h"\n\n#include "brave/components/resources/grit/brave_components_resources.h"\n#include "ui/base/resource/resource_bundle.h"')
-
-helper_fn = """namespace {
-
-int GetFallbackResourceIdForComponent(const std::string& component_id) {
-  if (component_id == "iodkpdagapdfkphljnddpjlldadblomo") return IDR_BRAVE_SHIELDS_DEFAULT_RULES;
-  if (component_id == "kihnoaefogbkmblfimmibknnmkllbhlf") return IDR_BRAVE_SHIELDS_TRACKER_RULES;
-  if (component_id == "adcocjohghhfpidemphmcmlmhnfgikei") return IDR_BRAVE_SHIELDS_FIRST_PARTY_RULES;
-  if (component_id == "cdbbhgbmjhfnhnmgeddbliobbofkgdhe") return IDR_BRAVE_SHIELDS_COOKIE_RULES;
-  if (component_id == "bfpgedeaaibpoidldhjcknekahbikncb") return IDR_BRAVE_SHIELDS_MOBILE_RULES;
-  return 0;
-}
-"""
-patch_file("components/brave_shields/core/browser/ad_block_component_filters_provider.cc",
-           "namespace {\n",
-           helper_fn)
-
-patch_file("components/brave_shields/core/browser/ad_block_component_filters_provider.cc",
-           "bool AdBlockComponentFiltersProvider::IsInitialized() const {\n  return !component_path_.empty();\n}",
-           "bool AdBlockComponentFiltersProvider::IsInitialized() const {\n  if (!component_path_.empty()) return true;\n  return GetFallbackResourceIdForComponent(component_id_) != 0;\n}")
-
-fallback_filter_load = """  if (list_file_path.empty()) {
-    int resource_id = GetFallbackResourceIdForComponent(component_id_);
-    if (resource_id != 0 && ui::ResourceBundle::HasSharedInstance()) {
-      base::ThreadPool::PostTaskAndReplyWithResult(
-          FROM_HERE, {base::MayBlock()},
-          base::BindOnce([](int id) -> DATFileDataBuffer {
-            std::string data = ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(id);
-            return DATFileDataBuffer(data.begin(), data.end());
-          }, resource_id),
-          base::BindOnce(&OnReadDATFileData, std::move(cb), permission_mask_, flow));
-      return;
-    }
-    // If the path is not ready yet, provide a no-op callback immediately. An
-    // update will be pushed later to notify about the newly available list.
-    std::move(cb).Run(base::BindOnce(AddNothingToFilterSet));
-    return;
-  }"""
-
-patch_file("components/brave_shields/core/browser/ad_block_component_filters_provider.cc",
-           """  if (list_file_path.empty()) {
-    // If the path is not ready yet, provide a no-op callback immediately. An
-    // update will be pushed later to notify about the newly available list.
-    std::move(cb).Run(base::BindOnce(AddNothingToFilterSet));
-    return;
-  }""",
-           fallback_filter_load)
-
-
-# 3. AdBlockDefaultResourceProvider
-patch_file("components/brave_shields/core/browser/ad_block_default_resource_provider.cc",
-           '#include "brave/components/brave_shields/core/browser/ad_block_default_resource_provider.h"',
-           '#include "brave/components/brave_shields/core/browser/ad_block_default_resource_provider.h"\n\n#include "brave/components/resources/grit/brave_components_resources.h"\n#include "ui/base/resource/resource_bundle.h"')
-
-fallback_res_load = """  base::FilePath resources_path = GetResourcesPath();
-  if (resources_path.empty()) {
-    if (ui::ResourceBundle::HasSharedInstance()) {
-      std::string resources_json = ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(IDR_BRAVE_SHIELDS_RESOURCES_JSON);
-      if (!resources_json.empty()) {
-        base::ThreadPool::PostTaskAndReplyWithResult(
-            FROM_HERE, {base::MayBlock()},
-            base::BindOnce([](std::string json) { return adblock::new_resource_storage(json); }, std::move(resources_json)),
-            std::move(cb));
-        return;
-      }
-    }
-    // If the path is not ready yet, run the callback with empty resources to
-    // avoid blocking filter data loads.
-    auto empty_storage = adblock::new_empty_resource_storage();
-    std::move(cb).Run(std::move(empty_storage));
-    return;
-  }"""
-
-patch_file("components/brave_shields/core/browser/ad_block_default_resource_provider.cc",
-           """  base::FilePath resources_path = GetResourcesPath();
-  if (resources_path.empty()) {
-    // If the path is not ready yet, run the callback with empty resources to
-    // avoid blocking filter data loads.
-    auto empty_storage = adblock::new_empty_resource_storage();
-    std::move(cb).Run(std::move(empty_storage));
-    return;
-  }""",
-           fallback_res_load)
-
-
-# 4. AdBlockFilterListCatalogProvider
-patch_file("components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.cc",
-           '#include "brave/components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.h"',
-           '#include "brave/components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.h"\n\n#include "brave/components/resources/grit/brave_components_resources.h"\n#include "ui/base/resource/resource_bundle.h"')
-
-fallback_cat_load = """void AdBlockFilterListCatalogProvider::LoadFilterListCatalog(
-    base::OnceCallback<void(const std::string& catalog_json)> cb) {
-  if (component_path_.empty()) {
-    if (ui::ResourceBundle::HasSharedInstance()) {
-      std::string catalog_json = ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(IDR_BRAVE_SHIELDS_LIST_CATALOG);
-      if (!catalog_json.empty()) {
-        base::ThreadPool::PostTaskAndReplyWithResult(
-            FROM_HERE, {base::MayBlock()},
-            base::BindOnce([](std::string json) { return json; }, std::move(catalog_json)),
-            std::move(cb));
-        return;
-      }
-    }
-    // If the path is not ready yet, don't run the callback. An update should be
-    // pushed soon.
-    return;
-  }"""
-
-patch_file("components/brave_shields/core/browser/ad_block_filter_list_catalog_provider.cc",
-           """void AdBlockFilterListCatalogProvider::LoadFilterListCatalog(
-    base::OnceCallback<void(const std::string& catalog_json)> cb) {
-  if (component_path_.empty()) {
-    // If the path is not ready yet, don't run the callback. An update should be
-    // pushed soon.
-    return;
-  }""",
-           fallback_cat_load)
-
-
-# 5. components/resources/brave_components_resources.grd
-patch_file("components/resources/brave_components_resources.grd",
-           """      <if expr="not is_android">
-        <part file="brave_shields_resources.grdp" />
-        <part file="brave_private_new_tab_resources.grdp" />
-      </if>""",
-           """      <part file="brave_shields_resources.grdp" />
-      <if expr="not is_android">
-        <part file="brave_private_new_tab_resources.grdp" />
-      </if>""")
-
-
-# 6. components/resources/brave_shields_resources.grdp
-grdp_includes = """  <include name="IDR_BRAVE_SHIELDS_LIST_CATALOG" file="../brave_shields/resources/list_catalog.json" type="BINDATA" />
-  <include name="IDR_BRAVE_SHIELDS_RESOURCES_JSON" file="../brave_shields/resources/resources.json" type="BINDATA" />
-  <include name="IDR_BRAVE_SHIELDS_DEFAULT_RULES" file="../brave_shields/resources/default_rules.txt" type="BINDATA" />
-  <include name="IDR_BRAVE_SHIELDS_TRACKER_RULES" file="../brave_shields/resources/tracker_rules.txt" type="BINDATA" />
-  <include name="IDR_BRAVE_SHIELDS_FIRST_PARTY_RULES" file="../brave_shields/resources/first_party_rules.txt" type="BINDATA" />
-  <include name="IDR_BRAVE_SHIELDS_COOKIE_RULES" file="../brave_shields/resources/cookie_rules.txt" type="BINDATA" />
-  <include name="IDR_BRAVE_SHIELDS_MOBILE_RULES" file="../brave_shields/resources/mobile_rules.txt" type="BINDATA" />
-</grit-part>"""
-
-patch_file("components/resources/brave_shields_resources.grdp",
-           "</grit-part>",
-           grdp_includes)
-
-
-# 7. Update component updater endpoints
-patch_file("components/update_client/BUILD.gn",
-           'updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"',
-           'updater_dev_endpoint = "https://updates.braving.org/components"')
-
-patch_file("components/update_client/BUILD.gn",
-           'updater_prod_endpoint = "https://go-updater.brave.com/extensions"',
-           'updater_prod_endpoint = "https://updates.braving.org/components"')
-
-patch_file("browser/net/brave_network_audit_allowed_lists.h",
-           '"https://go-updater.brave.com/",',
-           '"https://updates.braving.org/components/",')
-
-print("Successfully applied Shields offline fallback, resource bundling, and updater endpoints!")
+if __name__ == "__main__":
+    ensure_shields_patch_applied()

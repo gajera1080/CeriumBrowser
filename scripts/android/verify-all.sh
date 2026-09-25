@@ -56,6 +56,27 @@ if [[ ${PATCH_COUNT} -gt 0 ]]; then
   find "${PATCH_DIR}" -name "*.patch" | sort | while read -r p; do
     echo "      - $(basename "$p")"
   done
+
+  CHECK_BRAVE_DIR="${BRAVE_CORE_DIR:-}"
+  if [[ -z "${CHECK_BRAVE_DIR}" || ! -d "${CHECK_BRAVE_DIR}/.git" ]]; then
+    if [[ -d "${REPO_ROOT}/build-workspace/src/brave/.git" ]]; then
+      CHECK_BRAVE_DIR="${REPO_ROOT}/build-workspace/src/brave"
+    elif [[ -d "/run/media/pc/D/brave-core/.git" ]]; then
+      CHECK_BRAVE_DIR="/run/media/pc/D/brave-core"
+    fi
+  fi
+
+  if [[ -n "${CHECK_BRAVE_DIR}" && -d "${CHECK_BRAVE_DIR}/.git" ]]; then
+    echo " Validating patch set against brave-core (${CHECK_BRAVE_DIR})..."
+    while IFS= read -r -d $'\0' p; do
+      if git -C "${CHECK_BRAVE_DIR}" apply --check "$p" 2>/dev/null || git -C "${CHECK_BRAVE_DIR}" apply --check --reverse "$p" 2>/dev/null; then
+        echo "      [PASS] $(basename "$p") applies cleanly"
+      else
+        echo "      [FAIL] $(basename "$p") failed to apply" >&2
+        exit 1
+      fi
+    done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
+  fi
 else
   echo " [OK] No .patch files found in ${PATCH_DIR}/ (all modifications handled via mutators)."
 fi

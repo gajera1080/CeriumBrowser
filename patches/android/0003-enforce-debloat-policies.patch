@@ -1,0 +1,137 @@
+From: Braving Authors <support@braving.org>
+Date: Fri, 5 Sep 2026 10:25:00 +0000
+Subject: [PATCH] [policies] Enforce debloat policies and Brave Origin backend
+
+This patch enforces radical debloat enterprise policies in C++, enables the
+Brave Origin backend features without paywall, and pre-seeds direct uBlock
+Origin & EasyList list subscriptions.
+---
+
+diff --git a/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java b/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java
+index 40960a25d..4aeb26a7e 100644
+--- a/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java
++++ b/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java
+@@ -397,7 +397,7 @@ public abstract class BraveMainPreferencesBase extends BravePreferenceFragment
+             setPreferenceOrder(PREF_CLOSING_ALL_TABS_CLOSES_BRAVE, ++generalOrder);
+         }
+ 
+-        if (ChromeFeatureList.isEnabled(BraveFeatureList.BRAVE_ORIGIN)) {
++        if (false) {
+             setPreferenceOrder(PREF_BRAVE_ORIGIN, ++generalOrder);
+         } else {
+             removePreferenceIfPresent(PREF_BRAVE_ORIGIN);
+diff --git a/components/brave_origin/brave_origin_service.cc b/components/brave_origin/brave_origin_service.cc
+index 4d96541ce..e100f1914 100644
+--- a/components/brave_origin/brave_origin_service.cc
++++ b/components/brave_origin/brave_origin_service.cc
+@@ -184,19 +184,11 @@ std::optional<bool> BraveOriginService::GetPolicyValue(
+ 
+ void BraveOriginService::CheckPurchaseState(
+     base::OnceCallback<void(bool)> callback) {
+-  if (!EnsureSkusConnected()) {
+-    std::move(callback).Run(IsPurchased());
+-    return;
+-  }
+-
+-  skus_service_->CredentialSummary(
+-      origin_sku_domain_,
+-      base::BindOnce(&BraveOriginService::OnCredentialSummary,
+-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
++  std::move(callback).Run(true);
+ }
+ 
+ bool BraveOriginService::IsPurchased() const {
+-  return BraveOriginPolicyManager::GetInstance()->IsPurchased();
++  return true;
+ }
+ 
+ bool BraveOriginService::NeedsRestart() const {
+diff --git a/components/brave_origin/brave_origin_utils.cc b/components/brave_origin/brave_origin_utils.cc
+index e926d1b4c..43243b30a 100644
+--- a/components/brave_origin/brave_origin_utils.cc
++++ b/components/brave_origin/brave_origin_utils.cc
+@@ -15,7 +15,7 @@
+ namespace brave_origin {
+ 
+ bool IsBraveOriginFeatureEnabled() {
+-  return base::FeatureList::IsEnabled(features::kBraveOrigin);
++  return true;
+ }
+ 
+ bool IsBraveOriginPurchased() {
+@@ -23,7 +23,7 @@ bool IsBraveOriginPurchased() {
+     return false;
+   }
+   auto* manager = BraveOriginPolicyManager::GetInstance();
+-  return manager->IsInitialized() && manager->IsPurchased();
++  return manager->IsInitialized();
+ }
+ 
+ std::string GetBraveOriginPrefKey(std::string_view policy_key,
+diff --git a/components/brave_policy/brave_browser_policy_provider.cc b/components/brave_policy/brave_browser_policy_provider.cc
+index 7a1b455cb..246d8a008 100644
+--- a/components/brave_policy/brave_browser_policy_provider.cc
++++ b/components/brave_policy/brave_browser_policy_provider.cc
+@@ -62,6 +62,24 @@ void BraveBrowserPolicyProvider::OnBrowserPolicyChanged(
+ policy::PolicyBundle BraveBrowserPolicyProvider::LoadPolicies() {
+   policy::PolicyBundle bundle;
+ 
++  // Braving: Enforce debloat policies via Enterprise Policy
++  policy::PolicyMap& pm = bundle.Get(policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, std::string()));
++  auto enforce = [&](const char* name, bool val) {
++    pm.Set(name, policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_PLATFORM, base::Value(val), nullptr);
++  };
++  enforce("BraveWalletDisabled", true);
++  enforce("BraveVPNDisabled", true);
++  enforce("BraveAIChatEnabled", false);
++  enforce("BraveNewsDisabled", true);
++  enforce("BraveRewardsDisabled", true);
++  enforce("BraveSearchResultAdsEnabled", false);
++  enforce("BraveTalkDisabled", true);
++  enforce("BraveStatsPingEnabled", false);
++  enforce("BraveWebDiscoveryEnabled", false);
++  enforce("BraveP3AEnabled", false);
++  enforce("BraveWaybackMachineEnabled", false);
++  enforce("BraveLocalAIEnabled", false);
++
+   if (brave_origin::IsBraveOriginPurchased()) {
+     LoadBraveOriginPolicies(bundle);
+   }
+diff --git a/components/brave_shields/content/browser/ad_block_service.cc b/components/brave_shields/content/browser/ad_block_service.cc
+index 46bf7cade..395998161 100644
+--- a/components/brave_shields/content/browser/ad_block_service.cc
++++ b/components/brave_shields/content/browser/ad_block_service.cc
+@@ -4,6 +4,7 @@
+ // You can obtain one at https://mozilla.org/MPL/2.0/.
+ 
+ #include "brave/components/brave_shields/content/browser/ad_block_service.h"
++#include "base/values.h"
+ 
+ #include <memory>
+ #include <optional>
+@@ -446,7 +447,24 @@ void RegisterPrefsForAdBlockService(PrefRegistrySimple* registry) {
+       prefs::kAdBlockMobileNotificationsListSettingTouched, false);
+   registry->RegisterStringPref(prefs::kAdBlockCustomFilters, std::string());
+   registry->RegisterDictionaryPref(prefs::kAdBlockRegionalFilters);
+-  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions);
++  // Braving: Pre-seed direct uBlock Origin & EasyList subscription sources
++  base::Value::Dict default_subscriptions;
++  auto add_sub = [&](const char* url, const char* title) {
++    base::Value::Dict sub;
++    sub.Set("enabled", true);
++    sub.Set("last_update_attempt", 0);
++    sub.Set("last_successful_update_attempt", 0);
++    sub.Set("expires", 72);
++    sub.Set("title", title);
++    default_subscriptions.Set(url, std::move(sub));
++  };
++  add_sub("https://easylist.to/easylist/easylist.txt", "EasyList");
++  add_sub("https://easylist.to/easylist/easyprivacy.txt", "EasyPrivacy");
++  add_sub("https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt", "uBlock filters");
++  add_sub("https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt", "uBlock filters - Badware risks");
++  add_sub("https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext", "Peter Lowe's list");
++
++  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions, std::move(default_subscriptions));
+   registry->RegisterBooleanPref(prefs::kAdBlockCheckedDefaultRegion, false);
+   registry->RegisterBooleanPref(prefs::kAdBlockCheckedAllDefaultRegions, false);
+   registry->RegisterBooleanPref(prefs::kAdBlockOnlyModeEnabled, false);
