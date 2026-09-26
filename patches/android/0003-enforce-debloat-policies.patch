@@ -98,7 +98,7 @@ index 7a1b455cb..246d8a008 100644
      LoadBraveOriginPolicies(bundle);
    }
 diff --git a/components/brave_shields/content/browser/ad_block_service.cc b/components/brave_shields/content/browser/ad_block_service.cc
-index 46bf7cade..395998161 100644
+index 46bf7cade..fd8c32e10 100644
 --- a/components/brave_shields/content/browser/ad_block_service.cc
 +++ b/components/brave_shields/content/browser/ad_block_service.cc
 @@ -4,6 +4,7 @@
@@ -109,18 +109,27 @@ index 46bf7cade..395998161 100644
  
  #include <memory>
  #include <optional>
-@@ -446,7 +447,24 @@ void RegisterPrefsForAdBlockService(PrefRegistrySimple* registry) {
+@@ -266,6 +267,8 @@ AdBlockService::AdBlockService(
+       std::make_unique<SourceProviderObserver>(
+           make_on_resources_loaded_callback, resource_provider_.get(),
+           filters_provider_manager_.get(), false, debug_mode, task_runner_);
++  // Braving: Unblock ComponentProvidersGate without waiting for Brave catalog CRX
++  component_service_manager_->SetFilterListCatalog({});
+ }
+ 
+ AdBlockService::~AdBlockService() = default;
+@@ -446,7 +449,24 @@ void RegisterPrefsForAdBlockService(PrefRegistrySimple* registry) {
        prefs::kAdBlockMobileNotificationsListSettingTouched, false);
    registry->RegisterStringPref(prefs::kAdBlockCustomFilters, std::string());
    registry->RegisterDictionaryPref(prefs::kAdBlockRegionalFilters);
 -  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions);
 +  // Braving: Pre-seed direct uBlock Origin & EasyList subscription sources
-+  base::Value::Dict default_subscriptions;
++  base::DictValue default_subscriptions;
 +  auto add_sub = [&](const char* url, const char* title) {
-+    base::Value::Dict sub;
++    base::DictValue sub;
 +    sub.Set("enabled", true);
-+    sub.Set("last_update_attempt", 0);
-+    sub.Set("last_successful_update_attempt", 0);
++    sub.Set("last_update_attempt", "0");
++    sub.Set("last_successful_update_attempt", "0");
 +    sub.Set("expires", 72);
 +    sub.Set("title", title);
 +    default_subscriptions.Set(url, std::move(sub));
@@ -135,3 +144,43 @@ index 46bf7cade..395998161 100644
    registry->RegisterBooleanPref(prefs::kAdBlockCheckedDefaultRegion, false);
    registry->RegisterBooleanPref(prefs::kAdBlockCheckedAllDefaultRegions, false);
    registry->RegisterBooleanPref(prefs::kAdBlockOnlyModeEnabled, false);
+diff --git a/components/brave_shields/content/browser/ad_block_subscription_service_manager.cc b/components/brave_shields/content/browser/ad_block_subscription_service_manager.cc
+index f575a2695..d4eb0a5fd 100644
+--- a/components/brave_shields/content/browser/ad_block_subscription_service_manager.cc
++++ b/components/brave_shields/content/browser/ad_block_subscription_service_manager.cc
+@@ -42,7 +42,7 @@ base::TimeDelta* g_testing_subscription_retry_interval = nullptr;
+ 
+ constexpr uint16_t kSubscriptionMaxExpiresHours = 14 * 24;
+ constexpr base::TimeDelta kListRetryInterval = base::Hours(1);
+-constexpr base::TimeDelta kListCheckInitialDelay = base::Minutes(1);
++constexpr base::TimeDelta kListCheckInitialDelay = base::Seconds(3);
+ 
+ bool SkipGURLField(std::string_view value, GURL* field) {
+   return true;
+@@ -141,6 +141,7 @@ AdBlockSubscriptionServiceManager::AdBlockSubscriptionServiceManager(
+       subscription_update_timer_(
+           std::make_unique<component_updater::TimerUpdateScheduler>()),
+       list_p3a_(list_p3a) {
++  LoadSubscriptionServices();
+   std::move(download_manager_getter)
+       .Run(base::BindOnce(
+           &AdBlockSubscriptionServiceManager::OnGetDownloadManager,
+@@ -207,7 +208,7 @@ void AdBlockSubscriptionServiceManager::OnUpdateTimer(
+       if (info.enabled &&
+           ((info.last_update_attempt != info.last_successful_update_attempt) ||
+            (until_next_refresh <= base::TimeDelta()))) {
+-        StartDownload(sub_url, false);
++        StartDownload(sub_url, info.last_successful_update_attempt.is_null());
+       }
+     }
+   }
+@@ -434,7 +435,7 @@ void AdBlockSubscriptionServiceManager::LoadSubscriptionServices() {
+       GURL sub_url(key);
+       info = BuildInfoFromDict(sub_url, *list_subscription_dict);
+ 
+-      if (info.enabled) {
++      if (info.enabled && !subscription_filters_providers_.contains(sub_url)) {
+         auto subscription_filters_provider =
+             std::make_unique<AdBlockSubscriptionFiltersProvider>(
+                 filters_provider_manager_,
+

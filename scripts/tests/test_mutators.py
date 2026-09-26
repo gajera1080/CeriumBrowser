@@ -127,6 +127,12 @@ def test_patch_suite():
     assert "BraveWalletDisabled" in c0003
     assert "BraveVPNDisabled" in c0003
     assert "BraveAIChatEnabled" in c0003
+    assert "base::Value::Dict" not in c0003, "Deprecated base::Value::Dict found in 0003; use base::DictValue"
+    assert "base::DictValue" in c0003
+    assert 'sub.Set("last_update_attempt", "0")' in c0003
+    assert "SetFilterListCatalog({})" in c0003
+    assert "!subscription_filters_providers_.contains(sub_url)" in c0003
+    assert "info.last_successful_update_attempt.is_null()" in c0003
 
     # Dynamic brave-core detection: check BRAVE_CORE_DIR, build-workspace, or /run/media/pc/D/brave-core
     brave_core = os.environ.get("BRAVE_CORE_DIR", "")
