@@ -54,7 +54,7 @@ fi
 if [[ ${PATCH_COUNT} -gt 0 ]]; then
   echo " [OK] Found ${PATCH_COUNT} patch file(s) in ${PATCH_DIR}/"
   find "${PATCH_DIR}" -name "*.patch" | sort | while read -r p; do
-    echo "      - $(basename "$p")"
+    echo "      - ${p#${PATCH_DIR}/}"
   done
 
   CHECK_BRAVE_DIR="${BRAVE_CORE_DIR:-}"
@@ -69,10 +69,14 @@ if [[ ${PATCH_COUNT} -gt 0 ]]; then
   if [[ -n "${CHECK_BRAVE_DIR}" && -d "${CHECK_BRAVE_DIR}/.git" ]]; then
     echo " Validating patch set against brave-core (${CHECK_BRAVE_DIR})..."
     while IFS= read -r -d $'\0' p; do
-      if git -C "${CHECK_BRAVE_DIR}" apply --check "$p" 2>/dev/null || git -C "${CHECK_BRAVE_DIR}" apply --check --reverse "$p" 2>/dev/null; then
-        echo "      [PASS] $(basename "$p") applies cleanly"
+      rel_p="${p#${PATCH_DIR}/}"
+      if git -C "${CHECK_BRAVE_DIR}" apply --check "$p" 2>/dev/null || \
+         git -C "${CHECK_BRAVE_DIR}" apply --check --reverse "$p" 2>/dev/null || \
+         git -C "${CHECK_BRAVE_DIR}" apply -C1 --check "$p" 2>/dev/null || \
+         git -C "${CHECK_BRAVE_DIR}" apply -C1 --check --reverse "$p" 2>/dev/null; then
+        echo "      [PASS] ${rel_p} applies cleanly"
       else
-        echo "      [FAIL] $(basename "$p") failed to apply" >&2
+        echo "      [FAIL] ${rel_p} failed to apply" >&2
         exit 1
       fi
     done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)

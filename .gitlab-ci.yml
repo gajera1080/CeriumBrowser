@@ -71,7 +71,8 @@ prepare_chromium_cache:
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
-    - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
+    - export GN_ARGS_HASH=$(sed -n '/brave_defaults\.gni/,/^EOF$/p' scripts/android/build-android.sh | sha256sum | cut -c1-8)
+    - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${GN_ARGS_HASH}"
     - |
       if [ "${FORCE_CACHE_REBUILD:-false}" == "true" ]; then
         echo "FORCE_CACHE_REBUILD is true. Forcing a cold build."

@@ -302,16 +302,9 @@ if [[ -f "${SRC_DIR}/build/install-build-deps.sh" ]]; then
 fi
 
 
-# Apply Braving vector assets overlay strictly into brave-core
-bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
-
 echo ""
-echo "2. Applying Brave patches (1108+) to Chromium..."
+echo "2. Installing brave-core node dependencies and applying upstream Brave patches to Chromium..."
 (cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
-
-# Re-run apply-assets to overlay Shields vector drawables into newly installed @brave/leo node_modules
-bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
-
 (cd "${BRAVE_DIR}" && pnpm run apply_patches)
 
 
@@ -329,8 +322,8 @@ echo "4. Running gclient hooks on patched Chromium..."
 (cd "${WORKSPACE_DIR}" && gclient runhooks)
 
 echo ""
-echo "5. Propagating branding and touching overridden files..."
-(cd "${BRAVE_DIR}" && pnpm run build --prepare_only --target_os=android --target_arch="${TARGET_ARCH}")
+echo "5. Propagating branding from brave-core/app/theme/brave and touching overridden files..."
+(cd "${BRAVE_DIR}" && pnpm run build Release --prepare_only --target_os=android --target_arch="${TARGET_ARCH}" --channel=release)
 
 # Verify //brave/build/version.gni was generated, or generate it now
 if [[ -f "${BRAVE_DIR}/build/util/version.py" && -f "${SRC_DIR}/chrome/VERSION" && ! -f "${BRAVE_DIR}/build/version.gni" ]]; then
@@ -386,7 +379,14 @@ is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"
-target_android_output_format = "apk"
+brave_channel = ""
+target_android_output_format = "aab"
+android_override_version_name = "${BRAVE_VERSION}"
+enable_android_secondary_abi = false
+dcheck_always_on = false
+enable_java_asserts = false
+exclude_unwind_tables = true
+strip_debug_info = true
 use_siso = true
 
 # Debloating & Feature Disabling (Now handled by Enterprise Policies)
@@ -426,27 +426,13 @@ EOF
 echo ""
 echo "Android GN arguments configured:"
 cat "${GN_ARGS_FILE}"
+cp -f "${GN_ARGS_FILE}" "${GN_ARGS_FILE}.expected"
 
 # Configure Siso cache environment variables
 export SISO_CACHE_DIR="${OUT_DIR}/.siso_local_cache"
 export SISO_LOCAL_CACHE_DIR="${SISO_CACHE_DIR}"
 
 # Step 9: Cache Restore OR GN Gen
-#
-# CRITICAL ORDER OF OPERATIONS FOR SISO INCREMENTAL BUILDS:
-# Siso determines if a target needs rebuilding by comparing command hashes (cmdhash)
-# stored in .siso_deps/.ninja_log against the commands defined in build.ninja.
-# If we run gn gen BEFORE restoring the cache, one of two things happens:
-#   (a) gn gen generates build.ninja (A), cache overwrites it with Stage 2's build.ninja (B),
-#       but Siso finds build.ninja.d listing freshly-checked-out .gn files with newer timestamps,
-#       auto-triggers gn gen again producing build.ninja (C) — command hashes mismatch → full rebuild.
-#   (b) Even without auto-regen, the cached .siso_deps contains cmdhashes from build.ninja (B)
-#       that may differ from the local gn gen output (A), causing Siso to consider ALL targets dirty.
-#
-# SOLUTION: Download cache FIRST. If cache is present, its build.ninja is authoritative
-# (it's the exact one Stage 2 compiled against), so skip gn gen entirely. The cached
-# .siso_deps/.ninja_log cmdhashes will match perfectly → Siso skips compiled targets.
-
 CACHE_RESTORED=false
 if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
   echo ""
@@ -457,24 +443,30 @@ if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
   # Check if download-cache.sh successfully restored the cache
   if [[ -f "${OUT_DIR}/.cache_restored" ]]; then
     CACHE_RESTORED=true
-    echo ""
-    echo "[CACHE] Warm cache restored from Stage 2. Skipping gn gen to preserve build.ninja integrity."
-    echo "        Siso will use the cached build.ninja and skip already-compiled targets (v8, blink, etc.)."
-    # Clean the marker file
     rm -f "${OUT_DIR}/.cache_restored"
+    if ! cmp -s "${GN_ARGS_FILE}.expected" "${GN_ARGS_FILE}"; then
+      echo ""
+      echo "[CACHE] Cached args.gn differs from current args.gn. Restoring current args.gn and regenerating build.ninja..."
+      mv -f "${GN_ARGS_FILE}.expected" "${GN_ARGS_FILE}"
+      CACHE_RESTORED=false
+    else
+      rm -f "${GN_ARGS_FILE}.expected"
+      echo ""
+      echo "[CACHE] Warm cache restored from Stage 2 with matching args.gn. Skipping gn gen to preserve build.ninja integrity."
+    fi
+  else
+    rm -f "${GN_ARGS_FILE}.expected"
   fi
+else
+  rm -f "${GN_ARGS_FILE}.expected"
 fi
 
 if [[ "${CACHE_RESTORED}" == "false" ]]; then
-  # No cache available (cold build or Stage 2 cache_prep job) — run gn gen normally
   echo ""
-  echo "Running gn gen from source root (no cache available)..."
+  echo "Running gn gen from source root..."
   cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
+  rm -f "${OUT_DIR}/build.ninja.d"
 else
-  # Cache restored — the cached build.ninja is authoritative for Siso.
-  # args.gn was already written at Step 8 above, and the cache extract may have overwritten
-  # it with an identical copy from Stage 2 (both stages use the same manifest and flags).
-  # Touch args.gn to match build.ninja timestamp to prevent staleness detection.
   if [[ -f "${OUT_DIR}/build.ninja" ]]; then
     touch -r "${OUT_DIR}/build.ninja" "${GN_ARGS_FILE}"
   fi
@@ -507,8 +499,8 @@ fi
 
 T_NINJA_START=$(date +%s)
 
-# Step 10: Build chrome_public_apk
-BUILD_TARGET="${BUILD_TARGET:-chrome_public_apk}"
+# Step 10: Build chrome_public_bundle (or custom BUILD_TARGET)
+BUILD_TARGET="${BUILD_TARGET:-chrome_public_bundle}"
 echo ""
 echo "Building target: ${BUILD_TARGET}"
 echo "This will take a long time (hours on first build)..."
@@ -568,12 +560,44 @@ T_PKG_START=$(date +%s)
 BRAVING_VERSION=$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")
 OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
+OUTPUT_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
+
+# If ChromePublic.aab was built, convert it into a Deflate-compressed Universal APK via bundletool
+if [[ -f "${OUT_DIR}/apks/ChromePublic.aab" ]]; then
+  echo ""
+  echo "Converting ChromePublic.aab to compressed Universal APK via bundletool..."
+  export PATH="${SRC_DIR}/third_party/jdk/current/bin:${PATH}"
+  BUNDLETOOL_JAR="${SRC_DIR}/third_party/android_build_tools/bundletool/cipd/bundletool.jar"
+  ZIPALIGN_BIN=$(find "${SRC_DIR}/third_party/android_sdk/public/build-tools" -name "zipalign" \( -type f -o -type l \) 2>/dev/null | sort -V | tail -n 1 || true)
+  APKSIGNER_BIN=$(find "${SRC_DIR}/third_party/android_sdk/public/build-tools" -name "apksigner" \( -type f -o -type l \) 2>/dev/null | sort -V | tail -n 1 || true)
+  JARSIGNER_BIN="${SRC_DIR}/third_party/jdk/current/bin/jarsigner"
+  if [[ ! -x "${JARSIGNER_BIN}" ]]; then
+    JARSIGNER_BIN=$(command -v jarsigner || echo "jarsigner")
+  fi
+  KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH:-${SRC_DIR}/build/android/chromium-debug.keystore}"
+  KEYSTORE_PASS="${ANDROID_KEYSTORE_PASSWORD:-chromium}"
+  KEY_PASS="${ANDROID_KEY_PASSWORD:-chromium}"
+  KEY_NAME="${ANDROID_KEYSTORE_NAME:-chromiumdebugkey}"
+
+  python3 "${BRAVE_DIR}/build/android/aab_to_apk.py" \
+    --bundletool="${BUNDLETOOL_JAR}" \
+    --target-aab-path="${OUT_DIR}/apks/ChromePublic.aab" \
+    --output-apk-path="${OUT_DIR}/apks/${OUTPUT_NAME}" \
+    --output-path="${OUT_DIR}/apks/" \
+    --key-path="${KEYSTORE_PATH}" \
+    --key-passwd="${KEYSTORE_PASS}" \
+    --prvt-key-passwd="${KEY_PASS}" \
+    --key-name="${KEY_NAME}" \
+    --zipalign-path="${ZIPALIGN_BIN}" \
+    --apksigner-path="${APKSIGNER_BIN}" \
+    --jarsigner-path="${JARSIGNER_BIN}"
+fi
 
 # Find the built APK (prioritize browser APK over trichrome/library apks)
-BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Brave*.apk" -o -name "Braving*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
+BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
 if [[ -z "${BUILT_APK}" ]]; then
   # Fallback: search anywhere in OUT_DIR
-  BUILT_APK=$(find "${OUT_DIR}" \( -name "Brave*.apk" -o -name "Braving*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
+  BUILT_APK=$(find "${OUT_DIR}" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
 fi
 if [[ -z "${BUILT_APK}" ]]; then
   # Final fallback to any apk in apks directory
@@ -581,9 +605,12 @@ if [[ -z "${BUILT_APK}" ]]; then
 fi
 
 if [[ -n "${BUILT_APK}" ]]; then
-  OUTPUT_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
-  cp "${BUILT_APK}" "${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
-  cp "${BUILT_APK}" "${OUT_DIR}/apks/${OUTPUT_NAME}" 2>/dev/null || true
+  if [[ "${BUILT_APK}" != "${OUTPUT_APK_DIR}/${OUTPUT_NAME}" ]]; then
+    cp -f "${BUILT_APK}" "${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+  fi
+  if [[ "${BUILT_APK}" != "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
+    cp -f "${BUILT_APK}" "${OUT_DIR}/apks/${OUTPUT_NAME}" 2>/dev/null || true
+  fi
   
   T_END=$(date +%s)
   echo ""

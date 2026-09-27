@@ -128,4 +128,48 @@ if (!is_android && !is_ios) {
 }"""
 )
 
+# 5. Source Braving Shields icons from app/theme/brave/android/shields_drawables
+#    instead of @brave/leo node_modules so Stage 1 (prepare-source.sh) handles all assets.
+replace_in_file(
+    "android/nala/BUILD.gn",
+    """  copy(_name) {
+    sources = [ "$nala_base_path/drawable/${override.source}" ]
+    outputs = [ "$target_gen_dir/res/drawable/${override.dest}" ]
+  }""",
+    """  copy(_name) {
+    if (override.source == "ic_social_brave_outline_favicon_fullheight.xml") {
+      sources = [ "//brave/app/theme/brave/android/shields_drawables/${override.source}" ]
+    } else {
+      sources = [ "$nala_base_path/drawable/${override.source}" ]
+    }
+    outputs = [ "$target_gen_dir/res/drawable/${override.dest}" ]
+  }"""
+)
+
+replace_in_file(
+    "android/nala/BUILD.gn",
+    """copy("nala_icons") {
+  sources = []
+  foreach(icon, nala_icons) {
+    sources +=
+        [ "//brave/node_modules/@brave/leo/tokens/android/drawable/$icon" ]
+  }
+  outputs = [ "$target_gen_dir/res/drawable/{{source_file_part}}" ]
+}""",
+    """copy("nala_icons") {
+  sources = []
+  foreach(icon, nala_icons) {
+    if (icon == "ic_social_brave_carved_favicon_fullheight.xml" ||
+        icon == "ic_social_brave_outline_favicon_fullheight.xml" ||
+        icon == "ic_social_brave_release_favicon_fullheight_color.xml") {
+      sources += [ "//brave/app/theme/brave/android/shields_drawables/$icon" ]
+    } else {
+      sources +=
+          [ "//brave/node_modules/@brave/leo/tokens/android/drawable/$icon" ]
+    }
+  }
+  outputs = [ "$target_gen_dir/res/drawable/{{source_file_part}}" ]
+}"""
+)
+
 print("Successfully applied GN build fixes!")

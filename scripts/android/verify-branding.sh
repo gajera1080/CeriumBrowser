@@ -77,20 +77,19 @@ echo "Checking Android 13+ themed_app_icon.xml..."
 UPSTREAM_LION_SIG="M74.68,37.99"
 UPSTREAM_LION_NIGHT_SIG="M74.96,45.77"
 
-for base_name in "res_brave_base" "res_brave_default_base"; do
-  for draw_dir in "drawable" "drawable-night"; do
-    themed="${REPO_ROOT}/branding/android/${base_name}/${draw_dir}/themed_app_icon.xml"
-    if [[ ! -f "${themed}" ]]; then
-      echo "ERROR: Missing themed_app_icon.xml in ${base_name}/${draw_dir}/" >&2
-      FAILURES=$((FAILURES + 1))
-    elif grep -q "${UPSTREAM_LION_SIG}" "${themed}" || grep -q "${UPSTREAM_LION_NIGHT_SIG}" "${themed}"; then
-      echo "ERROR: ${base_name}/${draw_dir}/themed_app_icon.xml still contains upstream Brave lion vector path!" >&2
-      FAILURES=$((FAILURES + 1))
-    else
-      echo " [OK] Android 13+ ${base_name}/${draw_dir}/themed_app_icon.xml verified."
-    fi
-  done
+for draw_dir in "drawable" "drawable-night"; do
+  themed="${REPO_ROOT}/branding/android/res_brave_base/${draw_dir}/themed_app_icon.xml"
+  if [[ ! -f "${themed}" ]]; then
+    echo "ERROR: Missing themed_app_icon.xml in res_brave_base/${draw_dir}/" >&2
+    FAILURES=$((FAILURES + 1))
+  elif grep -q "${UPSTREAM_LION_SIG}" "${themed}" || grep -q "${UPSTREAM_LION_NIGHT_SIG}" "${themed}"; then
+    echo "ERROR: res_brave_base/${draw_dir}/themed_app_icon.xml still contains upstream Brave lion vector path!" >&2
+    FAILURES=$((FAILURES + 1))
+  else
+    echo " [OK] Android 13+ res_brave_base/${draw_dir}/themed_app_icon.xml verified."
+  fi
 done
+
 
 # 8. Check dedicated Braving Shields toolbar vector drawables
 echo "Checking Braving Shields toolbar vector drawables..."

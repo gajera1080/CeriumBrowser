@@ -1,23 +1,86 @@
 From: Braving Authors <support@braving.org>
 Date: Fri, 5 Sep 2026 10:15:00 +0000
-Subject: [PATCH] [branding] Rebrand application name and package ID to Braving
+Subject: [PATCH] [branding] Rebrand release app/theme/brave, toolbar shields icons, and package ID to Braving
 
-This patch changes the default Android package manifest name from
-com.brave.browser to org.braving.browser (and org.braving.browser.debug
-for debug builds). It also updates the launcher app strings from Brave
-to Braving across Android channel constants.
+Updates release BRANDING and res_brave_base/values/channel_constants.xml under
+app/theme/brave to Braving, switches the Android toolbar Shields button from
+legacy btn_brave PNGs to the vector Shields icons, and sets the release
+Android manifest package ID to org.braving.browser.
 ---
- app/theme/brave/android/res_brave_base/values/channel_constants.xml         | 8 ++++----
- app/theme/brave/android/res_brave_default_base/values/channel_constants.xml | 8 ++++----
- app/theme/brave/android/values/channel_constants.xml                        | 8 ++++----
- build/commands/lib/buildArgs.ts                                             | 10 +++++-----
- 4 files changed, 17 insertions(+), 17 deletions(-)
-
+diff --git a/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml b/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml
+index 8e19b30..9d0a124 100644
+--- a/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml
++++ b/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml
+@@ -11,7 +11,7 @@
+ 
+     <ImageButton android:id="@+id/brave_shields_button"
+         style="@style/ToolbarButton"
+-        android:src="@drawable/btn_brave"
++        android:src="@drawable/ic_social_brave_release_favicon_fullheight_color"
+         android:layout_marginEnd="42dp"
+         android:layout_gravity="center_vertical|end"
+         android:contentDescription="@string/accessibility_toolbar_btn_brave_shields" />
+diff --git a/android/java/brave-res/layout/brave_toolbar.xml b/android/java/brave-res/layout/brave_toolbar.xml
+index 24570d7..c1a044a 100644
+--- a/android/java/brave-res/layout/brave_toolbar.xml
++++ b/android/java/brave-res/layout/brave_toolbar.xml
+@@ -63,7 +63,7 @@
+           style="@style/ToolbarButton"
+           android:layout_marginTop="8dp"
+           android:layout_marginBottom="8dp"
+-          android:src="@drawable/btn_brave"
++          android:src="@drawable/ic_social_brave_release_favicon_fullheight_color"
+           android:layout_gravity="center"
+           android:contentDescription="@string/accessibility_toolbar_btn_brave_shields" />
+   </FrameLayout>
+diff --git a/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java b/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java
+index 4a52041..c9a8b12 100644
+--- a/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java
++++ b/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java
+@@ -1306,11 +1306,13 @@ public abstract class BraveToolbarLayoutImpl extends ToolbarLayout
+         }
+ 
+         if (tab == null) {
+-            mBraveShieldsButton.setImageResource(R.drawable.btn_brave_off);
++            mBraveShieldsButton.setImageResource(
++                    R.drawable.ic_social_brave_outline_favicon_fullheight);
+             return;
+         }
+         mBraveShieldsButton.setImageResource(
+-                isShieldsOnForTab(tab) ? R.drawable.btn_brave : R.drawable.btn_brave_off);
++                isShieldsOnForTab(tab) ? R.drawable.ic_social_brave_release_favicon_fullheight_color
++                                       : R.drawable.ic_social_brave_outline_favicon_fullheight);
+ 
+         if (mRewardsLayout == null) return;
+         if (isIncognito()) {
+diff --git a/app/theme/brave/BRANDING b/app/theme/brave/BRANDING
+index 7a81c45..c01e4a2 100644
+--- a/app/theme/brave/BRANDING
++++ b/app/theme/brave/BRANDING
+@@ -1,10 +1,10 @@
+-COMPANY_FULLNAME=Brave Software, Inc.
+-COMPANY_SHORTNAME=Brave Software
+-PRODUCT_FULLNAME=Brave Browser
+-PRODUCT_SHORTNAME=Brave
+-PRODUCT_INSTALLER_FULLNAME=Brave Installer
+-PRODUCT_INSTALLER_SHORTNAME=Brave Installer
+-COPYRIGHT=Copyright 2016 The Brave Authors. All rights reserved.
+-MAC_BUNDLE_ID=com.brave.Browser
++COMPANY_FULLNAME=Braving Project
++COMPANY_SHORTNAME=Braving
++PRODUCT_FULLNAME=Braving Browser
++PRODUCT_SHORTNAME=Braving
++PRODUCT_INSTALLER_FULLNAME=Braving Installer
++PRODUCT_INSTALLER_SHORTNAME=Braving Installer
++COPYRIGHT=Copyright 2026 The Braving Authors. All rights reserved.
++MAC_BUNDLE_ID=org.braving.browser
+ MAC_CREATOR_CODE=Cr24
+ MAC_TEAM_ID=KL8N8XSYF4
 diff --git a/app/theme/brave/android/res_brave_base/values/channel_constants.xml b/app/theme/brave/android/res_brave_base/values/channel_constants.xml
 index 4759d6a..8f21975 100644
 --- a/app/theme/brave/android/res_brave_base/values/channel_constants.xml
 +++ b/app/theme/brave/android/res_brave_base/values/channel_constants.xml
-@@ -6,8 +6,8 @@
+@@ -7,8 +7,8 @@
  
  <resources xmlns:android="http://schemas.android.com/apk/res/android">
      <!-- The application name displayed to the user. -->
@@ -30,62 +93,16 @@ index 4759d6a..8f21975 100644
 +    <string name="search_widget_title" translatable="false">Braving search</string>
 +    <string name="quick_action_search_widget_title" translatable="false">Braving quick action search</string>
  </resources>
-diff --git a/app/theme/brave/android/res_brave_default_base/values/channel_constants.xml b/app/theme/brave/android/res_brave_default_base/values/channel_constants.xml
-index 9e9a4f6..178229b 100644
---- a/app/theme/brave/android/res_brave_default_base/values/channel_constants.xml
-+++ b/app/theme/brave/android/res_brave_default_base/values/channel_constants.xml
-@@ -6,8 +6,8 @@
- 
- <resources xmlns:android="http://schemas.android.com/apk/res/android">
-     <!-- The application name displayed to the user. -->
--    <string name="app_name" translatable="false">Brave - Debug</string>
--    <string name="bookmark_widget_title" translatable="false">Brave bookmarks</string>
--    <string name="search_widget_title" translatable="false">Brave search</string>
--    <string name="quick_action_search_widget_title" translatable="false">Brave quick action search</string>
-+    <string name="app_name" translatable="false">Braving - Debug</string>
-+    <string name="bookmark_widget_title" translatable="false">Braving bookmarks</string>
-+    <string name="search_widget_title" translatable="false">Braving search</string>
-+    <string name="quick_action_search_widget_title" translatable="false">Braving quick action search</string>
- </resources>
-diff --git a/app/theme/brave/android/values/channel_constants.xml b/app/theme/brave/android/values/channel_constants.xml
-index 9e9a4f6..178229b 100644
---- a/app/theme/brave/android/values/channel_constants.xml
-+++ b/app/theme/brave/android/values/channel_constants.xml
-@@ -6,8 +6,8 @@
- 
- <resources xmlns:android="http://schemas.android.com/apk/res/android">
-     <!-- The application name displayed to the user. -->
--    <string name="app_name" translatable="false">Brave - Debug</string>
--    <string name="bookmark_widget_title" translatable="false">Brave bookmarks</string>
--    <string name="search_widget_title" translatable="false">Brave search</string>
--    <string name="quick_action_search_widget_title" translatable="false">Brave quick action search</string>
-+    <string name="app_name" translatable="false">Braving - Debug</string>
-+    <string name="bookmark_widget_title" translatable="false">Braving bookmarks</string>
-+    <string name="search_widget_title" translatable="false">Braving search</string>
-+    <string name="quick_action_search_widget_title" translatable="false">Braving quick action search</string>
- </resources>
 diff --git a/build/commands/lib/buildArgs.ts b/build/commands/lib/buildArgs.ts
 index b0fe5f1..92518e9 100644
 --- a/build/commands/lib/buildArgs.ts
 +++ b/build/commands/lib/buildArgs.ts
-@@ -248,15 +248,15 @@ export function getBuildArgs(config: Config) {
-     args.android_channel = config.channel
-     if (!config.isReleaseBuild()) {
-       args.android_channel = 'default'
--      args.chrome_public_manifest_package = 'com.brave.browser_default'
-+      args.chrome_public_manifest_package = 'org.braving.browser.debug'
+@@ -247,7 +247,7 @@ export function getBuildArgs(config: Config) {
+       args.chrome_public_manifest_package = 'com.brave.browser_default'
      } else if (config.channel === '') {
        args.android_channel = 'stable'
 -      args.chrome_public_manifest_package = 'com.brave.browser'
 +      args.chrome_public_manifest_package = 'org.braving.browser'
      } else if (config.channel === 'beta') {
--      args.chrome_public_manifest_package = 'com.brave.browser_beta'
-+      args.chrome_public_manifest_package = 'org.braving.browser.beta'
+       args.chrome_public_manifest_package = 'com.brave.browser_beta'
      } else if (config.channel === 'dev') {
--      args.chrome_public_manifest_package = 'com.brave.browser_dev'
-+      args.chrome_public_manifest_package = 'org.braving.browser.dev'
-     } else if (config.channel === 'nightly') {
-       args.android_channel = 'canary'
--      args.chrome_public_manifest_package = 'com.brave.browser_nightly'
-+      args.chrome_public_manifest_package = 'org.braving.browser.nightly'
-     }

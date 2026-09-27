@@ -1,0 +1,69 @@
+From: Braving Authors <support@braving.org>
+Date: Sun, 27 Sep 2026 11:40:00 +0000
+Subject: [PATCH] [debloat] Unlock Brave Origin backend policy state
+
+Enables Brave Origin backend policy enforcement unconditionally once
+BraveOriginPolicyManager is initialized, independent of SKU purchase state or
+the UI feature flag.
+---
+diff --git a/components/brave_origin/brave_origin_policy_manager.cc b/components/brave_origin/brave_origin_policy_manager.cc
+--- a/components/brave_origin/brave_origin_policy_manager.cc
++++ b/components/brave_origin/brave_origin_policy_manager.cc
+@@ -191,15 +191,7 @@ void BraveOriginPolicyManager::SetPurchased(bool purchased) {
+ }
+ 
+ bool BraveOriginPolicyManager::IsPurchased() const {
+-  if (is_purchased_) {
+-    return true;
+-  }
+-  // Fall back to persisted pref so policies are applied immediately on startup,
+-  // before the async purchase verification completes.
+-  if (local_state_) {
+-    return local_state_->GetBoolean(kOriginPurchaseValidated);
+-  }
+-  return false;
++  return true;
+ }
+ 
+ void BraveOriginPolicyManager::Shutdown() {
+diff --git a/components/brave_origin/brave_origin_service.cc b/components/brave_origin/brave_origin_service.cc
+--- a/components/brave_origin/brave_origin_service.cc
++++ b/components/brave_origin/brave_origin_service.cc
+@@ -184,19 +184,11 @@ std::optional<bool> BraveOriginService::GetPolicyValue(
+ 
+ void BraveOriginService::CheckPurchaseState(
+     base::OnceCallback<void(bool)> callback) {
+-  if (!EnsureSkusConnected()) {
+-    std::move(callback).Run(IsPurchased());
+-    return;
+-  }
+-
+-  skus_service_->CredentialSummary(
+-      origin_sku_domain_,
+-      base::BindOnce(&BraveOriginService::OnCredentialSummary,
+-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
++  std::move(callback).Run(true);
+ }
+ 
+ bool BraveOriginService::IsPurchased() const {
+-  return BraveOriginPolicyManager::GetInstance()->IsPurchased();
++  return true;
+ }
+ 
+ bool BraveOriginService::NeedsRestart() const {
+diff --git a/components/brave_origin/brave_origin_utils.cc b/components/brave_origin/brave_origin_utils.cc
+--- a/components/brave_origin/brave_origin_utils.cc
++++ b/components/brave_origin/brave_origin_utils.cc
+@@ -19,11 +19,8 @@ bool IsBraveOriginFeatureEnabled() {
+ }
+ 
+ bool IsBraveOriginPurchased() {
+-  if (!IsBraveOriginFeatureEnabled()) {
+-    return false;
+-  }
+   auto* manager = BraveOriginPolicyManager::GetInstance();
+-  return manager->IsInitialized() && manager->IsPurchased();
++  return manager->IsInitialized();
+ }
+ 
+ std::string GetBraveOriginPrefKey(std::string_view policy_key,

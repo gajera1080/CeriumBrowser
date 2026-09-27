@@ -12,17 +12,16 @@ index b827b398e..e7bde0e08 100644
      "https://safebrowsing.brave.com/",
      "https://static.brave.com/",
 diff --git a/components/update_client/BUILD.gn b/components/update_client/BUILD.gn
-index a3c19dfff..d9f2d4eb6 100644
+index a3c19dfff..8c8c02046 100644
 --- a/components/update_client/BUILD.gn
 +++ b/components/update_client/BUILD.gn
-@@ -6,8 +6,8 @@
- import("//build/buildflag_header.gni")
+@@ -7,7 +7,7 @@ import("//build/buildflag_header.gni")
  
  declare_args() {
--  updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"
+   updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"
 -  updater_prod_endpoint = "https://go-updater.brave.com/extensions"
-+  updater_dev_endpoint = "https://updates.braving.org/components"
 +  updater_prod_endpoint = "https://updates.braving.org/components"
  }
  
  if (is_official_build) {
+

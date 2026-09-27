@@ -107,17 +107,21 @@ class TestBrandingAssets(unittest.TestCase):
             self.skipTest("android.jar not available in environment")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            res_dir = os.path.join(tmpdir, "res", "drawable")
-            os.makedirs(res_dir, exist_ok=True)
+            res_base = os.path.join(tmpdir, "res")
             for root, _, files in os.walk(self.android_dir):
                 for f in files:
                     if f.endswith(".xml"):
-                        shutil.copy(os.path.join(root, f), os.path.join(res_dir, f))
+                        parent_folder = os.path.basename(root)
+                        if not parent_folder.startswith(("drawable", "mipmap", "values")):
+                            parent_folder = "drawable"
+                        target_dir = os.path.join(res_base, parent_folder)
+                        os.makedirs(target_dir, exist_ok=True)
+                        shutil.copy(os.path.join(root, f), os.path.join(target_dir, f))
 
             compiled_dir = os.path.join(tmpdir, "compiled")
             os.makedirs(compiled_dir, exist_ok=True)
             compile_res = subprocess.run(
-                [aapt2_bin, "compile", "--dir", os.path.join(tmpdir, "res"), "-o", compiled_dir],
+                [aapt2_bin, "compile", "--dir", res_base, "-o", compiled_dir],
                 capture_output=True, text=True
             )
             self.assertEqual(compile_res.returncode, 0, f"AAPT2 compile failed: {compile_res.stderr}")
@@ -128,7 +132,7 @@ class TestBrandingAssets(unittest.TestCase):
 
             flats = [os.path.join(compiled_dir, f) for f in os.listdir(compiled_dir) if f.endswith(".flat")]
             link_res = subprocess.run(
-                [aapt2_bin, "link", "-I", android_jar, "--manifest", manifest, "-o",
+                [aapt2_bin, "link", "-I", android_jar, "--manifest", manifest, "--min-sdk-version", "29", "-o",
                  os.path.join(tmpdir, "out.apk"), "--auto-add-overlay", "--no-version-vectors", "--no-xml-namespaces"] + flats,
                 capture_output=True, text=True
             )

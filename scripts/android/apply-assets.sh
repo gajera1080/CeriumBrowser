@@ -17,29 +17,30 @@ if [[ -f "${REPO_ROOT}/branding/android/drawable/ic_brave_logo.xml" ]]; then
   echo " [OK] Copied ic_brave_logo.xml to brave-res/drawable/"
 fi
 
-# 2. Overlay Android 13+ themed vector icons into app/theme/brave/android/
+# 2. Overlay Android adaptive & themed vector icons into app/theme/brave/android/res_brave_base/
 THEME_ANDROID="${BRAVE_DIR}/app/theme/brave/android"
 if [[ -d "${THEME_ANDROID}" ]]; then
-  for base_name in "res_brave_base" "res_brave_default_base" "res_brave_beta_base" "res_brave_dev_base" "res_brave_nightly_base"; do
-    target_base="${THEME_ANDROID}/${base_name}"
-    if [[ -d "${target_base}" ]]; then
-      mkdir -p "${target_base}/drawable" "${target_base}/drawable-night"
-      if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml" ]]; then
-        cp -f "${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml" "${target_base}/drawable/themed_app_icon.xml"
-      fi
-      if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/drawable-night/themed_app_icon.xml" ]]; then
-        cp -f "${REPO_ROOT}/branding/android/res_brave_base/drawable-night/themed_app_icon.xml" "${target_base}/drawable-night/themed_app_icon.xml"
-      fi
+  target_base="${THEME_ANDROID}/res_brave_base"
+  if [[ -d "${target_base}" ]]; then
+    mkdir -p "${target_base}/drawable" "${target_base}/drawable-night" "${target_base}/mipmap-anydpi-v26"
+    if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml" ]]; then
+      cp -f "${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml" "${target_base}/drawable/themed_app_icon.xml"
     fi
-  done
-  echo " [OK] Overlaid themed_app_icon.xml into brave-core theme bases."
-fi
+    if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/drawable-night/themed_app_icon.xml" ]]; then
+      cp -f "${REPO_ROOT}/branding/android/res_brave_base/drawable-night/themed_app_icon.xml" "${target_base}/drawable-night/themed_app_icon.xml"
+    fi
+    if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-anydpi-v26/app_icon.xml" ]]; then
+      cp -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-anydpi-v26/app_icon.xml" "${target_base}/mipmap-anydpi-v26/app_icon.xml"
+    fi
+  fi
+  echo " [OK] Overlaid themed_app_icon.xml and mipmap-anydpi-v26/app_icon.xml into app/theme/brave/android/res_brave_base/."
 
-# 3. Overlay Shields toolbar vector drawables if @brave/leo is installed
-LEO_DRAWABLE="${BRAVE_DIR}/node_modules/@brave/leo/tokens/android/drawable"
-if [[ -d "${LEO_DRAWABLE}" && -d "${REPO_ROOT}/branding/android/shields_drawables" ]]; then
-  cp -f "${REPO_ROOT}/branding/android/shields_drawables/"*.xml "${LEO_DRAWABLE}/"
-  echo " [OK] Overlaid Shields vector drawables into @brave/leo tokens."
+  # 3. Overlay Shields toolbar vector drawables into app/theme/brave/android/shields_drawables/
+  if [[ -d "${REPO_ROOT}/branding/android/shields_drawables" ]]; then
+    mkdir -p "${THEME_ANDROID}/shields_drawables"
+    cp -f "${REPO_ROOT}/branding/android/shields_drawables/"*.xml "${THEME_ANDROID}/shields_drawables/"
+    echo " [OK] Overlaid Shields vector drawables into app/theme/brave/android/shields_drawables/."
+  fi
 fi
 
 # 4. Prevent java_resources failure by removing any misplaced branding folders in brave-res
@@ -53,7 +54,3 @@ for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
 done
 
 echo " [OK] Braving vector assets applied cleanly to brave-core."
-
-
-
-

@@ -11,11 +11,12 @@ if [[ -z "${DYNAMIC_BRAVE_VERSION:-}" && -z "${BRAVE_VERSION:-}" ]]; then
   exit 1
 fi
 
-TARGET_ARCH="${TARGET_ARCH:-arm64}"
-CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
-PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TARGET_ARCH="${TARGET_ARCH:-arm64}"
+GN_ARGS_HASH=$(sed -n '/brave_defaults\.gni/,/^EOF$/p' "${REPO_ROOT}/scripts/android/build-android.sh" | sha256sum | cut -c1-8)
+CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${GN_ARGS_HASH}"
+PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-${REPO_ROOT}}/build-workspace}"
 OUT_DIR="${WORKSPACE_DIR}/src/out"
 

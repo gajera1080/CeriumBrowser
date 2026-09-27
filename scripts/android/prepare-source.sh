@@ -396,13 +396,17 @@ if [[ ${#PATCHES[@]} -eq 0 ]]; then
   echo " - No patches found in ${PATCH_DIR} (all modifications handled via mutators)."
 else
   for patch in "${PATCHES[@]}"; do
-    pname=$(basename "$patch")
+    pname="${patch#${PATCH_DIR}/}"
     echo " - Applying ${pname}..."
-    if git -C "${BRAVE_DIR}" apply --check --reverse "$patch" 2>/dev/null; then
+    if git -C "${BRAVE_DIR}" apply --check --reverse "$patch" 2>/dev/null || \
+       git -C "${BRAVE_DIR}" apply -C1 --check --reverse "$patch" 2>/dev/null; then
       echo "   [OK] Patch ${pname} already applied."
     elif git -C "${BRAVE_DIR}" apply --check "$patch" 2>/dev/null; then
       git -C "${BRAVE_DIR}" apply "$patch"
       echo "   [OK] Patch ${pname} successfully applied."
+    elif git -C "${BRAVE_DIR}" apply -C1 --check "$patch" 2>/dev/null; then
+      git -C "${BRAVE_DIR}" apply -C1 "$patch"
+      echo "   [OK] Patch ${pname} successfully applied (with -C1 context)."
     else
       echo "ERROR: Patch ${pname} failed to apply and is not already applied. Aborting to fail closed." >&2
       git -C "${BRAVE_DIR}" apply --check -v "$patch" >&2 || true
