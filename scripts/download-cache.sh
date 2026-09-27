@@ -14,8 +14,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TARGET_ARCH="${TARGET_ARCH:-arm64}"
-GN_ARGS_HASH=$(sed -n '/brave_defaults\.gni/,/^EOF$/p' "${REPO_ROOT}/scripts/android/build-android.sh" | sha256sum | cut -c1-8)
-CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}-${GN_ARGS_HASH}"
+CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
 PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-${REPO_ROOT}}/build-workspace}"
 OUT_DIR="${WORKSPACE_DIR}/src/out"
@@ -91,6 +90,17 @@ sleep 1
 if [[ -d "${OUT_DIR}/Release/obj" || -d "${OUT_DIR}/Release/gen" ]]; then
   echo "Touching cached obj/ and gen/ artifacts to preserve up-to-date state..."
   find "${OUT_DIR}/Release/obj" "${OUT_DIR}/Release/gen" -type f -exec touch {} + 2>/dev/null || true
+fi
+
+# 3b. Sync java_resources.res.sources with Stage 1's adaptive vector icon XML
+#     so prepare_resources.py packages the new Braving icon without needing gn gen.
+RES_SOURCES="${OUT_DIR}/Release/gen/brave/android/java_resources.res.sources"
+if [[ -f "${RES_SOURCES}" ]]; then
+  sed -i '/res_brave_base\/mipmap-.*\/app_icon\.png/d' "${RES_SOURCES}"
+  if ! grep -q "res_brave_base/mipmap-anydpi-v26/app_icon.xml" "${RES_SOURCES}"; then
+    echo "../../brave/android/java/brave-res/res_brave_base/mipmap-anydpi-v26/app_icon.xml" >> "${RES_SOURCES}"
+  fi
+  rm -f "${OUT_DIR}/Release/obj/brave/android/java_resources.resources.zip"
 fi
 
 # 4. Write a marker file so build-android.sh can detect cache presence and skip gn gen

@@ -379,14 +379,7 @@ is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"
-brave_channel = ""
-target_android_output_format = "aab"
-android_override_version_name = "${BRAVE_VERSION}"
-enable_android_secondary_abi = false
-dcheck_always_on = false
-enable_java_asserts = false
-exclude_unwind_tables = true
-strip_debug_info = true
+target_android_output_format = "apk"
 use_siso = true
 
 # Debloating & Feature Disabling (Now handled by Enterprise Policies)
@@ -426,7 +419,6 @@ EOF
 echo ""
 echo "Android GN arguments configured:"
 cat "${GN_ARGS_FILE}"
-cp -f "${GN_ARGS_FILE}" "${GN_ARGS_FILE}.expected"
 
 # Configure Siso cache environment variables
 export SISO_CACHE_DIR="${OUT_DIR}/.siso_local_cache"
@@ -444,21 +436,9 @@ if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
   if [[ -f "${OUT_DIR}/.cache_restored" ]]; then
     CACHE_RESTORED=true
     rm -f "${OUT_DIR}/.cache_restored"
-    if ! cmp -s "${GN_ARGS_FILE}.expected" "${GN_ARGS_FILE}"; then
-      echo ""
-      echo "[CACHE] Cached args.gn differs from current args.gn. Restoring current args.gn and regenerating build.ninja..."
-      mv -f "${GN_ARGS_FILE}.expected" "${GN_ARGS_FILE}"
-      CACHE_RESTORED=false
-    else
-      rm -f "${GN_ARGS_FILE}.expected"
-      echo ""
-      echo "[CACHE] Warm cache restored from Stage 2 with matching args.gn. Skipping gn gen to preserve build.ninja integrity."
-    fi
-  else
-    rm -f "${GN_ARGS_FILE}.expected"
+    echo ""
+    echo "[CACHE] Warm cache restored from Stage 2. Skipping gn gen to preserve build.ninja integrity."
   fi
-else
-  rm -f "${GN_ARGS_FILE}.expected"
 fi
 
 if [[ "${CACHE_RESTORED}" == "false" ]]; then
