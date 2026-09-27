@@ -165,6 +165,10 @@ def test_patch_suite():
     assert '<string name="app_name" translatable="false">Braving</string>' in c0001
     assert "ic_social_brave_release_favicon_fullheight_color" in c0001
     assert "ic_social_brave_outline_favicon_fullheight" in c0001
+    assert "R.mipmap.layered_app_icon" in c0001
+    assert "R.mipmap.layered_app_icon_background" in c0001
+    assert "R.drawable.btn_brave" in c0001
+    assert "R.drawable.btn_brave_off" in c0001
 
     # Verify 0002 custom updater endpoint patch (release-only)
     patch_0002 = os.path.join(REPO_ROOT, "patches/android/0002-custom-updater-endpoint.patch")
