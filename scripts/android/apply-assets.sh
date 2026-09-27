@@ -22,18 +22,21 @@ THEME_ANDROID="${BRAVE_DIR}/app/theme/brave/android"
 if [[ -d "${THEME_ANDROID}" ]]; then
   target_base="${THEME_ANDROID}/res_brave_base"
   if [[ -d "${target_base}" ]]; then
-    mkdir -p "${target_base}/drawable" "${target_base}/drawable-night" "${target_base}/mipmap-anydpi-v26"
+    mkdir -p "${target_base}/drawable" "${target_base}/drawable-night" "${target_base}/mipmap-anydpi-v26" "${target_base}/mipmap-nodpi"
     if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml" ]]; then
       cp -f "${REPO_ROOT}/branding/android/res_brave_base/drawable/themed_app_icon.xml" "${target_base}/drawable/themed_app_icon.xml"
     fi
     if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/drawable-night/themed_app_icon.xml" ]]; then
       cp -f "${REPO_ROOT}/branding/android/res_brave_base/drawable-night/themed_app_icon.xml" "${target_base}/drawable-night/themed_app_icon.xml"
     fi
-    if [[ -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-anydpi-v26/app_icon.xml" ]]; then
-      cp -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-anydpi-v26/app_icon.xml" "${target_base}/mipmap-anydpi-v26/app_icon.xml"
+    if [[ -d "${REPO_ROOT}/branding/android/res_brave_base/mipmap-anydpi-v26" ]]; then
+      cp -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-anydpi-v26/"*.xml "${target_base}/mipmap-anydpi-v26/"
+    fi
+    if [[ -d "${REPO_ROOT}/branding/android/res_brave_base/mipmap-nodpi" ]]; then
+      cp -f "${REPO_ROOT}/branding/android/res_brave_base/mipmap-nodpi/"*.xml "${target_base}/mipmap-nodpi/"
     fi
   fi
-  echo " [OK] Overlaid themed_app_icon.xml and mipmap-anydpi-v26/app_icon.xml into app/theme/brave/android/res_brave_base/."
+  echo " [OK] Overlaid themed_app_icon.xml and mipmap vector icons into app/theme/brave/android/res_brave_base/."
 
   # 3. Overlay Shields toolbar vector drawables into app/theme/brave/android/shields_drawables/
   if [[ -d "${REPO_ROOT}/branding/android/shields_drawables" ]]; then

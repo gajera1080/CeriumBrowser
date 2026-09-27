@@ -84,6 +84,21 @@ class TestBrandingAssets(unittest.TestCase):
             except Exception as e:
                 self.fail(f"Invalid SVG XML syntax in {p}: {e}")
 
+    def test_launcher_mipmap_vectors(self):
+        """Launcher mipmap overrides in res_brave_base must be valid <vector> drawables."""
+        base_dir = os.path.join(self.android_dir, "res_brave_base")
+        expected_vectors = [
+            "mipmap-anydpi-v26/app_icon.xml",
+            "mipmap-anydpi-v26/layered_app_icon.xml",
+            "mipmap-anydpi-v26/layered_app_icon_background.xml",
+            "mipmap-nodpi/layered_app_icon_foreground.xml",
+        ]
+        for rel_path in expected_vectors:
+            full_path = os.path.join(base_dir, rel_path)
+            self.assertTrue(os.path.isfile(full_path), f"Missing launcher vector {rel_path}")
+            root = ET.parse(full_path).getroot()
+            self.assertEqual(root.tag, "vector", f"{rel_path} must be a <vector> drawable, got <{root.tag}>")
+
     def test_aapt2_compile_and_link(self):
         """Deep verification: compile and link all branding drawables with AAPT2 if available."""
         import glob

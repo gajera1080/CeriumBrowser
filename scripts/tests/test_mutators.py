@@ -25,8 +25,9 @@ def test_apply_features():
         webui_build_gn = os.path.join(tmpdir, "ui/webui/resources/BUILD.gn")
         webui_sources_gni = os.path.join(tmpdir, "ui/webui/resources/sources.gni")
         nala_build_gn = os.path.join(tmpdir, "android/nala/BUILD.gn")
+        brave_java_res_gni = os.path.join(tmpdir, "android/brave_java_resources.gni")
 
-        for p in [webpack_rules, rust_wasm, webui_build_gn, webui_sources_gni, nala_build_gn]:
+        for p in [webpack_rules, rust_wasm, webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
         with open(webpack_rules, "w") as f:
@@ -92,6 +93,11 @@ copy("nala_icons") {
 }
 """)
 
+        with open(brave_java_res_gni, "w") as f:
+            f.write("""brave_base_module_resources =
+    [ "java/res_chromium_base/drawable-night/themed_app_icon.xml" ]
+""")
+
         script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
         res = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
         assert res.returncode == 0, f"apply-features failed: {res.stderr}\n{res.stdout}"
@@ -115,6 +121,12 @@ copy("nala_icons") {
         with open(nala_build_gn) as f:
             c = f.read()
             assert "//brave/app/theme/brave/android/shields_drawables/" in c
+
+        with open(brave_java_res_gni) as f:
+            c = f.read()
+            assert "java/res_chromium_base/mipmap-anydpi-v26/app_icon.xml" in c
+            assert "java/res_chromium_base/mipmap-anydpi-v26/layered_app_icon.xml" in c
+            assert "java/res_chromium_base/mipmap-anydpi-v26/layered_app_icon_background.xml" in c
 
         # Verify idempotence
         res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)

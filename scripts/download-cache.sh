@@ -74,8 +74,9 @@ rm -f "${OUT_DIR}/Release/build.ninja.d"
 # pre-built outputs dirty, while keeping build.ninja newer than source files.
 echo "Synchronizing build graph and artifact timestamps to prevent Siso dirty cache invalidation..."
 
-# 1. Touch build manifest files to current time (newer than all freshly checked out source files)
-for manifest_file in "${OUT_DIR}/Release/build.ninja" "${OUT_DIR}/Release/build.ninja.stamp" "${OUT_DIR}/Release/args.gn"; do
+# 1. Touch build manifest files to current time (newer than all freshly checked out source files).
+#    Touch args.gn FIRST, then build.ninja and build.ninja.stamp so build.ninja.stamp is >= args.gn.
+for manifest_file in "${OUT_DIR}/Release/args.gn" "${OUT_DIR}/Release/build.ninja" "${OUT_DIR}/Release/build.ninja.stamp"; do
   if [[ -f "${manifest_file}" ]]; then
     touch "${manifest_file}"
   fi
@@ -92,16 +93,22 @@ if [[ -d "${OUT_DIR}/Release/obj" || -d "${OUT_DIR}/Release/gen" ]]; then
   find "${OUT_DIR}/Release/obj" "${OUT_DIR}/Release/gen" -type f -exec touch {} + 2>/dev/null || true
 fi
 
-# 3b. Sync java_resources.res.sources with Stage 1's adaptive vector icon XML
-#     so prepare_resources.py packages the new Braving icon without needing gn gen.
-RES_SOURCES="${OUT_DIR}/Release/gen/brave/android/java_resources.res.sources"
-if [[ -f "${RES_SOURCES}" ]]; then
-  sed -i '/res_brave_base\/mipmap-.*\/app_icon\.png/d' "${RES_SOURCES}"
-  if ! grep -q "res_brave_base/mipmap-anydpi-v26/app_icon.xml" "${RES_SOURCES}"; then
-    echo "../../brave/android/java/brave-res/res_brave_base/mipmap-anydpi-v26/app_icon.xml" >> "${RES_SOURCES}"
+# 3b. Sync chrome_base_module_resources.res.sources and chrome_public_apk_base_module_resources.res.sources
+#     with Stage 1's mipmap-anydpi-v26 vector icon XMLs so prepare_resources.py succeeds even if gn gen is skipped.
+for res_sources in \
+  "${OUT_DIR}/Release/gen/chrome/android/chrome_base_module_resources.res.sources" \
+  "${OUT_DIR}/Release/gen/chrome/android/chrome_public_apk_base_module_resources.res.sources"; do
+  if [[ -f "${res_sources}" ]]; then
+    for xml_name in "app_icon.xml" "layered_app_icon.xml" "layered_app_icon_background.xml"; do
+      rel_entry="../../chrome/android/java/res_chromium_base/mipmap-anydpi-v26/${xml_name}"
+      if ! grep -qF "${rel_entry}" "${res_sources}"; then
+        echo "${rel_entry}" >> "${res_sources}"
+      fi
+    done
   fi
-  rm -f "${OUT_DIR}/Release/obj/brave/android/java_resources.resources.zip"
-fi
+done
+rm -f "${OUT_DIR}/Release/obj/chrome/android/chrome_base_module_resources.resources.zip" \
+      "${OUT_DIR}/Release/obj/chrome/android/chrome_public_apk_base_module_resources.resources.zip"
 
 # 4. Write a marker file so build-android.sh can detect cache presence and skip gn gen
 touch "${OUT_DIR}/Release/.cache_restored"

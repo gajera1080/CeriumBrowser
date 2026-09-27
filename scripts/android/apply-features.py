@@ -172,4 +172,19 @@ replace_in_file(
 }"""
 )
 
+# 6. Register Braving mipmap-anydpi-v26 vector app icons in brave_base_module_resources
+#    so //chrome/android:chrome_base_module_resources and
+#    //chrome/android:chrome_public_apk_base_module_resources list all files in res_chromium_base.
+replace_in_file(
+    "android/brave_java_resources.gni",
+    """brave_base_module_resources =
+    [ "java/res_chromium_base/drawable-night/themed_app_icon.xml" ]""",
+    """brave_base_module_resources = [
+  "java/res_chromium_base/drawable-night/themed_app_icon.xml",
+  "java/res_chromium_base/mipmap-anydpi-v26/app_icon.xml",
+  "java/res_chromium_base/mipmap-anydpi-v26/layered_app_icon.xml",
+  "java/res_chromium_base/mipmap-anydpi-v26/layered_app_icon_background.xml",
+]"""
+)
+
 print("Successfully applied GN build fixes!")
