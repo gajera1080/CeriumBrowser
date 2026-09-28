@@ -271,6 +271,7 @@ def update_xtb_file(xtb_path: str, fp_map: dict, branded_fps: set) -> int:
 
 PREF_ATTR_RE = re.compile(r'(\bandroid:(?:title|summary)=")([^"]*)(")')
 STRING_NODE_RE = re.compile(r'(<string\b[^>]*>)([^<]*)(</string>)')
+BRAVE_WORD_RE = re.compile(r"\b(?:Brave|Braving)\s*-\s*Debug\b|\bBrave\b")
 
 
 def process_xml_preferences(brave_dir: str) -> int:
@@ -284,7 +285,7 @@ def process_xml_preferences(brave_dir: str) -> int:
         with open(p, "r", encoding="utf-8") as f:
             content = f.read()
         new_content = PREF_ATTR_RE.sub(
-            lambda m: f"{m.group(1)}{BRAVE_RE.sub('Braving', m.group(2))}{m.group(3)}",
+            lambda m: m.group(1) + BRAVE_RE.sub("Braving", m.group(2)) + m.group(3),
             content,
         )
         if new_content != content:
@@ -303,7 +304,7 @@ def process_xml_preferences(brave_dir: str) -> int:
         with open(p, "r", encoding="utf-8") as f:
             content = f.read()
         new_content = STRING_NODE_RE.sub(
-            lambda m: f"{m.group(1)}{re.sub(r'\\bBrave\\b', 'Braving', m.group(2))}{m.group(3)}",
+            lambda m: m.group(1) + BRAVE_WORD_RE.sub("Braving", m.group(2)) + m.group(3),
             content,
         )
         if new_content != content:

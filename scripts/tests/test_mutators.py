@@ -399,8 +399,53 @@ def test_apply_branding():
         print("PASS: test_apply_branding")
 
 
+def test_python311_syntax_compatibility():
+    """Ensure all Python scripts and embedded heredocs are compatible with Python 3.11 (Debian Bookworm)."""
+    import ast
+    import glob
+    import re
+
+    def verify_source(code: str, label: str):
+        tree = ast.parse(code, filename=label)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                seg = ast.get_source_segment(code, node)
+                if not seg:
+                    continue
+                m = re.match(r"^[fFrR]+(\"\"\"|'''|\"|')", seg)
+                outer_q = m.group(1) if m else '"'
+                for val in node.values:
+                    if isinstance(val, ast.FormattedValue):
+                        vseg = ast.get_source_segment(code, val) or ""
+                        assert "\\" not in vseg, (
+                            f"Python 3.11 SyntaxError: backslash in f-string expression at {label}:{node.lineno}: {vseg}"
+                        )
+                        if outer_q in ('"', "'"):
+                            assert outer_q not in vseg, (
+                                f"Python 3.11 SyntaxError: nested {outer_q} in f-string expression at {label}:{node.lineno}: {vseg}"
+                            )
+                        assert "#" not in vseg, (
+                            f"Python 3.11 SyntaxError: comment in f-string expression at {label}:{node.lineno}: {vseg}"
+                        )
+
+    py_files = sorted(glob.glob(os.path.join(REPO_ROOT, "scripts/**/*.py"), recursive=True))
+    for p in py_files:
+        with open(p, "r", encoding="utf-8") as f:
+            verify_source(f.read(), os.path.relpath(p, REPO_ROOT))
+
+    sh_files = sorted(glob.glob(os.path.join(REPO_ROOT, "scripts/**/*.sh"), recursive=True))
+    for p in sh_files:
+        with open(p, "r", encoding="utf-8") as f:
+            sh = f.read()
+        for i, m in enumerate(re.finditer(r"python3 - [^\n]*<<'?PYEOF'?\n(.*?)\nPYEOF", sh, re.DOTALL)):
+            verify_source(m.group(1), f"{os.path.relpath(p, REPO_ROOT)}[PYEOF#{i}]")
+
+    print("PASS: test_python311_syntax_compatibility")
+
+
 if __name__ == "__main__":
     try:
+        test_python311_syntax_compatibility()
         test_apply_features()
         test_apply_branding()
         test_patch_suite()
