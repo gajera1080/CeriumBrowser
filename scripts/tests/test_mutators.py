@@ -26,8 +26,9 @@ def test_apply_features():
         webui_sources_gni = os.path.join(tmpdir, "ui/webui/resources/sources.gni")
         nala_build_gn = os.path.join(tmpdir, "android/nala/BUILD.gn")
         brave_java_res_gni = os.path.join(tmpdir, "android/brave_java_resources.gni")
+        branding_js = os.path.join(tmpdir, "build/commands/lib/branding.js")
 
-        for p in [webpack_rules, rust_wasm, webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni]:
+        for p in [webpack_rules, rust_wasm, webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
         with open(webpack_rules, "w") as f:
@@ -98,6 +99,28 @@ copy("nala_icons") {
     [ "java/res_chromium_base/drawable-night/themed_app_icon.xml" ]
 """)
 
+        with open(branding_js, "w") as f:
+            f.write("""  // Replace chrome dark logo with channel specific brave logo.
+  fileMap.add([
+    path.join(
+      config.braveCoreDir,
+      'node_modules',
+      '@brave',
+      'leo',
+      'icons',
+      config.getBraveLogoIconName(),
+    ),
+    path.join(
+      config.srcDir,
+      'ui',
+      'webui',
+      'resources',
+      'images',
+      'chrome_logo_dark.svg',
+    ),
+  ])
+""")
+
         script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
         res = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
         assert res.returncode == 0, f"apply-features failed: {res.stderr}\n{res.stdout}"
@@ -127,6 +150,10 @@ copy("nala_icons") {
             assert "java/res_chromium_base/mipmap-anydpi-v26/app_icon.xml" in c
             assert "java/res_chromium_base/mipmap-anydpi-v26/layered_app_icon.xml" in c
             assert "java/res_chromium_base/mipmap-anydpi-v26/layered_app_icon_background.xml" in c
+
+        with open(branding_js) as f:
+            c = f.read()
+            assert "'product_logo.svg'" in c
 
         # Verify idempotence
         res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
@@ -251,9 +278,131 @@ def test_patch_suite():
     print("PASS: test_patch_suite")
 
 
+def test_apply_branding():
+    import importlib.util
+    script_path = os.path.join(REPO_ROOT, "scripts/android/apply-branding.py")
+    spec = importlib.util.spec_from_file_location("apply_branding", script_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        grd_dir = os.path.join(tmpdir, "browser/ui/android/strings")
+        xtb_dir = os.path.join(grd_dir, "translations")
+        pref_dir = os.path.join(tmpdir, "android/java/res/xml")
+        os.makedirs(xtb_dir, exist_ok=True)
+        os.makedirs(pref_dir, exist_ok=True)
+
+        grd_path = os.path.join(grd_dir, "android_brave_strings.grd")
+        part_path = os.path.join(grd_dir, "sub_strings.grdp")
+        xtb_path = os.path.join(xtb_dir, "android_brave_strings_es.xtb")
+        pref_path = os.path.join(pref_dir, "developer_preferences.xml")
+
+        import xml.etree.ElementTree as ET
+        old_fp_1 = mod.get_fingerprint_for_xtb(ET.fromstring("<message>Welcome to Brave</message>"))
+        new_fp_1 = mod.get_fingerprint_for_xtb(ET.fromstring("<message>Welcome to Braving</message>"))
+
+        old_fp_2 = mod.get_fingerprint_for_xtb(
+            ET.fromstring('<message>Brave Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Brave 1.0</ex></ph></message>')
+        )
+        new_fp_2 = mod.get_fingerprint_for_xtb(
+            ET.fromstring('<message>Braving Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Braving 1.0</ex></ph></message>')
+        )
+
+        with open(part_path, "w", encoding="utf-8") as f:
+            f.write("""<?xml version="1.0" encoding="utf-8"?>
+<grit-part>
+  <message name="IDS_SHIELDS_PRIVACY" desc="Shields label">
+    Brave Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Brave 1.0</ex></ph>
+  </message>
+</grit-part>
+""")
+
+        with open(grd_path, "w", encoding="utf-8") as f:
+            f.write("""<?xml version="1.0" encoding="utf-8"?>
+<grit latest_public_release="0" current_release="1">
+  <outputs>
+    <output filename="values/android_brave_strings.xml" lang="en" type="android" />
+  </outputs>
+  <translations>
+    <file path="translations/android_brave_strings_es.xtb" lang="es" />
+  </translations>
+  <release seq="1">
+    <messages fallback_to_english="true">
+      <part file="sub_strings.grdp" />
+      <message name="IDS_WELCOME_BRAVE" desc="Welcome">Welcome to Brave</message>
+      <message name="IDS_CHROME_HISTORY" desc="History menu item">Brave history</message>
+      <message name="IDS_JAVASCRIPT_OPT" desc="Protects against malicious actors">Brave runs faster</message>
+      <message name="IDS_BRAVE_SEARCH_DESC" desc="Search">Try Brave Search at https://search.brave.com or brave://settings in Brave</message>
+      <message name="IDS_BRAVE_WALLET_TITLE" desc="Wallet bloat">Brave Wallet</message>
+      <message name="IDS_AI_CHAT_INTRO" desc="Leo bloat">Ask Brave Leo AI</message>
+      <message name="IDS_TOR_STATUS" desc="Tor bloat">Brave Tor</message>
+    </messages>
+  </release>
+</grit>
+""")
+
+        with open(xtb_path, "w", encoding="utf-8") as f:
+            f.write(f"""<?xml version="1.0" ?>
+<!DOCTYPE translationbundle>
+<translationbundle lang="es">
+<translation id="{old_fp_1}">Bienvenido a Brave</translation>
+<translation id="{old_fp_2}">Escudos de Brave en <ph name="BRAVE_VERSION"/></translation>
+</translationbundle>
+""")
+
+        with open(pref_path, "w", encoding="utf-8") as f:
+            f.write("""<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2020 The Brave Authors. All rights reserved. -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <Preference
+        android:key="qa_hint"
+        android:title="Tap Brave version in About Brave"
+        android:summary="Visit https://brave.com for Brave Search" />
+</PreferenceScreen>
+""")
+
+        env = dict(os.environ)
+        env.pop("CI", None)
+        res = subprocess.run([sys.executable, script_path, tmpdir], env=env, capture_output=True, text=True)
+        assert res.returncode == 0, f"apply-branding failed: {res.stderr}\n{res.stdout}"
+
+        with open(grd_path, "r", encoding="utf-8") as f:
+            grd_out = f.read()
+        assert ">Welcome to Braving</message>" in grd_out
+        assert ">Braving history</message>" in grd_out
+        assert ">Braving runs faster</message>" in grd_out
+        assert ">Try Brave Search at https://search.brave.com or brave://settings in Braving</message>" in grd_out
+        assert ">Brave Wallet</message>" in grd_out, "Bloat wallet string should not be branded"
+        assert ">Ask Brave Leo AI</message>" in grd_out, "Bloat AI chat string should not be branded"
+        assert ">Brave Tor</message>" in grd_out, "Bloat Tor string should not be branded"
+
+        with open(part_path, "r", encoding="utf-8") as f:
+            part_out = f.read()
+        assert 'Braving Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Brave 1.0</ex></ph>' in part_out
+
+        with open(xtb_path, "r", encoding="utf-8") as f:
+            xtb_out = f.read()
+        assert f'id="{new_fp_1}">Bienvenido a Braving</translation>' in xtb_out
+        assert f'id="{new_fp_2}">Escudos de Braving en <ph name="BRAVE_VERSION"/></translation>' in xtb_out
+
+        with open(pref_path, "r", encoding="utf-8") as f:
+            pref_out = f.read()
+        assert "The Brave Authors" in pref_out, "Copyright comment should not be modified"
+        assert 'android:title="Tap Braving version in About Braving"' in pref_out
+        assert 'android:summary="Visit https://brave.com for Brave Search"' in pref_out
+
+        # Idempotence check
+        res_idem = subprocess.run([sys.executable, script_path, tmpdir], env=env, capture_output=True, text=True)
+        assert res_idem.returncode == 0, f"apply-branding idempotence failed: {res_idem.stderr}"
+        assert "0 messages updated across 0 GRD/GRDP files and 0 XTB translation files" in res_idem.stdout
+
+        print("PASS: test_apply_branding")
+
+
 if __name__ == "__main__":
     try:
         test_apply_features()
+        test_apply_branding()
         test_patch_suite()
         print("ALL MUTATOR & PATCH TESTS PASSED.")
     except Exception as e:

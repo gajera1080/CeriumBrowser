@@ -57,8 +57,9 @@ class TestBrandingAssets(unittest.TestCase):
         self.assertEqual(oversized, [], f"Found attributes exceeding AAPT2 string length limit:\n" + "\n".join(oversized))
 
     def test_shields_drawables_exist_and_debranded(self):
-        """Dedicated shields drawables must exist and not contain upstream Brave lion path."""
+        """Dedicated shields drawables must exist, be 24dp x 24dp, use colored ON icon, and not contain upstream Brave lion path."""
         UPSTREAM_LION_SIG = "M74.68,37.99"
+        ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
         shields_dir = os.path.join(self.android_dir, "shields_drawables")
         required = [
             "ic_social_brave_release_favicon_fullheight_color.xml",
@@ -72,6 +73,61 @@ class TestBrandingAssets(unittest.TestCase):
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
             self.assertNotIn(UPSTREAM_LION_SIG, content, f"{name} contains upstream lion signature")
+            root = ET.parse(path).getroot()
+            self.assertEqual(root.attrib.get(f"{ANDROID_NS}width"), "24dp", f"{name} width must be 24dp")
+            self.assertEqual(root.attrib.get(f"{ANDROID_NS}height"), "24dp", f"{name} height must be 24dp")
+
+        # Verify ON shields icon uses the 4 colored Braving gradients instead of flat white
+        on_path = os.path.join(shields_dir, "ic_social_brave_release_favicon_fullheight_color.xml")
+        with open(on_path, "r", encoding="utf-8") as f:
+            on_content = f.read()
+        self.assertNotIn('fillColor="#ffffff"', on_content.lower())
+        for grad_color in ("#fffd8c57", "#ff0091e6", "#fffce01f", "#ff8bd01d"):
+            self.assertIn(grad_color, on_content.lower(), f"Missing gradient color {grad_color} in ON shields icon")
+
+        # Verify OFF/monochrome/carved shields icons use the 4 grayscale Braving ribbon paths (not invisible white stroke)
+        for off_name in (
+            "ic_social_brave_monochrome_favicon_fullheight_color.xml",
+            "ic_social_brave_outline_favicon_fullheight.xml",
+            "ic_social_brave_carved_favicon_fullheight.xml",
+        ):
+            off_path = os.path.join(shields_dir, off_name)
+            with open(off_path, "r", encoding="utf-8") as f:
+                off_content = f.read()
+            self.assertNotIn('strokecolor="#ffffff"', off_content.lower(), f"{off_name} must not use white stroke")
+            self.assertEqual(off_content.count("<path"), 4, f"{off_name} must contain the 4 Braving ribbon paths")
+
+    def test_all_vector_logo_drawables_exact_dimensions(self):
+        """All 10 Android vector logo drawables must exist and preserve exact upstream dp dimensions."""
+        ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
+        drawable_dir = os.path.join(self.android_dir, "drawable")
+        expected_dims = {
+            "ic_brave_logo.xml": ("19dp", "23dp"),
+            "ic_brave.xml": ("20dp", "20dp"),
+            "ic_brave_36.xml": ("37dp", "37dp"),
+            "brave_icon_search.xml": ("24dp", "24dp"),
+            "ic_channel_brave.xml": ("20dp", "20dp"),
+            "ic_brave_notification.xml": ("39dp", "50dp"),
+            "chrome_logo_on_circular_background.xml": ("31dp", "31dp"),
+            "ic_brave_splash.xml": ("288dp", "288dp"),
+            "ic_brave_brand.xml": ("168dp", "52dp"),
+            "onboarding_illustration.xml": ("302dp", "302dp"),
+        }
+        for name, (exp_w, exp_h) in expected_dims.items():
+            path = os.path.join(drawable_dir, name)
+            self.assertTrue(os.path.isfile(path), f"Missing vector logo drawable {name}")
+            root = ET.parse(path).getroot()
+            self.assertEqual(root.tag, "vector", f"{name} must be a <vector>")
+            self.assertEqual(root.attrib.get(f"{ANDROID_NS}width"), exp_w, f"{name} width mismatch")
+            self.assertEqual(root.attrib.get(f"{ANDROID_NS}height"), exp_h, f"{name} height mismatch")
+            if name == "ic_brave_logo.xml":
+                self.assertEqual(root.attrib.get(f"{ANDROID_NS}viewportWidth"), "19")
+                self.assertEqual(root.attrib.get(f"{ANDROID_NS}viewportHeight"), "23")
+
+        # Verify ic_brave_splash.xml preserves the <group android:name="brave_logo"> animator target
+        splash_root = ET.parse(os.path.join(drawable_dir, "ic_brave_splash.xml")).getroot()
+        groups = [el.attrib.get(f"{ANDROID_NS}name") for el in splash_root.iter("group")]
+        self.assertIn("brave_logo", groups, "ic_brave_splash.xml must contain <group android:name='brave_logo'>")
 
     def test_svg_validity(self):
         """All SVGs in branding/ must be valid XML."""
@@ -85,10 +141,14 @@ class TestBrandingAssets(unittest.TestCase):
                 self.fail(f"Invalid SVG XML syntax in {p}: {e}")
 
     def test_launcher_mipmap_vectors(self):
-        """Launcher mipmap overrides in res_brave_base must be valid <vector> drawables."""
+        """Launcher mipmap overrides in res_brave_base must have adaptive-icon container and valid <vector> layers."""
         base_dir = os.path.join(self.android_dir, "res_brave_base")
+        app_icon_path = os.path.join(base_dir, "mipmap-anydpi-v26/app_icon.xml")
+        self.assertTrue(os.path.isfile(app_icon_path), "Missing mipmap-anydpi-v26/app_icon.xml")
+        app_icon_root = ET.parse(app_icon_path).getroot()
+        self.assertEqual(app_icon_root.tag, "adaptive-icon", "app_icon.xml must be an <adaptive-icon> container")
+
         expected_vectors = [
-            "mipmap-anydpi-v26/app_icon.xml",
             "mipmap-anydpi-v26/layered_app_icon.xml",
             "mipmap-anydpi-v26/layered_app_icon_background.xml",
             "mipmap-nodpi/layered_app_icon_foreground.xml",

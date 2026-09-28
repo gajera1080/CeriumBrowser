@@ -425,5 +425,10 @@ python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict
 echo ""
 bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
 
+# 5. Apply Braving UI string branding across GRD/GRDP/XTB and Android XML resources
+echo ""
+echo "Applying Braving UI string branding..."
+python3 "${REPO_ROOT}/scripts/android/apply-branding.py" "${BRAVE_DIR}" --strict
+
 echo "Phase 1: Source Preparation Complete."
 

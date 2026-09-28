@@ -52,13 +52,54 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
-# 5. Check Android Vector Drawable logo
-echo "Checking Android vector logo drawable..."
-if [[ -f "${REPO_ROOT}/branding/android/drawable/ic_brave_logo.xml" ]]; then
-  echo " [OK] Vector drawable exists: branding/android/drawable/ic_brave_logo.xml"
-else
-  echo "ERROR: Missing vector logo drawable at ${REPO_ROOT}/branding/android/drawable/ic_brave_logo.xml" >&2
+# 5. Check all 10 Android Vector Drawable logos in branding/android/drawable/
+echo "Checking Android vector logo drawables..."
+REQUIRED_DRAWABLES=(
+  "ic_brave_logo.xml"
+  "ic_brave.xml"
+  "ic_brave_36.xml"
+  "brave_icon_search.xml"
+  "ic_channel_brave.xml"
+  "ic_brave_notification.xml"
+  "chrome_logo_on_circular_background.xml"
+  "ic_brave_splash.xml"
+  "ic_brave_brand.xml"
+  "onboarding_illustration.xml"
+)
+for d in "${REQUIRED_DRAWABLES[@]}"; do
+  dpath="${REPO_ROOT}/branding/android/drawable/${d}"
+  if [[ ! -f "${dpath}" ]]; then
+    echo "ERROR: Missing vector logo drawable at ${dpath}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+done
+if [[ ${FAILURES} -eq 0 ]]; then
+  echo " [OK] All 10 vector logo drawables exist in branding/android/drawable/."
+fi
+
+# 5b. Check adaptive launcher icon container (app_icon.xml)
+echo "Checking adaptive launcher icon container (app_icon.xml)..."
+APP_ICON_XML="${REPO_ROOT}/branding/android/res_brave_base/mipmap-anydpi-v26/app_icon.xml"
+if [[ ! -f "${APP_ICON_XML}" ]]; then
+  echo "ERROR: Missing ${APP_ICON_XML}" >&2
   FAILURES=$((FAILURES + 1))
+elif ! grep -q "<adaptive-icon" "${APP_ICON_XML}" || ! grep -q "@mipmap/layered_app_icon" "${APP_ICON_XML}"; then
+  echo "ERROR: ${APP_ICON_XML} must be an <adaptive-icon> referencing @mipmap/layered_app_icon" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] Adaptive launcher icon container verified: ${APP_ICON_XML}"
+fi
+
+# 5c. Check apply-branding.py script and prepare-source.sh wiring
+echo "Checking apply-branding.py mutator..."
+if [[ ! -f "${REPO_ROOT}/scripts/android/apply-branding.py" ]]; then
+  echo "ERROR: Missing scripts/android/apply-branding.py" >&2
+  FAILURES=$((FAILURES + 1))
+elif ! grep -Fq "apply-branding.py" "${REPO_ROOT}/scripts/android/prepare-source.sh"; then
+  echo "ERROR: scripts/android/prepare-source.sh does not invoke apply-branding.py" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] apply-branding.py mutator exists and is wired into prepare-source.sh."
 fi
 
 # 6. Verify zero raster PNG files exist in branding/ (pure vector policy)
@@ -109,10 +150,22 @@ for s in "${REQUIRED_SHIELDS[@]}"; do
   elif grep -q "${UPSTREAM_LION_SIG}" "${spath}"; then
     echo "ERROR: Shields drawable ${s} still contains upstream Brave lion vector path!" >&2
     FAILURES=$((FAILURES + 1))
+  elif ! grep -q 'android:width="24dp"' "${spath}" || ! grep -q 'android:height="24dp"' "${spath}"; then
+    echo "ERROR: Shields drawable ${s} must have exact 24dp x 24dp intrinsic dimensions!" >&2
+    FAILURES=$((FAILURES + 1))
   fi
 done
+
+SHIELDS_COLOR_XML="${SHIELDS_DIR}/ic_social_brave_release_favicon_fullheight_color.xml"
+if [[ -f "${SHIELDS_COLOR_XML}" ]]; then
+  if grep -qi 'fillColor="#ffffff"' "${SHIELDS_COLOR_XML}" || ! grep -qi '#FFFD8C57' "${SHIELDS_COLOR_XML}"; then
+    echo "ERROR: ${SHIELDS_COLOR_XML} must use the colored Braving gradients, not flat white!" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+fi
+
 if [[ ${FAILURES} -eq 0 ]]; then
-  echo " [OK] Dedicated Braving Shields toolbar vector drawables verified."
+  echo " [OK] Dedicated Braving Shields toolbar vector drawables (24dp x 24dp, colored ON state) verified."
 fi
 
 # 9. Verify no Android XML string/pathData exceeds the AAPT2 UTF-8 ResStringPool limit (32,767 bytes)

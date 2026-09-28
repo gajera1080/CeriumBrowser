@@ -187,4 +187,46 @@ replace_in_file(
 ]"""
 )
 
+# 7. Point WebUI chrome_logo_dark.svg override in branding.js to app/theme/brave/product_logo.svg
+#    instead of @brave/leo node_modules so WebUI pages use the colored Braving logo.
+replace_in_file(
+    "build/commands/lib/branding.js",
+    """  // Replace chrome dark logo with channel specific brave logo.
+  fileMap.add([
+    path.join(
+      config.braveCoreDir,
+      'node_modules',
+      '@brave',
+      'leo',
+      'icons',
+      config.getBraveLogoIconName(),
+    ),
+    path.join(
+      config.srcDir,
+      'ui',
+      'webui',
+      'resources',
+      'images',
+      'chrome_logo_dark.svg',
+    ),
+  ])""",
+    """  // Replace chrome dark logo with channel specific brave logo.
+  fileMap.add([
+    path.join(
+      braveAppDir,
+      'theme',
+      'brave',
+      'product_logo.svg',
+    ),
+    path.join(
+      config.srcDir,
+      'ui',
+      'webui',
+      'resources',
+      'images',
+      'chrome_logo_dark.svg',
+    ),
+  ])"""
+)
+
 print("Successfully applied GN build fixes!")
