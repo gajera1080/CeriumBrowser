@@ -125,9 +125,41 @@ class TestBrandingAssets(unittest.TestCase):
                 self.assertEqual(root.attrib.get(f"{ANDROID_NS}viewportHeight"), "23")
 
         # Verify ic_brave_splash.xml preserves the <group android:name="brave_logo"> animator target
+        # and suppresses Android Lint VectorRaster (>200dp)
+        TOOLS_NS = "{http://schemas.android.com/tools}"
         splash_root = ET.parse(os.path.join(drawable_dir, "ic_brave_splash.xml")).getroot()
         groups = [el.attrib.get(f"{ANDROID_NS}name") for el in splash_root.iter("group")]
         self.assertIn("brave_logo", groups, "ic_brave_splash.xml must contain <group android:name='brave_logo'>")
+        self.assertIn(
+            "VectorRaster",
+            splash_root.attrib.get(f"{TOOLS_NS}ignore", ""),
+            "ic_brave_splash.xml (>200dp) must include tools:ignore='VectorRaster' for Android Lint",
+        )
+
+        onboard_root = ET.parse(os.path.join(drawable_dir, "onboarding_illustration.xml")).getroot()
+        self.assertIn(
+            "VectorRaster",
+            onboard_root.attrib.get(f"{TOOLS_NS}ignore", ""),
+            "onboarding_illustration.xml (>200dp) must include tools:ignore='VectorRaster' for Android Lint",
+        )
+
+        # Verify ic_brave_brand.xml references @color/brave_brand_text_color so Android Lint UnusedResources passes
+        with open(os.path.join(drawable_dir, "ic_brave_brand.xml"), "r", encoding="utf-8") as f:
+            brand_xml = f.read()
+        self.assertIn(
+            "@color/brave_brand_text_color",
+            brand_xml,
+            "ic_brave_brand.xml must reference @color/brave_brand_text_color to avoid Android Lint UnusedResources",
+        )
+
+        # Verify brave_icon_search.xml references @color/shield_text_color
+        with open(os.path.join(drawable_dir, "brave_icon_search.xml"), "r", encoding="utf-8") as f:
+            search_xml = f.read()
+        self.assertIn(
+            "@color/shield_text_color",
+            search_xml,
+            "brave_icon_search.xml must reference @color/shield_text_color",
+        )
 
     def test_svg_validity(self):
         """All SVGs in branding/ must be valid XML."""
@@ -192,6 +224,17 @@ class TestBrandingAssets(unittest.TestCase):
                         target_dir = os.path.join(res_base, parent_folder)
                         os.makedirs(target_dir, exist_ok=True)
                         shutil.copy(os.path.join(root, f), os.path.join(target_dir, f))
+
+            values_dir = os.path.join(res_base, "values")
+            os.makedirs(values_dir, exist_ok=True)
+            with open(os.path.join(values_dir, "colors.xml"), "w", encoding="utf-8") as cf:
+                cf.write(
+                    '<?xml version="1.0" encoding="utf-8"?>\n'
+                    "<resources>\n"
+                    '    <color name="brave_brand_text_color">#1C1C1D</color>\n'
+                    '    <color name="shield_text_color">#212529</color>\n'
+                    "</resources>\n"
+                )
 
             compiled_dir = os.path.join(tmpdir, "compiled")
             os.makedirs(compiled_dir, exist_ok=True)
