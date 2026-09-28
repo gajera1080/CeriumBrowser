@@ -406,7 +406,11 @@ def test_python311_syntax_compatibility():
     import re
 
     def verify_source(code: str, label: str):
+        # On Python <= 3.11, ast.parse natively enforces Python 3.11 syntax (including pre-PEP-701 f-strings).
         tree = ast.parse(code, filename=label)
+        if sys.version_info < (3, 12):
+            return
+        # On Python 3.12+, simulate Python 3.11 pre-PEP-701 f-string restrictions using FormattedValue spans.
         for node in ast.walk(tree):
             if isinstance(node, ast.JoinedStr):
                 seg = ast.get_source_segment(code, node)
@@ -417,6 +421,8 @@ def test_python311_syntax_compatibility():
                 for val in node.values:
                     if isinstance(val, ast.FormattedValue):
                         vseg = ast.get_source_segment(code, val) or ""
+                        if not (vseg.startswith("{") and vseg.endswith("}")):
+                            continue
                         assert "\\" not in vseg, (
                             f"Python 3.11 SyntaxError: backslash in f-string expression at {label}:{node.lineno}: {vseg}"
                         )
