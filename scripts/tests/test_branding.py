@@ -162,11 +162,14 @@ class TestBrandingAssets(unittest.TestCase):
         )
 
     def test_svg_validity(self):
-        """All SVGs in branding/ must be valid XML."""
-        svg_files = [f for f in os.listdir(self.branding_dir) if f.endswith(".svg")]
-        self.assertGreater(len(svg_files), 0, "No SVG files found in branding/")
-        for f in svg_files:
-            p = os.path.join(self.branding_dir, f)
+        """All SVGs in branding/ (including static brave-core-static SVGs) must be valid XML."""
+        svg_files = []
+        for root, _, files in os.walk(self.branding_dir):
+            for f in files:
+                if f.endswith(".svg"):
+                    svg_files.append(os.path.join(root, f))
+        self.assertEqual(len(svg_files), 15, f"Expected 15 SVG files in branding/, found {len(svg_files)}")
+        for p in svg_files:
             try:
                 ET.parse(p)
             except Exception as e:
@@ -191,8 +194,166 @@ class TestBrandingAssets(unittest.TestCase):
             root = ET.parse(full_path).getroot()
             self.assertEqual(root.tag, "vector", f"{rel_path} must be a <vector> drawable, got <{root.tag}>")
 
+    def test_static_logos_exist_and_exact_dimensions(self):
+        """All 156 static PNGs and 10 static SVGs in branding/brave-core-static/ must exist and match exact expected dimensions."""
+        import struct
+
+        static_dir = os.path.join(self.branding_dir, "brave-core-static")
+        self.assertTrue(os.path.isdir(static_dir), f"Missing {static_dir}")
+
+        densities_app_brave = {"mdpi": (48, 48), "hdpi": (72, 72), "xhdpi": (96, 96), "xxhdpi": (144, 144), "xxxhdpi": (192, 192)}
+        densities_app_origin = {"mdpi": (72, 72), "hdpi": (48, 48), "xhdpi": (96, 96), "xxhdpi": (144, 144), "xxxhdpi": (192, 192)}
+        densities_layered = {"mdpi": (108, 108), "hdpi": (162, 162), "xhdpi": (216, 216), "xxhdpi": (324, 324), "xxxhdpi": (432, 432)}
+        densities_fre = {"mdpi": (96, 96), "hdpi": (144, 144), "xhdpi": (192, 192), "xxhdpi": (288, 288), "xxxhdpi": (384, 384)}
+        densities_btn = {"mdpi": (28, 28), "hdpi": (42, 42), "xhdpi": (56, 56), "xxhdpi": (84, 84), "xxxhdpi": (112, 112)}
+        densities_chrome = {"mdpi": (24, 24), "hdpi": (36, 36), "xhdpi": (48, 48), "xxhdpi": (72, 72), "xxxhdpi": (96, 96)}
+        densities_chrome16 = {"mdpi": (16, 16), "hdpi": (24, 24), "xhdpi": (32, 32), "xxhdpi": (48, 48), "xxxhdpi": (64, 64)}
+
+        expected_pngs = {}
+        for theme_brand, d_app in (("brave", densities_app_brave), ("brave_origin", densities_app_origin)):
+            for d, sz in d_app.items():
+                expected_pngs[f"app/theme/{theme_brand}/android/mipmap-{d}/app_icon.png"] = sz
+            for base_name in ("res_brave_base", "res_brave_default_base"):
+                for d, sz in d_app.items():
+                    expected_pngs[f"app/theme/{theme_brand}/android/{base_name}/mipmap-{d}/app_icon.png"] = sz
+                for d, sz in densities_layered.items():
+                    expected_pngs[f"app/theme/{theme_brand}/android/{base_name}/mipmap-{d}/layered_app_icon.png"] = sz
+                    expected_pngs[f"app/theme/{theme_brand}/android/{base_name}/mipmap-{d}/layered_app_icon_background.png"] = sz
+            for res_name in ("res_brave", "res_brave_default"):
+                for d, sz in densities_fre.items():
+                    expected_pngs[f"app/theme/{theme_brand}/android/{res_name}/drawable-{d}/fre_product_logo.png"] = sz
+
+        for d, sz in densities_app_brave.items():
+            expected_pngs[f"app/theme/brave/android/res_brave_dev_base/mipmap-{d}/app_icon.png"] = sz
+
+        for d in densities_btn:
+            expected_pngs[f"android/java/brave-res/drawable-{d}/btn_brave.png"] = densities_btn[d]
+            expected_pngs[f"android/java/brave-res/drawable-{d}/btn_brave_off.png"] = densities_btn[d]
+            expected_pngs[f"android/java/res/drawable-{d}/ic_chrome.png"] = densities_chrome[d]
+            expected_pngs[f"android/java/res/drawable-{d}/chromelogo16.png"] = densities_chrome16[d]
+
+        expected_pngs.update({
+            "app/theme/default_100_percent/brave/linux/product_logo_16.png": (16, 16),
+            "app/theme/default_100_percent/brave/linux/product_logo_32.png": (32, 32),
+            "app/theme/default_100_percent/brave/product_logo_16.png": (16, 16),
+            "app/theme/default_100_percent/brave/product_logo_32.png": (32, 32),
+            "app/theme/default_100_percent/brave/product_logo_name_22.png": (70, 22),
+            "app/theme/default_100_percent/brave/product_logo_name_22_white.png": (70, 22),
+            "app/theme/default_100_percent/brave/product_logo_name_48.png": (154, 48),
+            "app/theme/default_100_percent/brave/product_logo_white.png": (184, 58),
+            "app/theme/default_100_percent/brave_origin/linux/product_logo_16.png": (16, 16),
+            "app/theme/default_100_percent/brave_origin/linux/product_logo_32.png": (32, 32),
+            "app/theme/default_100_percent/brave_origin/product_logo_16.png": (16, 16),
+            "app/theme/default_100_percent/brave_origin/product_logo_32.png": (32, 32),
+            "app/theme/default_100_percent/brave_origin/product_logo_name_22.png": (71, 22),
+            "app/theme/default_100_percent/brave_origin/product_logo_name_22_white.png": (63, 20),
+            "app/theme/default_100_percent/brave_origin/product_logo_name_48.png": (155, 48),
+            "app/theme/default_100_percent/brave_origin/product_logo_white.png": (184, 57),
+            "app/theme/default_200_percent/brave/product_logo_16.png": (32, 32),
+            "app/theme/default_200_percent/brave/product_logo_32.png": (64, 64),
+            "app/theme/default_200_percent/brave/product_logo_name_22.png": (142, 44),
+            "app/theme/default_200_percent/brave/product_logo_name_22_white.png": (126, 39),
+            "app/theme/default_200_percent/brave/product_logo_name_48.png": (309, 96),
+            "app/theme/default_200_percent/brave/product_logo_white.png": (368, 114),
+            "app/theme/default_200_percent/brave_origin/product_logo_16.png": (32, 32),
+            "app/theme/default_200_percent/brave_origin/product_logo_32.png": (64, 64),
+            "app/theme/default_200_percent/brave_origin/product_logo_name_22.png": (142, 44),
+            "app/theme/default_200_percent/brave_origin/product_logo_name_22_white.png": (126, 39),
+            "app/theme/default_200_percent/brave_origin/product_logo_name_48.png": (309, 96),
+            "app/theme/default_200_percent/brave_origin/product_logo_white.png": (368, 114),
+            "app/theme/brave/product_logo_24.png": (24, 24),
+            "app/theme/brave/product_logo_48.png": (48, 48),
+            "app/theme/brave/product_logo_64.png": (64, 64),
+            "app/theme/brave/product_logo_128.png": (128, 128),
+            "app/theme/brave/product_logo_256.png": (256, 256),
+            "app/theme/brave/linux/product_logo_24.png": (24, 24),
+            "app/theme/brave/linux/product_logo_48.png": (48, 48),
+            "app/theme/brave/linux/product_logo_64.png": (64, 64),
+            "app/theme/brave/linux/product_logo_128.png": (128, 128),
+            "app/theme/brave/linux/product_logo_256.png": (256, 256),
+            "app/theme/brave/win/tiles/Logo.png": (600, 600),
+            "app/theme/brave/win/tiles/SmallLogo.png": (176, 176),
+            "app/theme/brave/product_logo_22_mono.png": (22, 22),
+        })
+
+        self.assertEqual(len(expected_pngs), 156)
+        for rel_path, exp_sz in expected_pngs.items():
+            full_path = os.path.join(static_dir, rel_path)
+            self.assertTrue(os.path.isfile(full_path), f"Missing static PNG: {rel_path}")
+            self.assertGreater(os.path.getsize(full_path), 36, f"Empty/truncated static PNG: {rel_path}")
+            with open(full_path, "rb") as fp:
+                data = fp.read()
+            self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n", f"Invalid PNG magic header in {rel_path}")
+            self.assertEqual(data[12:16], b"IHDR", f"Missing PNG IHDR chunk in {rel_path}")
+            self.assertTrue(data.endswith(b"IEND\xaeB`\x82"), f"Missing PNG IEND trailer in {rel_path}")
+            w, h = struct.unpack(">II", data[16:24])
+            self.assertEqual((w, h), exp_sz, f"Dimension mismatch for {rel_path}: got {(w, h)}, expected {exp_sz}")
+
+        expected_svgs = {
+            "app/theme/brave/product_logo.svg": ("256", "256"),
+            "app/theme/brave/password_manager_logo.svg": ("180", "186"),
+            "app/theme/brave/product_logo_animation.svg": ("256", "256"),
+            "app/theme/brave_origin/product_logo.svg": ("1024", "1024"),
+            "app/theme/brave_origin/password_manager_logo.svg": ("180", "186"),
+            "app/theme/brave_origin/product_logo_animation.svg": ("1024", "1024"),
+            "components/brave_welcome_ui/components/images/lion_logo.svg": ("100", "129"),
+            "components/brave_welcome_ui/components/images/welcome_shields.svg": ("394px", "233px"),
+            "components/brave_account/resources/images/full_brave_brand.svg": ("129", "40"),
+            "components/brave_account/resources/images/full_brave_brand_dark.svg": ("129", "40"),
+        }
+        self.assertEqual(len(expected_svgs), 10)
+        for rel_svg, (exp_w, exp_h) in expected_svgs.items():
+            full_svg = os.path.join(static_dir, rel_svg)
+            self.assertTrue(os.path.isfile(full_svg), f"Missing static SVG: {rel_svg}")
+            root = ET.parse(full_svg).getroot()
+            self.assertEqual(root.attrib.get("width"), exp_w, f"{rel_svg} width mismatch")
+            self.assertEqual(root.attrib.get("height"), exp_h, f"{rel_svg} height mismatch")
+            self.assertEqual(root.attrib.get("viewBox"), "0 0 1254 1254", f"{rel_svg} viewBox mismatch")
+
+        # Verify no extra/stray files exist in branding/brave-core-static/
+        actual_files = set()
+        for root_dir, _, files in os.walk(static_dir):
+            for f in files:
+                actual_files.add(os.path.relpath(os.path.join(root_dir, f), static_dir).replace("\\", "/"))
+        expected_all = set(expected_pngs.keys()) | set(expected_svgs.keys())
+        self.assertEqual(actual_files, expected_all, f"Stray or missing files in brave-core-static: {actual_files ^ expected_all}")
+
+    def test_apply_assets_copies_static_files_without_dynamic_generation(self):
+        """apply-assets.sh must copy all static XML, PNG, and SVG files cleanly without dynamic rendering."""
+        import subprocess
+        import tempfile
+
+        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        with open(apply_script, "r", encoding="utf-8") as f:
+            script_content = f.read()
+        self.assertNotIn("rsvg-convert", script_content, "apply-assets.sh must not use rsvg-convert")
+        self.assertNotIn("from PIL", script_content, "apply-assets.sh must not import PIL")
+        self.assertNotIn("ImageDraw", script_content, "apply-assets.sh must not use ImageDraw")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            res = subprocess.run(["bash", apply_script, tmpdir], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"apply-assets.sh failed: {res.stderr}\n{res.stdout}")
+
+            copied_pngs = []
+            copied_svgs = []
+            copied_xmls = []
+            for root, _, files in os.walk(tmpdir):
+                for f in files:
+                    full_p = os.path.join(root, f)
+                    self.assertGreater(os.path.getsize(full_p), 0, f"Copied empty file: {full_p}")
+                    if f.endswith(".png"):
+                        copied_pngs.append(full_p)
+                    elif f.endswith(".svg"):
+                        copied_svgs.append(full_p)
+                    elif f.endswith(".xml"):
+                        copied_xmls.append(full_p)
+
+            self.assertEqual(len(copied_pngs), 156, f"Expected 156 copied PNGs, found {len(copied_pngs)}")
+            self.assertEqual(len(copied_svgs), 10, f"Expected 10 copied SVGs, found {len(copied_svgs)}")
+            self.assertEqual(len(copied_xmls), 38, f"Expected 38 copied XMLs, found {len(copied_xmls)}")
+
     def test_aapt2_compile_and_link(self):
-        """Deep verification: compile and link all branding drawables with AAPT2 if available."""
+        """Deep verification: compile and link all branding XML and Android PNG drawables with AAPT2 if available."""
         import glob
         import shutil
         import subprocess
@@ -224,6 +385,23 @@ class TestBrandingAssets(unittest.TestCase):
                         target_dir = os.path.join(res_base, parent_folder)
                         os.makedirs(target_dir, exist_ok=True)
                         shutil.copy(os.path.join(root, f), os.path.join(target_dir, f))
+
+            # Also copy Android density raster PNGs from branding/brave-core-static/ to verify AAPT2 PNG compilation
+            static_dir = os.path.join(self.branding_dir, "brave-core-static")
+            android_png_roots = [
+                os.path.join(static_dir, "android/java/brave-res"),
+                os.path.join(static_dir, "android/java/res"),
+                os.path.join(static_dir, "app/theme/brave/android/res_brave"),
+                os.path.join(static_dir, "app/theme/brave/android/res_brave_base"),
+            ]
+            for png_root in android_png_roots:
+                for root, _, files in os.walk(png_root):
+                    for f in files:
+                        if f.endswith(".png"):
+                            parent_folder = os.path.basename(root)
+                            target_dir = os.path.join(res_base, parent_folder)
+                            os.makedirs(target_dir, exist_ok=True)
+                            shutil.copy(os.path.join(root, f), os.path.join(target_dir, f))
 
             values_dir = os.path.join(res_base, "values")
             os.makedirs(values_dir, exist_ok=True)

@@ -37,10 +37,11 @@ BLOAT_KEYWORDS = (
 
 # Match standalone "Brave" (or "Brave's"), excluding:
 # - URLs/domains/paths (preceded by ., /, _, - or followed by ://, .[a-zA-Z])
-# - "Brave Search" and debloated sub-brands ("Brave Rewards", "Brave Wallet", etc.)
+# - "Brave Search" (unless followed by "widget", e.g. "Try the Brave Search widget" -> "Try the Braving Search widget")
+# - Debloated sub-brands ("Brave Rewards", "Brave Wallet", etc.)
 BRAVE_RE = re.compile(
     r"(?<![./_-])\bBrave\b"
-    r"(?!://|\.[a-zA-Z]|\s+(?:Search|Rewards|Leo|Wallet|News|Talk|VPN|Ads|Creators)\b)"
+    r"(?!://|\.[a-zA-Z]|\s+(?:Search(?!\s+[Ww]idget\b)|Rewards|Leo|Wallet|News|Talk|VPN|Ads|Creators)\b)"
 )
 
 BRAVING_CHECK_RE = re.compile(r"\bBraving\b")

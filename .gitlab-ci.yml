@@ -23,7 +23,7 @@ prepare_source:
   stage: prepare
   image: debian:bookworm-slim
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates python3-pil
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
   script:
     - touch build.env
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"

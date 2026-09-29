@@ -102,15 +102,72 @@ else
   echo " [OK] apply-branding.py mutator exists and is wired into prepare-source.sh."
 fi
 
-# 6. Verify zero raster PNG files exist in branding/ (pure vector policy)
-echo "Checking for illegal raster PNG files in branding/..."
-FOUND_PNGS=$(find "${REPO_ROOT}/branding" -name "*.png" 2>/dev/null || true)
-if [[ -n "${FOUND_PNGS}" ]]; then
-  echo "ERROR: Found raster PNG files in branding/ (pure vector required):" >&2
-  echo "${FOUND_PNGS}" >&2
+# 6. Verify static pre-rendered PNG and SVG logo suite in branding/brave-core-static/
+echo "Checking static pre-rendered PNG & SVG logos in branding/brave-core-static/..."
+STATIC_DIR="${REPO_ROOT}/branding/brave-core-static"
+if [[ ! -d "${STATIC_DIR}" ]]; then
+  echo "ERROR: Missing static branding directory: ${STATIC_DIR}" >&2
   FAILURES=$((FAILURES + 1))
 else
-  echo " [OK] Pure vector policy verified (no raster PNG files in branding/)."
+  STATIC_PNG_COUNT=$(find "${STATIC_DIR}" -type f -name "*.png" -size +0c | wc -l)
+  STATIC_SVG_COUNT=$(find "${STATIC_DIR}" -type f -name "*.svg" -size +0c | wc -l)
+  STATIC_TOTAL_COUNT=$(find "${STATIC_DIR}" -type f | wc -l)
+  if [[ ${STATIC_PNG_COUNT} -ne 156 ]]; then
+    echo "ERROR: Expected 156 non-empty static PNG logos in ${STATIC_DIR}, found ${STATIC_PNG_COUNT}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+  if [[ ${STATIC_SVG_COUNT} -ne 10 ]]; then
+    echo "ERROR: Expected 10 non-empty static SVG logos in ${STATIC_DIR}, found ${STATIC_SVG_COUNT}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+  if [[ ${STATIC_TOTAL_COUNT} -ne 166 ]]; then
+    echo "ERROR: Expected exactly 166 total static files in ${STATIC_DIR}, found ${STATIC_TOTAL_COUNT}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+  STATIC_INTEGRITY_ERR=$(python3 - "${STATIC_DIR}" <<'PYEOF'
+import os, struct, sys, xml.etree.ElementTree as ET
+static_dir = sys.argv[1]
+errs = []
+for root, _, files in os.walk(static_dir):
+    for f in sorted(files):
+        p = os.path.join(root, f)
+        rel = os.path.relpath(p, static_dir)
+        if f.endswith(".png"):
+            with open(p, "rb") as fp:
+                data = fp.read()
+            if len(data) < 36 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+                errs.append(f"Invalid PNG header: {rel}")
+                continue
+            if not data.endswith(b"IEND\xaeB`\x82"):
+                errs.append(f"Missing PNG IEND trailer: {rel}")
+            w, h = struct.unpack(">II", data[16:24])
+            if w <= 0 or h <= 0:
+                errs.append(f"Invalid PNG dimensions {(w, h)}: {rel}")
+        elif f.endswith(".svg"):
+            try:
+                svg_root = ET.parse(p).getroot()
+                if svg_root.attrib.get("viewBox") != "0 0 1254 1254":
+                    errs.append(f"Unexpected SVG viewBox in {rel}")
+            except Exception as e:
+                errs.append(f"Invalid SVG XML in {rel}: {e}")
+if errs:
+    print("\n".join(errs))
+PYEOF
+)
+  if [[ -n "${STATIC_INTEGRITY_ERR}" ]]; then
+    echo "ERROR: Static logo integrity errors in ${STATIC_DIR}:" >&2
+    echo "${STATIC_INTEGRITY_ERR}" >&2
+    FAILURES=$((FAILURES + 1))
+  elif [[ ${STATIC_PNG_COUNT} -eq 156 && ${STATIC_SVG_COUNT} -eq 10 && ${STATIC_TOTAL_COUNT} -eq 166 ]]; then
+    echo " [OK] Verified 156 static PNG logos and 10 static SVG logos in branding/brave-core-static/."
+  fi
+fi
+
+if grep -Eq 'rsvg-convert|from PIL import|ImageDraw' "${REPO_ROOT}/scripts/android/apply-assets.sh"; then
+  echo "ERROR: scripts/android/apply-assets.sh still contains dynamic logo generation (rsvg-convert/PIL)!" >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo " [OK] scripts/android/apply-assets.sh is 100% static (no dynamic PIL/rsvg-convert rendering)."
 fi
 
 # 7. Check Android 13+ Themed Vector Icon (in drawable and drawable-night)

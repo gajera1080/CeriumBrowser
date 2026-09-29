@@ -202,9 +202,13 @@ def test_patch_suite():
     assert os.path.isfile(patch_0002), f"Missing patch file: {patch_0002}"
     with open(patch_0002, "r", encoding="utf-8") as f:
         c0002 = f.read()
-    assert 'https://updates.braving.org/components' in c0002
-    assert '+  updater_prod_endpoint = "https://updates.braving.org/components"' in c0002
+    assert 'https://braving.gitlab.io/braving-updater/components' in c0002
+    assert '+  updater_prod_endpoint = "https://braving.gitlab.io/braving-updater/components"' in c0002
     assert '+  updater_dev_endpoint' not in c0002
+    assert 'kBravingPublisherKeyHash' in c0002
+    assert 'IsStaticUpdaterGetUrl' in c0002
+    assert ',disable-pings' in c0002
+    assert 'adjusted.status = "noupdate"' in c0002
 
     # Verify modular debloat patches in patches/android/debloat/
     debloat_dir = os.path.join(REPO_ROOT, "patches/android/debloat")
@@ -333,6 +337,7 @@ def test_apply_branding():
       <message name="IDS_CHROME_HISTORY" desc="History menu item">Brave history</message>
       <message name="IDS_JAVASCRIPT_OPT" desc="Protects against malicious actors">Brave runs faster</message>
       <message name="IDS_BRAVE_SEARCH_DESC" desc="Search">Try Brave Search at https://search.brave.com or brave://settings in Brave</message>
+      <message name="IDS_TRY_BRAVE_SEARCH_WIDGET" desc="Title of Brave search widget promo">Try the Brave Search widget</message>
       <message name="IDS_BRAVE_WALLET_TITLE" desc="Wallet bloat">Brave Wallet</message>
       <message name="IDS_AI_CHAT_INTRO" desc="Leo bloat">Ask Brave Leo AI</message>
       <message name="IDS_TOR_STATUS" desc="Tor bloat">Brave Tor</message>
@@ -372,6 +377,7 @@ def test_apply_branding():
         assert ">Braving history</message>" in grd_out
         assert ">Braving runs faster</message>" in grd_out
         assert ">Try Brave Search at https://search.brave.com or brave://settings in Braving</message>" in grd_out
+        assert ">Try the Braving Search widget</message>" in grd_out
         assert ">Brave Wallet</message>" in grd_out, "Bloat wallet string should not be branded"
         assert ">Ask Brave Leo AI</message>" in grd_out, "Bloat AI chat string should not be branded"
         assert ">Brave Tor</message>" in grd_out, "Bloat Tor string should not be branded"
