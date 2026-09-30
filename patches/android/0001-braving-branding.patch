@@ -72,7 +72,7 @@ index 7a81c45..c01e4a2 100644
 +PRODUCT_SHORTNAME=Braving
 +PRODUCT_INSTALLER_FULLNAME=Braving Installer
 +PRODUCT_INSTALLER_SHORTNAME=Braving Installer
-+COPYRIGHT=Copyright 2026 The Braving Authors. All rights reserved.
++COPYRIGHT=Copyright 2026 The Braving Contributors. All rights reserved.
 +MAC_BUNDLE_ID=org.braving.browser
  MAC_CREATOR_CODE=Cr24
  MAC_TEAM_ID=KL8N8XSYF4

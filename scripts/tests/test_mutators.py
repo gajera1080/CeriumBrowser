@@ -171,7 +171,7 @@ def test_patch_suite():
             for f in sorted(files):
                 if f.endswith(".patch"):
                     patches.append(os.path.join(root, f))
-    assert len(patches) >= 7, f"Expected at least 7 modular patches, found {len(patches)}"
+    assert len(patches) >= 6, f"Expected at least 6 modular patches, found {len(patches)}"
     for p in patches:
         assert os.path.getsize(p) > 50, f"Patch {p} is suspiciously small"
 
@@ -209,6 +209,10 @@ def test_patch_suite():
     assert 'IsStaticUpdaterGetUrl' in c0002
     assert ',disable-pings' in c0002
     assert 'adjusted.status = "noupdate"' in c0002
+    assert 'ad_block_service();' in c0002
+    assert '"iodkpdagapdfkphljnddpjlldadblomo"' in c0002
+    assert '"cdbbhgbmjhfnhnmgeddbliobbofkgdhe"' in c0002
+    assert 'suppress_default_engine_startup_change_notification_ = false;' in c0002
 
     # Verify modular debloat patches in patches/android/debloat/
     debloat_dir = os.path.join(REPO_ROOT, "patches/android/debloat")
@@ -246,14 +250,9 @@ def test_patch_suite():
     assert 'enforce("BraveAIChatEnabled", false);' in c_policies
 
     p_adblock = os.path.join(debloat_dir, "0005-default-adblock-subscriptions.patch")
-    with open(p_adblock, "r", encoding="utf-8") as f:
-        c_adblock = f.read()
-    assert "base::Value::Dict" not in c_adblock, "Deprecated base::Value::Dict found; use base::DictValue"
-    assert "base::DictValue" in c_adblock
-    assert 'sub.Set("last_update_attempt", "0")' in c_adblock
-    assert "SetFilterListCatalog({})" in c_adblock
-    assert "!subscription_filters_providers_.contains(sub_url)" in c_adblock
-    assert "info.last_successful_update_attempt.is_null()" in c_adblock
+    assert not os.path.exists(p_adblock), (
+        "0005-default-adblock-subscriptions.patch must remain retired so CRX3 catalog components manage filter lists with permission_mask=3"
+    )
 
     # Dynamic brave-core detection: check BRAVE_CORE_DIR, build-workspace, or /run/media/pc/D/brave-core
     brave_core = os.environ.get("BRAVE_CORE_DIR", "")

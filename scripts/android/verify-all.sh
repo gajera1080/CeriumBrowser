@@ -42,6 +42,7 @@ python3 -m py_compile "${REPO_ROOT}/scripts/android"/*.py
 python3 "${REPO_ROOT}/scripts/tests/test_mutators.py"
 python3 "${REPO_ROOT}/scripts/tests/test_cache_scripts.py"
 python3 "${REPO_ROOT}/scripts/tests/test_branding.py"
+python3 "${REPO_ROOT}/scripts/tests/test_signing.py"
 echo " [OK] Python mutators and unit tests verified successfully."
 
 echo ""
@@ -101,6 +102,7 @@ if [[ -n "${MANIFEST_FILE}" && -f "${MANIFEST_FILE}" ]]; then
 else
   echo " [SKIP] No release manifest found for dry-run validation."
 fi
+"${REPO_ROOT}/scripts/android/sign-apk.sh" --dry-run
 
 echo ""
 echo "========================================================"

@@ -554,34 +554,38 @@ if [[ -f "${OUT_DIR}/apks/ChromePublic.aab" ]]; then
   if [[ ! -x "${JARSIGNER_BIN}" ]]; then
     JARSIGNER_BIN=$(command -v jarsigner || echo "jarsigner")
   fi
-  KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH:-${SRC_DIR}/build/android/chromium-debug.keystore}"
-  KEYSTORE_PASS="${ANDROID_KEYSTORE_PASSWORD:-chromium}"
-  KEY_PASS="${ANDROID_KEY_PASSWORD:-chromium}"
-  KEY_NAME="${ANDROID_KEYSTORE_NAME:-chromiumdebugkey}"
+  DEBUG_KEYSTORE_PATH="${SRC_DIR}/build/android/chromium-debug.keystore"
+  DEBUG_KEYSTORE_PASS="chromium"
+  DEBUG_KEY_PASS="chromium"
+  DEBUG_KEY_NAME="chromiumdebugkey"
 
   python3 "${BRAVE_DIR}/build/android/aab_to_apk.py" \
     --bundletool="${BUNDLETOOL_JAR}" \
     --target-aab-path="${OUT_DIR}/apks/ChromePublic.aab" \
     --output-apk-path="${OUT_DIR}/apks/${OUTPUT_NAME}" \
     --output-path="${OUT_DIR}/apks/" \
-    --key-path="${KEYSTORE_PATH}" \
-    --key-passwd="${KEYSTORE_PASS}" \
-    --prvt-key-passwd="${KEY_PASS}" \
-    --key-name="${KEY_NAME}" \
+    --key-path="${DEBUG_KEYSTORE_PATH}" \
+    --key-passwd="${DEBUG_KEYSTORE_PASS}" \
+    --prvt-key-passwd="${DEBUG_KEY_PASS}" \
+    --key-name="${DEBUG_KEY_NAME}" \
     --zipalign-path="${ZIPALIGN_BIN}" \
     --apksigner-path="${APKSIGNER_BIN}" \
     --jarsigner-path="${JARSIGNER_BIN}"
 fi
 
-# Find the built APK (prioritize browser APK over trichrome/library apks)
-BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
+# Find the built APK (prioritize freshly generated OUTPUT_NAME, then browser APKs over trichrome/library apks)
+if [[ -f "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
+  BUILT_APK="${OUT_DIR}/apks/${OUTPUT_NAME}"
+else
+  BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
+fi
 if [[ -z "${BUILT_APK}" ]]; then
   # Fallback: search anywhere in OUT_DIR
-  BUILT_APK=$(find "${OUT_DIR}" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | head -n 1 || true)
+  BUILT_APK=$(find "${OUT_DIR}" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
 fi
 if [[ -z "${BUILT_APK}" ]]; then
   # Final fallback to any apk in apks directory
-  BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f 2>/dev/null | head -n 1 || true)
+  BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f 2>/dev/null | sort | head -n 1 || true)
 fi
 
 if [[ -n "${BUILT_APK}" ]]; then
@@ -591,7 +595,14 @@ if [[ -n "${BUILT_APK}" ]]; then
   if [[ "${BUILT_APK}" != "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
     cp -f "${BUILT_APK}" "${OUT_DIR}/apks/${OUTPUT_NAME}" 2>/dev/null || true
   fi
-  
+
+  # Step 12: Release APK Signing (when KEY_PASSWORD_ANDROID or keystore is configured)
+  if [[ -n "${KEY_PASSWORD_ANDROID:-}" || -n "${ANDROID_KEYSTORE_PASSWORD:-}" || -n "${ANDROID_KEYSTORE_PATH:-}" || -s "${REPO_ROOT}/.secure_files/${ANDROID_KEYSTORE_FILE:-braving_android.jks}" ]]; then
+    echo ""
+    echo "Signing release APK via sign-apk.sh..."
+    "${SCRIPT_DIR}/sign-apk.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+  fi
+
   T_END=$(date +%s)
   echo ""
   echo "========================================================"

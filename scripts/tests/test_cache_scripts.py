@@ -34,6 +34,12 @@ class TestCacheScriptsSyntax(unittest.TestCase):
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 
+    def test_sign_apk_syntax(self):
+        script = REPO_ROOT / "scripts" / "android" / "sign-apk.sh"
+        res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
+
+
 
 class TestSisoCachePipeline(unittest.TestCase):
     """Verify cache packaging, extraction, and timestamp ordering."""

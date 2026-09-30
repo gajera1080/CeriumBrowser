@@ -118,12 +118,28 @@ if [[ -f "${OUT_DIR}/Release/obj/brave/components/update_client/buildflags.ninja
 fi
 rm -rf "${OUT_DIR}/Release/gen/brave/components/update_client" \
        "${OUT_DIR}/Release/obj/brave/app" \
-       "${OUT_DIR}/Release/obj/brave/browser/net" \
+       "${OUT_DIR}/Release/obj/brave/browser" \
        "${OUT_DIR}/Release/obj/brave/components/brave_shields" \
        "${OUT_DIR}/Release/obj/brave/components/brave_policy" \
        "${OUT_DIR}/Release/obj/brave/components/brave_origin" \
        "${OUT_DIR}/Release/obj/components/update_client" \
        "${OUT_DIR}/Release/obj/components/crx_file"
+sleep 1
+for patched_src in \
+  "app/brave_main_delegate.cc" \
+  "browser/brave_browser_process_impl.cc" \
+  "browser/net/brave_network_audit_allowed_lists.h" \
+  "chromium_src/components/crx_file/crx_verifier.cc" \
+  "chromium_src/components/update_client/net/network_impl.cc" \
+  "chromium_src/components/update_client/update_checker.cc" \
+  "components/brave_shields/core/browser/ad_block_component_filters_provider.cc" \
+  "components/brave_shields/core/browser/ad_block_component_installer.cc" \
+  "components/brave_shields/core/browser/ad_block_component_service_manager.cc" \
+  "components/brave_shields/core/browser/ad_block_filters_provider_manager.cc"; do
+  if [[ -f "${WORKSPACE_DIR}/src/brave/${patched_src}" ]]; then
+    touch "${WORKSPACE_DIR}/src/brave/${patched_src}"
+  fi
+done
 
 # 4. Write a marker file so build-android.sh can detect cache presence and skip gn gen
 touch "${OUT_DIR}/Release/.cache_restored"

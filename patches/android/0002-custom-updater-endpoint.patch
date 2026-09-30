@@ -94,7 +94,7 @@ index 000000000..f8154e92a
 --- /dev/null
 +++ b/chromium_src/components/update_client/net/network_impl.cc
 @@ -0,0 +1,52 @@
-+/* Copyright (c) 2026 The Braving Authors. All rights reserved.
++/* Copyright (c) 2026 The Braving Contributors. All rights reserved.
 + * This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this file,
 + * You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -257,6 +257,80 @@ index 7f69e1d61..9b43b7e65 100644
  }
  
  AdBlockComponentInstallerPolicy::~AdBlockComponentInstallerPolicy() = default;
+diff --git a/browser/brave_browser_process_impl.cc b/browser/brave_browser_process_impl.cc
+index 4a2c78901..b81234567 100644
+--- a/browser/brave_browser_process_impl.cc
++++ b/browser/brave_browser_process_impl.cc
+@@ -318,6 +318,7 @@ void BraveBrowserProcessImpl::StartBraveServices() {
+ #endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
+ 
+   // eagerly initialize for component updater
++  ad_block_service();
+   https_upgrade_exceptions_service();
+ 
+   if (base::FeatureList::IsEnabled(
+diff --git a/components/brave_shields/core/browser/ad_block_component_service_manager.cc b/components/brave_shields/core/browser/ad_block_component_service_manager.cc
+index 89abcdef0..123456789 100644
+--- a/components/brave_shields/core/browser/ad_block_component_service_manager.cc
++++ b/components/brave_shields/core/browser/ad_block_component_service_manager.cc
+@@ -169,6 +169,28 @@ AdBlockComponentServiceManager::AdBlockComponentServiceManager(
+                      weak_factory_.GetWeakPtr()));
+   catalog_provider_->AddObserver(this);
+ 
++  if (component_update_service_ && filter_list_catalog_.empty()) {
++    SetFilterListCatalog({
++        FilterListCatalogEntry(
++            "default", "https://easylist.to/easylist.txt",
++            "Braving Default AdBlock Filters", {}, "https://easylist.to/",
++            "Default ad and tracker blocking rules", true, true, true, 3,
++            {"ANDROID", "IOS", "LINUX", "MAC", "WINDOWS"},
++            "iodkpdagapdfkphljnddpjlldadblomo",
++            kAdBlockFilterListCatalogComponentBase64PublicKey),
++        FilterListCatalogEntry(
++            "F0F275F4-6317-49E8-A2D6-8203E0AD78FB",
++            "https://secure.fanboy.co.nz/fanboy-annoyance_ubo.txt",
++            "Braving First-Party & Annoyance Filters", {},
++            "https://easylist.to/",
++            "Supplemental annoyance, cookie notice, and social widget rules",
++            false, true, false, 3,
++            {"ANDROID", "IOS", "LINUX", "MAC", "WINDOWS"},
++            "cdbbhgbmjhfnhnmgeddbliobbofkgdhe",
++            kAdBlockFilterListCatalogComponentBase64PublicKey),
++    });
++  }
++
+   if (IsAdBlockOnlyModeSupportedAndFeatureEnabled(locale_)) {
+     local_state_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+     local_state_change_registrar_->Init(local_state_);
+@@ -514,7 +536,10 @@ base::ListValue AdBlockComponentServiceManager::GetRegionalLists() {
+ void AdBlockComponentServiceManager::OnFilterListCatalogLoaded(
+     const std::string& catalog_json) {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+-  SetFilterListCatalog(FilterListCatalogFromJSON(catalog_json));
++  auto parsed_catalog = FilterListCatalogFromJSON(catalog_json);
++  if (!parsed_catalog.empty() || filter_list_catalog_.empty()) {
++    SetFilterListCatalog(std::move(parsed_catalog));
++  }
+ 
+   update_check_timer_.Start(
+       FROM_HERE,
+diff --git a/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc b/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
+index 112233445..556677889 100644
+--- a/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
++++ b/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
+@@ -25,10 +25,8 @@
+ namespace brave_shields {
+ 
+ AdBlockFiltersProviderManager::AdBlockFiltersProviderManager() {
+-  suppress_default_engine_startup_change_notification_ =
+-      base::FeatureList::IsEnabled(features::kAdblockDATCache);
+-  suppress_additional_engine_startup_change_notification_ =
+-      base::FeatureList::IsEnabled(features::kAdblockDATCache);
++  suppress_default_engine_startup_change_notification_ = false;
++  suppress_additional_engine_startup_change_notification_ = false;
+ }
+ 
+ AdBlockFiltersProviderManager::~AdBlockFiltersProviderManager() = default;
 diff --git a/components/update_client/BUILD.gn b/components/update_client/BUILD.gn
 index a3c19dfff..8c8c02046 100644
 --- a/components/update_client/BUILD.gn

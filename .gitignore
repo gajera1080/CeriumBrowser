@@ -18,3 +18,10 @@ __pycache__/
 .agents/ORIGINAL_REQUEST.md
 .agents/sentinel/
 .agents/teamwork_preview_*/
+
+# Signing keystores & GitLab Secure Files
+.secure_files/
+*.jks
+*.keystore
+*.idsig
+
