@@ -301,10 +301,11 @@ resolve_keystore
 KEYSTORE_CERT_SHA256=""
 if command -v keytool >/dev/null 2>&1; then
   KEYTOOL_OUT=""
-  if ! KEYTOOL_OUT=$(BRAVING_KS_PASS="${KS_PASS}" keytool -list \
-    -keystore "${KEYSTORE_PATH}" \
-    -alias "${KEY_ALIAS}" \
-    -storepass:env BRAVING_KS_PASS 2>/dev/null); then
+   if ! KEYTOOL_OUT=$(BRAVING_KS_PASS="${KS_PASS}" keytool -list \
+     -storetype JKS \
+       -keystore "${KEYSTORE_PATH}" \
+         -alias "${KEY_ALIAS}" \
+           -storepass:env BRAVING_KS_PASS 2>/dev/null); then
     echo "ERROR: Failed to unlock keystore '${KEYSTORE_PATH}' or alias '${KEY_ALIAS}' does not exist." >&2
     echo "Verify KEY_PASSWORD_ANDROID and that '${KEYSTORE_FILENAME}' contains alias '${KEY_ALIAS}'." >&2
     exit 1
@@ -322,9 +323,10 @@ if command -v keytool >/dev/null 2>&1; then
     rm -f "${TMP_P12_PROBE}"
     if ! BRAVING_KS_PASS="${KS_PASS}" BRAVING_KEY_PASS="${KEY_PASS}" keytool -importkeystore \
       -srckeystore "${KEYSTORE_PATH}" \
-      -srcalias "${KEY_ALIAS}" \
-      -srcstorepass:env BRAVING_KS_PASS \
-      -srckeypass:env BRAVING_KEY_PASS \
+        -srcstoretype JKS \
+          -srcalias "${KEY_ALIAS}" \
+            -srcstorepass:env BRAVING_KS_PASS \
+              -srckeypass:env BRAVING_KEY_PASS \
       -destkeystore "${TMP_P12_PROBE}" \
       -deststoretype PKCS12 \
       -deststorepass braving_probe_tmp \
@@ -491,8 +493,9 @@ sign_and_verify_apk() {
   echo "2. Signing with apksigner (alias: ${KEY_ALIAS})..."
   BRAVING_KS_PASS="${KS_PASS}" BRAVING_KEY_PASS="${KEY_PASS}" \
     "${APKSIGNER_BIN}" sign \
-    --ks "${KEYSTORE_PATH}" \
-    --ks-key-alias "${KEY_ALIAS}" \
+      --ks "${KEYSTORE_PATH}" \
+        --ks-type JKS \
+          --ks-key-alias "${KEY_ALIAS}" \
     --ks-pass env:BRAVING_KS_PASS \
     --key-pass env:BRAVING_KEY_PASS \
     --in "${TMP_ALIGNED}" \
