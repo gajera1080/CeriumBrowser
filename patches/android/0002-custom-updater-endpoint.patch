@@ -1,14 +1,24 @@
 diff --git a/app/brave_main_delegate.cc b/app/brave_main_delegate.cc
-index 8e3d9387b..2a10f9d4c 100644
+index 8e3d9387b..94c714d3a 100644
 --- a/app/brave_main_delegate.cc
 +++ b/app/brave_main_delegate.cc
-@@ -203,7 +203,8 @@ std::optional<int> BraveMainDelegate::PostEarlyInitialization(
+@@ -59,7 +59,7 @@ std::string GetUpdateURLHost() {
+   if (!command_line.HasSwitch(brave_component_updater::kUseGoUpdateDev) &&
+       !base::FeatureList::IsEnabled(
+           brave_component_updater::kUseDevUpdaterUrl)) {
+-    return BUILDFLAG(UPDATER_PROD_ENDPOINT);
++    return "https://braving.gitlab.io/braving-updater/components";
+   }
+   return BUILDFLAG(UPDATER_DEV_ENDPOINT);
+ }
+@@ -203,7 +203,9 @@ std::optional<int> BraveMainDelegate::PostEarlyInitialization(
  
      command_line->AppendSwitchASCII(
          switches::kComponentUpdater,
 -        base::StrCat({current_value, "url-source=", update_url}));
-+        base::StrCat(
-+            {current_value, "url-source=", update_url, ",disable-pings"}));
++        base::StrCat({current_value,
++                      "fast-update,initial-delay=2,url-source=", update_url,
++                      ",disable-pings"}));
    }
  
    // For Self-host sync service URL

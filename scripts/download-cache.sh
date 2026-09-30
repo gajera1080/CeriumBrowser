@@ -110,6 +110,21 @@ done
 rm -f "${OUT_DIR}/Release/obj/chrome/android/chrome_base_module_resources.resources.zip" \
       "${OUT_DIR}/Release/obj/chrome/android/chrome_public_apk_base_module_resources.resources.zip"
 
+# 3c. Invalidate cached object and buildflag files for patched Brave / updater / crx_file targets
+#     so Stage 3 always compiles the latest Stage 1 patches & mutators when gn gen is skipped.
+if [[ -f "${OUT_DIR}/Release/obj/brave/components/update_client/buildflags.ninja" ]]; then
+  sed -i 's|https://updates.braving.org/components|https://braving.gitlab.io/braving-updater/components|g' \
+    "${OUT_DIR}/Release/obj/brave/components/update_client/buildflags.ninja" || true
+fi
+rm -rf "${OUT_DIR}/Release/gen/brave/components/update_client" \
+       "${OUT_DIR}/Release/obj/brave/app" \
+       "${OUT_DIR}/Release/obj/brave/browser/net" \
+       "${OUT_DIR}/Release/obj/brave/components/brave_shields" \
+       "${OUT_DIR}/Release/obj/brave/components/brave_policy" \
+       "${OUT_DIR}/Release/obj/brave/components/brave_origin" \
+       "${OUT_DIR}/Release/obj/components/update_client" \
+       "${OUT_DIR}/Release/obj/components/crx_file"
+
 # 4. Write a marker file so build-android.sh can detect cache presence and skip gn gen
 touch "${OUT_DIR}/Release/.cache_restored"
 
