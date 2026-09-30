@@ -702,6 +702,106 @@ class TestRealCryptographicApkSigning(unittest.TestCase):
             self.assertNotEqual(res_cert.returncode, 0, "Preflight must reject trustedCertEntry without private key")
             self.assertIn("trustedCertEntry", res_cert.stderr)
 
+    def test_pkcs12_jks_alias_autodetect_file_var_and_diagnostics(self):
+        """
+        Verify that `sign-apk.sh` handles:
+        1. A PKCS#12 keystore saved with `.jks` extension (`braving_android.jks`).
+        2. `KEY_PASSWORD_ANDROID` with trailing CRLF / surrounding spaces.
+        3. `KEY_PASSWORD_ANDROID` as a GitLab `File`-type variable (path to a file containing the password + newline).
+        4. Automatic alias detection when the keystore contains an alias other than `braving` (e.g. `key0`).
+        5. Non-secret plaintext alias & format diagnostics when unlocking fails with an incorrect password.
+        """
+        keytool_bin = self._find_tool("keytool")
+        if not keytool_bin:
+            self.skipTest("keytool not installed")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            p12_jks = tmp_path / "braving_android.jks"
+            real_pass = "BravingP12Secret!2026"
+
+            subprocess.run(
+                [
+                    keytool_bin,
+                    "-genkeypair",
+                    "-storetype",
+                    "PKCS12",
+                    "-keystore",
+                    str(p12_jks),
+                    "-alias",
+                    "key0",
+                    "-keyalg",
+                    "RSA",
+                    "-keysize",
+                    "2048",
+                    "-validity",
+                    "365",
+                    "-storepass",
+                    real_pass,
+                    "-keypass",
+                    real_pass,
+                    "-dname",
+                    "CN=Braving PKCS12, O=Braving, C=US",
+                ],
+                check=True,
+                capture_output=True,
+            )
+
+            # 1. Trailing CRLF + whitespace password + auto-detecting alias `key0` when default is `braving`
+            env_padded = dict(
+                os.environ,
+                KEY_PASSWORD_ANDROID=f"  {real_pass}\r\n",
+                ANDROID_KEYSTORE_PATH=str(p12_jks),
+                ANDROID_KEY_ALIAS="braving",
+            )
+            res_padded = subprocess.run(
+                ["bash", str(SIGN_SCRIPT), "--preflight"],
+                env=env_padded,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(res_padded.returncode, 0, f"Preflight with CRLF/padded password failed: {res_padded.stderr}")
+            self.assertIn("Detected keystore format: PKCS12", res_padded.stdout)
+            self.assertIn("Auto-detected keystore alias: key0", res_padded.stdout)
+
+            # 2. GitLab File-type CI variable (KEY_PASSWORD_ANDROID points to a file containing the secret + newline)
+            pass_file = tmp_path / "KEY_PASSWORD_ANDROID_FILE"
+            pass_file.write_text(f"{real_pass}\n", encoding="utf-8")
+            env_file_var = dict(
+                os.environ,
+                KEY_PASSWORD_ANDROID=str(pass_file),
+                ANDROID_KEYSTORE_PATH=str(p12_jks),
+                ANDROID_KEY_ALIAS="braving",
+            )
+            res_file = subprocess.run(
+                ["bash", str(SIGN_SCRIPT), "--preflight"],
+                env=env_file_var,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(res_file.returncode, 0, f"Preflight with File-type variable failed: {res_file.stderr}")
+            self.assertIn("Auto-detected keystore alias: key0", res_file.stdout)
+
+            # 3. Wrong password must print clear PKCS12 + plaintext alias diagnostics without leaking the secret
+            env_wrong = dict(
+                os.environ,
+                KEY_PASSWORD_ANDROID="WrongPassword999",
+                ANDROID_KEYSTORE_PATH=str(p12_jks),
+                ANDROID_KEY_ALIAS="braving",
+            )
+            res_wrong = subprocess.run(
+                ["bash", str(SIGN_SCRIPT), "--preflight"],
+                env=env_wrong,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(res_wrong.returncode, 0)
+            self.assertIn("Container Format  : PKCS12", res_wrong.stderr)
+            self.assertIn("Plaintext Aliases : key0", res_wrong.stderr)
+            self.assertIn("keystore password was incorrect", res_wrong.stderr.lower())
+            self.assertNotIn("WrongPassword999", res_wrong.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
+

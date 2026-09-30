@@ -91,15 +91,85 @@ if [[ -d "${SRC_DIR}/third_party/jdk/current/bin" ]]; then
   export PATH="${SRC_DIR}/third_party/jdk/current/bin:${PATH}"
 fi
 
-# Step 1: Resolve signing password (never echo or trace secrets)
-KS_PASS="${KEY_PASSWORD_ANDROID:-${ANDROID_KEYSTORE_PASSWORD:-}}"
-KEY_PASS="${ANDROID_KEY_PASSWORD:-${KEY_PASSWORD_ANDROID:-${ANDROID_KEYSTORE_PASSWORD:-}}}"
+# Step 1: Resolve signing password & generate normalized candidates (never echo or trace secrets)
+RAW_KS_PASS="${KEY_PASSWORD_ANDROID:-${ANDROID_KEYSTORE_PASSWORD:-}}"
+RAW_KEY_PASS="${ANDROID_KEY_PASSWORD:-${KEY_PASSWORD_ANDROID:-${ANDROID_KEYSTORE_PASSWORD:-}}}"
 
-if [[ -z "${KS_PASS}" ]]; then
+if [[ -z "${RAW_KS_PASS}" ]]; then
   echo "ERROR: KEY_PASSWORD_ANDROID environment variable is not set or empty." >&2
   echo "Configure KEY_PASSWORD_ANDROID in GitLab Settings -> CI/CD -> Variables." >&2
   exit 1
 fi
+
+KS_PASS_IS_FILE="false (env variable)"
+KS_PASS_EFFECTIVE_RAW="${RAW_KS_PASS}"
+if [[ -f "${RAW_KS_PASS}" ]]; then
+  KS_PASS_IS_FILE="true (File-type variable)"
+  KS_PASS_EFFECTIVE_RAW="$(cat "${RAW_KS_PASS}")"
+fi
+KS_PASS_TRIMMED="$(trim_whitespace "${KS_PASS_EFFECTIVE_RAW}")"
+
+build_password_candidates() {
+  local raw_input="$1"
+  local -n out_arr="$2"
+  out_arr=()
+
+  local _add_cand
+  _add_cand() {
+    local c="$1"
+    [[ -z "${c}" ]] && return 0
+    local existing
+    for existing in "${out_arr[@]+"${out_arr[@]}"}"; do
+      if [[ "${existing}" == "${c}" ]]; then
+        return 0
+      fi
+    done
+    out_arr+=("${c}")
+  }
+
+  if [[ -f "${raw_input}" ]]; then
+    local file_raw=""
+    file_raw="$(cat "${raw_input}")"
+    local file_no_crlf="${file_raw//[$'\r\n']/}"
+    local file_trimmed
+    file_trimmed="$(trim_whitespace "${file_raw}")"
+    _add_cand "${file_no_crlf}"
+    _add_cand "${file_trimmed}"
+    _add_cand "${file_raw}"
+  fi
+
+  local no_crlf="${raw_input//[$'\r\n']/}"
+  local trimmed
+  trimmed="$(trim_whitespace "${raw_input}")"
+  _add_cand "${raw_input}"
+  _add_cand "${no_crlf}"
+  _add_cand "${trimmed}"
+}
+
+declare -a KS_PASS_CANDIDATES=()
+declare -a KEY_PASS_CANDIDATES=()
+build_password_candidates "${RAW_KS_PASS}" KS_PASS_CANDIDATES
+build_password_candidates "${RAW_KEY_PASS}" KEY_PASS_CANDIDATES
+
+if [[ ${#KS_PASS_CANDIDATES[@]} -eq 0 ]]; then
+  echo "ERROR: KEY_PASSWORD_ANDROID resolved to an empty password." >&2
+  exit 1
+fi
+
+KS_PASS="${KS_PASS_CANDIDATES[0]}"
+KEY_PASS="${KEY_PASS_CANDIDATES[0]:-${KS_PASS}}"
+
+sanitize_output() {
+  local text="$1"
+  local p
+  for p in "${KS_PASS_CANDIDATES[@]+"${KS_PASS_CANDIDATES[@]}"}" "${KEY_PASS_CANDIDATES[@]+"${KEY_PASS_CANDIDATES[@]}"}" "${RAW_KS_PASS}" "${RAW_KEY_PASS}"; do
+    if [[ -n "${p}" ]]; then
+      text="${text//"${p}"/[REDACTED]}"
+    fi
+  done
+  printf '%s\n' "${text}"
+}
+
 
 # Step 2: Resolve or download keystore (`braving_android.jks`)
 resolve_keystore() {
@@ -297,18 +367,277 @@ trap cleanup_tmp EXIT
 
 resolve_keystore
 
+# Inspect keystore binary header (magic bytes -> PKCS12 vs JKS, size, SHA-256, plaintext alias names)
+KEYSTORE_TYPE="UNKNOWN"
+KEYSTORE_SIZE="0"
+KEYSTORE_SHA256=""
+KEYSTORE_PLAINTEXT_ALIASES=""
+{
+  IFS= read -r KEYSTORE_TYPE || true
+  IFS= read -r KEYSTORE_SIZE || true
+  IFS= read -r KEYSTORE_SHA256 || true
+  IFS= read -r KEYSTORE_PLAINTEXT_ALIASES || true
+} < <(python3 - "${KEYSTORE_PATH}" <<'PYEOF'
+import hashlib
+import struct
+import sys
+
+ks_path = sys.argv[1]
+try:
+    with open(ks_path, "rb") as f:
+        data = f.read()
+except OSError:
+    data = b""
+
+size = len(data)
+sha256 = hashlib.sha256(data).hexdigest() if data else ""
+
+
+def parse_der_length(buf, idx):
+    if idx >= len(buf):
+        return 0, idx
+    b = buf[idx]
+    idx += 1
+    if (b & 0x80) == 0:
+        return b, idx
+    num_bytes = b & 0x7F
+    if num_bytes == 0 or idx + num_bytes > len(buf):
+        return 0, idx
+    length = int.from_bytes(buf[idx : idx + num_bytes], "big")
+    return length, idx + num_bytes
+
+
+def extract_pkcs12_aliases(buf):
+    # OID 1.2.840.113549.1.9.20 (friendlyName) -> 06 09 2a 86 48 86 f7 0d 01 09 14
+    oid_friendly = bytes.fromhex("06092a864886f70d010914")
+    pos = 0
+    aliases = []
+    while True:
+        idx = buf.find(oid_friendly, pos)
+        if idx == -1:
+            break
+        cur = idx + len(oid_friendly)
+        if cur < len(buf) and buf[cur] == 0x31:  # SET
+            _, cur = parse_der_length(buf, cur + 1)
+            if cur < len(buf):
+                str_tag = buf[cur]
+                str_len, val_start = parse_der_length(buf, cur + 1)
+                raw_val = buf[val_start : val_start + str_len]
+                if str_tag == 0x1E:  # BMPString (UTF-16BE)
+                    alias = raw_val.decode("utf-16-be", errors="replace")
+                else:
+                    alias = raw_val.decode("utf-8", errors="replace")
+                alias = alias.strip("\x00")
+                if alias and alias not in aliases:
+                    aliases.append(alias)
+        pos = idx + 1
+    return aliases
+
+
+def extract_jks_aliases(buf):
+    aliases = []
+    if len(buf) < 12:
+        return aliases
+    try:
+        magic, version, count = struct.unpack(">III", buf[:12])
+        if magic != 0xFEEDFEED:
+            return aliases
+        pos = 12
+        for _ in range(min(count, 1024)):
+            if pos + 6 > len(buf):
+                break
+            tag = struct.unpack(">I", buf[pos : pos + 4])[0]
+            pos += 4
+            alias_len = struct.unpack(">H", buf[pos : pos + 2])[0]
+            pos += 2
+            if pos + alias_len > len(buf):
+                break
+            alias = buf[pos : pos + alias_len].decode("utf-8", errors="replace")
+            pos += alias_len
+            if alias and alias not in aliases:
+                aliases.append(alias)
+            if pos + 8 > len(buf):
+                break
+            pos += 8
+            if tag == 1:  # PrivateKeyEntry
+                if pos + 4 > len(buf):
+                    break
+                key_len = struct.unpack(">I", buf[pos : pos + 4])[0]
+                pos += 4 + key_len
+                if pos + 4 > len(buf):
+                    break
+                cert_count = struct.unpack(">I", buf[pos : pos + 4])[0]
+                pos += 4
+                for _ in range(min(cert_count, 256)):
+                    if version == 2:
+                        if pos + 2 > len(buf):
+                            break
+                        ct_len = struct.unpack(">H", buf[pos : pos + 2])[0]
+                        pos += 2 + ct_len
+                    if pos + 4 > len(buf):
+                        break
+                    c_len = struct.unpack(">I", buf[pos : pos + 4])[0]
+                    pos += 4 + c_len
+            elif tag == 2:  # TrustedCertEntry
+                if version == 2:
+                    if pos + 2 > len(buf):
+                        break
+                    ct_len = struct.unpack(">H", buf[pos : pos + 2])[0]
+                    pos += 2 + ct_len
+                if pos + 4 > len(buf):
+                    break
+                c_len = struct.unpack(">I", buf[pos : pos + 4])[0]
+                pos += 4 + c_len
+            else:
+                break
+    except Exception:
+        pass
+    return aliases
+
+
+if len(data) >= 4 and data[:4] == b"\xfe\xed\xfe\xed":
+    ks_type = "JKS"
+    aliases = extract_jks_aliases(data)
+elif len(data) >= 2 and data[0] == 0x30:
+    ks_type = "PKCS12"
+    aliases = extract_pkcs12_aliases(data)
+else:
+    ks_type = "UNKNOWN"
+    aliases = []
+
+print(ks_type)
+print(size)
+print(sha256)
+print(",".join(aliases))
+PYEOF
+)
+
+declare -a KEYTOOL_STORE_ARGS=()
+declare -a KEYTOOL_SRCSTORE_ARGS=()
+declare -a APKSIGNER_KS_TYPE_ARGS=()
+if [[ "${KEYSTORE_TYPE}" == "JKS" || "${KEYSTORE_TYPE}" == "PKCS12" ]]; then
+  echo "Detected keystore format: ${KEYSTORE_TYPE} (${KEYSTORE_SIZE} bytes, sha256=${KEYSTORE_SHA256})"
+  KEYTOOL_STORE_ARGS=(-storetype "${KEYSTORE_TYPE}")
+  KEYTOOL_SRCSTORE_ARGS=(-srcstoretype "${KEYSTORE_TYPE}")
+  APKSIGNER_KS_TYPE_ARGS=(--ks-type "${KEYSTORE_TYPE}")
+fi
+
 # Step 3: Validate keystore, alias, and private key recovery using keytool if available
 KEYSTORE_CERT_SHA256=""
 if command -v keytool >/dev/null 2>&1; then
-  KEYTOOL_OUT=""
-   if ! KEYTOOL_OUT=$(BRAVING_KS_PASS="${KS_PASS}" keytool -list \
-     -storetype JKS \
-       -keystore "${KEYSTORE_PATH}" \
-         -alias "${KEY_ALIAS}" \
-           -storepass:env BRAVING_KS_PASS 2>/dev/null); then
-    echo "ERROR: Failed to unlock keystore '${KEYSTORE_PATH}' or alias '${KEY_ALIAS}' does not exist." >&2
-    echo "Verify KEY_PASSWORD_ANDROID and that '${KEYSTORE_FILENAME}' contains alias '${KEY_ALIAS}'." >&2
+  KEYTOOL_LIST_OUT=""
+  KEYSTORE_UNLOCKED=false
+  FIRST_KEYTOOL_ERR=""
+
+  for cand in "${KS_PASS_CANDIDATES[@]}"; do
+    if KEYTOOL_LIST_OUT=$(BRAVING_KS_PASS="${cand}" keytool -list -v \
+      "${KEYTOOL_STORE_ARGS[@]+"${KEYTOOL_STORE_ARGS[@]}"}" \
+      -keystore "${KEYSTORE_PATH}" \
+      -storepass:env BRAVING_KS_PASS 2>&1); then
+      KS_PASS="${cand}"
+      if [[ -z "${ANDROID_KEY_PASSWORD:-}" ]]; then
+        KEY_PASS="${cand}"
+      fi
+      KEYSTORE_UNLOCKED=true
+      break
+    else
+      if [[ -z "${FIRST_KEYTOOL_ERR}" ]]; then
+        FIRST_KEYTOOL_ERR="${KEYTOOL_LIST_OUT}"
+      fi
+    fi
+  done
+
+  if [[ "${KEYSTORE_UNLOCKED}" != "true" ]]; then
+    SANITIZED_ERR="$(sanitize_output "${FIRST_KEYTOOL_ERR}")"
+    echo "ERROR: Failed to unlock keystore '${KEYSTORE_PATH}' with KEY_PASSWORD_ANDROID (tried ${#KS_PASS_CANDIDATES[@]} password candidate(s))." >&2
+    echo "Keystore Diagnostics (non-secret):" >&2
+    echo "  - Container Format  : ${KEYSTORE_TYPE}" >&2
+    echo "  - File Size         : ${KEYSTORE_SIZE} bytes" >&2
+    echo "  - SHA-256           : ${KEYSTORE_SHA256}" >&2
+    echo "  - Plaintext Aliases : ${KEYSTORE_PLAINTEXT_ALIASES:-<none detected>}" >&2
+    echo "  - Target Alias      : ${KEY_ALIAS}" >&2
+    echo "  - Password File Var : ${KS_PASS_IS_FILE}" >&2
+    echo "  - Password Length   : raw=${#RAW_KS_PASS} chars, effective=${#KS_PASS_EFFECTIVE_RAW} chars, trimmed=${#KS_PASS_TRIMMED} chars" >&2
+    if [[ -n "${SANITIZED_ERR}" ]]; then
+      echo "Keytool Error Output:" >&2
+      echo "${SANITIZED_ERR}" >&2
+    fi
+    if [[ -n "${KEYSTORE_PLAINTEXT_ALIASES}" ]]; then
+      echo "NOTE: Plaintext alias(es) '${KEYSTORE_PLAINTEXT_ALIASES}' were detected inside '${KEYSTORE_FILENAME}' (${KEYSTORE_TYPE})." >&2
+      echo "      The keystore file is intact; verify that KEY_PASSWORD_ANDROID in GitLab CI/CD Variables matches the keystore password." >&2
+    else
+      echo "Verify KEY_PASSWORD_ANDROID and '${KEYSTORE_FILENAME}' in GitLab Settings -> CI/CD." >&2
+    fi
     exit 1
+  fi
+
+  KEYTOOL_OUT=""
+  if ! KEYTOOL_OUT=$(BRAVING_KS_PASS="${KS_PASS}" keytool -list -v \
+    "${KEYTOOL_STORE_ARGS[@]+"${KEYTOOL_STORE_ARGS[@]}"}" \
+    -keystore "${KEYSTORE_PATH}" \
+    -alias "${KEY_ALIAS}" \
+    -storepass:env BRAVING_KS_PASS 2>&1); then
+    DETECTED_ALIAS=$(KEYTOOL_LIST_TEXT="${KEYTOOL_LIST_OUT}" PLAINTEXT_ALIASES="${KEYSTORE_PLAINTEXT_ALIASES}" python3 - <<'PYEOF'
+import os
+import re
+
+text = os.environ.get("KEYTOOL_LIST_TEXT", "")
+current_alias = None
+private_aliases = []
+all_aliases = []
+
+for raw_line in text.splitlines():
+    line = raw_line.strip()
+    m_alias = re.match(r"^Alias name:\s*(.+)$", line, re.IGNORECASE)
+    if m_alias:
+        current_alias = m_alias.group(1).strip()
+        if current_alias and current_alias not in all_aliases:
+            all_aliases.append(current_alias)
+        continue
+    m_entry = re.match(r"^Entry type:\s*(\S+)", line, re.IGNORECASE)
+    if m_entry and current_alias:
+        etype = m_entry.group(1).strip().lower()
+        if "privatekeyentry" in etype or "keyentry" in etype:
+            if current_alias not in private_aliases:
+                private_aliases.append(current_alias)
+        continue
+    if "privatekeyentry" in line.lower() and "," in line:
+        cand = line.split(",", 1)[0].strip()
+        if cand and cand not in private_aliases:
+            private_aliases.append(cand)
+            if cand not in all_aliases:
+                all_aliases.append(cand)
+
+if private_aliases:
+    print(private_aliases[0])
+elif all_aliases:
+    print(all_aliases[0])
+else:
+    pt = [a.strip() for a in os.environ.get("PLAINTEXT_ALIASES", "").split(",") if a.strip()]
+    if pt:
+        print(pt[0])
+PYEOF
+)
+    DETECTED_ALIAS="$(trim_whitespace "${DETECTED_ALIAS}")"
+    if [[ -n "${DETECTED_ALIAS}" && "${DETECTED_ALIAS}" != "${KEY_ALIAS}" ]]; then
+      echo "Auto-detected keystore alias: ${DETECTED_ALIAS} (configured alias '${KEY_ALIAS}' was not found)"
+      KEY_ALIAS="${DETECTED_ALIAS}"
+      if ! KEYTOOL_OUT=$(BRAVING_KS_PASS="${KS_PASS}" keytool -list -v \
+        "${KEYTOOL_STORE_ARGS[@]+"${KEYTOOL_STORE_ARGS[@]}"}" \
+        -keystore "${KEYSTORE_PATH}" \
+        -alias "${KEY_ALIAS}" \
+        -storepass:env BRAVING_KS_PASS 2>&1); then
+        SANITIZED_ERR="$(sanitize_output "${KEYTOOL_OUT}")"
+        echo "ERROR: Failed to inspect auto-detected alias '${KEY_ALIAS}' in '${KEYSTORE_PATH}'." >&2
+        [[ -n "${SANITIZED_ERR}" ]] && echo "${SANITIZED_ERR}" >&2
+        exit 1
+      fi
+    else
+      SANITIZED_ERR="$(sanitize_output "${KEYTOOL_OUT}")"
+      echo "ERROR: Alias '${KEY_ALIAS}' does not exist in keystore '${KEYSTORE_PATH}' and no alternative alias could be auto-detected." >&2
+      [[ -n "${SANITIZED_ERR}" ]] && echo "${SANITIZED_ERR}" >&2
+      exit 1
+    fi
   fi
 
   if echo "${KEYTOOL_OUT}" | grep -qi "trustedCertEntry"; then
@@ -316,30 +645,63 @@ if command -v keytool >/dev/null 2>&1; then
     exit 1
   fi
 
-  KEYSTORE_CERT_SHA256=$(echo "${KEYTOOL_OUT}" | grep -i "SHA-256" | sed -E 's/.*SHA-256\):[[:space:]]*//' | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]' | head -n 1 || true)
+  KEYSTORE_CERT_SHA256=$(echo "${KEYTOOL_OUT}" | grep -iE "SHA-?256" | sed -E 's/.*SHA-?256\)?:[[:space:]]*//' | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]' | head -n 1 || true)
 
   if echo "${KEYTOOL_OUT}" | grep -qi "PrivateKeyEntry"; then
-    TMP_P12_PROBE=$(mktemp "${TMPDIR:-/tmp}/braving-ks-probe-XXXXXX.p12")
-    rm -f "${TMP_P12_PROBE}"
-    if ! BRAVING_KS_PASS="${KS_PASS}" BRAVING_KEY_PASS="${KEY_PASS}" keytool -importkeystore \
-      -srckeystore "${KEYSTORE_PATH}" \
-        -srcstoretype JKS \
-          -srcalias "${KEY_ALIAS}" \
-            -srcstorepass:env BRAVING_KS_PASS \
-              -srckeypass:env BRAVING_KEY_PASS \
-      -destkeystore "${TMP_P12_PROBE}" \
-      -deststoretype PKCS12 \
-      -deststorepass braving_probe_tmp \
-      -destkeypass braving_probe_tmp \
-      -noprompt >/dev/null 2>&1; then
+    declare -a PROBE_KEY_CANDIDATES=()
+    if [[ -z "${ANDROID_KEY_PASSWORD:-}" ]]; then
+      PROBE_KEY_CANDIDATES+=("${KS_PASS}")
+    fi
+    for kcand in "${KEY_PASS_CANDIDATES[@]}"; do
+      already_in=false
+      for existing in "${PROBE_KEY_CANDIDATES[@]+"${PROBE_KEY_CANDIDATES[@]}"}"; do
+        if [[ "${existing}" == "${kcand}" ]]; then
+          already_in=true
+          break
+        fi
+      done
+      if [[ "${already_in}" == "false" ]]; then
+        PROBE_KEY_CANDIDATES+=("${kcand}")
+      fi
+    done
+
+    KEY_RECOVERED=false
+    FIRST_PROBE_ERR=""
+    for kcand in "${PROBE_KEY_CANDIDATES[@]}"; do
+      TMP_P12_PROBE=$(mktemp "${TMPDIR:-/tmp}/braving-ks-probe-XXXXXX.p12")
+      rm -f "${TMP_P12_PROBE}"
+      if PROBE_OUT=$(BRAVING_KS_PASS="${KS_PASS}" BRAVING_KEY_PASS="${kcand}" keytool -importkeystore \
+        -srckeystore "${KEYSTORE_PATH}" \
+        "${KEYTOOL_SRCSTORE_ARGS[@]+"${KEYTOOL_SRCSTORE_ARGS[@]}"}" \
+        -srcalias "${KEY_ALIAS}" \
+        -srcstorepass:env BRAVING_KS_PASS \
+        -srckeypass:env BRAVING_KEY_PASS \
+        -destkeystore "${TMP_P12_PROBE}" \
+        -deststoretype PKCS12 \
+        -deststorepass braving_probe_tmp \
+        -destkeypass braving_probe_tmp \
+        -noprompt 2>&1); then
+        rm -f "${TMP_P12_PROBE}"
+        TMP_P12_PROBE=""
+        KEY_PASS="${kcand}"
+        KEY_RECOVERED=true
+        break
+      else
+        if [[ -z "${FIRST_PROBE_ERR}" ]]; then
+          FIRST_PROBE_ERR="${PROBE_OUT}"
+        fi
+      fi
       rm -f "${TMP_P12_PROBE}"
       TMP_P12_PROBE=""
+    done
+
+    if [[ "${KEY_RECOVERED}" != "true" ]]; then
+      SANITIZED_PROBE_ERR="$(sanitize_output "${FIRST_PROBE_ERR}")"
       echo "ERROR: Failed to recover private key for alias '${KEY_ALIAS}' in '${KEYSTORE_PATH}'." >&2
       echo "Verify that KEY_PASSWORD_ANDROID (or ANDROID_KEY_PASSWORD) matches the private key password." >&2
+      [[ -n "${SANITIZED_PROBE_ERR}" ]] && echo "${SANITIZED_PROBE_ERR}" >&2
       exit 1
     fi
-    rm -f "${TMP_P12_PROBE}"
-    TMP_P12_PROBE=""
   fi
 
   echo "Verified keystore '${KEYSTORE_PATH}' contains valid key entry for alias '${KEY_ALIAS}'."
@@ -490,12 +852,12 @@ sign_and_verify_apk() {
   echo "1. Running zipalign (4-byte & page-aligned shared objects)..."
   "${ZIPALIGN_BIN}" -p -f 4 "${abs_apk}" "${TMP_ALIGNED}"
 
-  echo "2. Signing with apksigner (alias: ${KEY_ALIAS})..."
+  echo "2. Signing with apksigner (alias: ${KEY_ALIAS}, type: ${KEYSTORE_TYPE})..."
   BRAVING_KS_PASS="${KS_PASS}" BRAVING_KEY_PASS="${KEY_PASS}" \
     "${APKSIGNER_BIN}" sign \
-      --ks "${KEYSTORE_PATH}" \
-        --ks-type JKS \
-          --ks-key-alias "${KEY_ALIAS}" \
+    --ks "${KEYSTORE_PATH}" \
+    "${APKSIGNER_KS_TYPE_ARGS[@]+"${APKSIGNER_KS_TYPE_ARGS[@]}"}" \
+    --ks-key-alias "${KEY_ALIAS}" \
     --ks-pass env:BRAVING_KS_PASS \
     --key-pass env:BRAVING_KEY_PASS \
     --in "${TMP_ALIGNED}" \
