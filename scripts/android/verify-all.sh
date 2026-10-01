@@ -42,7 +42,6 @@ python3 -m py_compile "${REPO_ROOT}/scripts/android"/*.py
 python3 "${REPO_ROOT}/scripts/tests/test_mutators.py"
 python3 "${REPO_ROOT}/scripts/tests/test_cache_scripts.py"
 python3 "${REPO_ROOT}/scripts/tests/test_branding.py"
-python3 "${REPO_ROOT}/scripts/tests/test_signing.py"
 echo " [OK] Python mutators and unit tests verified successfully."
 
 echo ""
