@@ -35,7 +35,6 @@ BRAVE_RES_VECTORS=(
   "ic_brave_logo.xml"
   "ic_brave.xml"
   "ic_brave_36.xml"
-  "brave_icon_search.xml"
   "ic_channel_brave.xml"
   "ic_brave_notification.xml"
 )
@@ -86,8 +85,8 @@ for xml_src in "${REPO_ROOT}/branding/android/shields_drawables/"*.xml; do
     copy_static_xml "${xml_src}" "${BRAVE_DIR}/node_modules/@brave/leo/tokens/android/drawable/$(basename "${xml_src}")"
   fi
 done
-if [[ ${XML_COUNT} -lt 38 ]]; then
-  echo "ERROR: Expected at least 38 static XML overlays, but copied ${XML_COUNT}." >&2
+if [[ ${XML_COUNT} -lt 37 ]]; then
+  echo "ERROR: Expected at least 37 static XML overlays, but copied ${XML_COUNT}." >&2
   exit 1
 fi
 echo " [OK] Overlaid Shields vector drawables into app/theme/brave/android/shields_drawables/ (${XML_COUNT} total XML files copied)."

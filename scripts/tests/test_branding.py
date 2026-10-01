@@ -98,14 +98,13 @@ class TestBrandingAssets(unittest.TestCase):
             self.assertEqual(off_content.count("<path"), 4, f"{off_name} must contain the 4 Braving ribbon paths")
 
     def test_all_vector_logo_drawables_exact_dimensions(self):
-        """All 10 Android vector logo drawables must exist and preserve exact upstream dp dimensions."""
+        """All 9 Android vector logo drawables must exist and preserve exact upstream dp dimensions."""
         ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
         drawable_dir = os.path.join(self.android_dir, "drawable")
         expected_dims = {
             "ic_brave_logo.xml": ("19dp", "23dp"),
             "ic_brave.xml": ("20dp", "20dp"),
             "ic_brave_36.xml": ("37dp", "37dp"),
-            "brave_icon_search.xml": ("24dp", "24dp"),
             "ic_channel_brave.xml": ("20dp", "20dp"),
             "ic_brave_notification.xml": ("39dp", "50dp"),
             "chrome_logo_on_circular_background.xml": ("31dp", "31dp"),
@@ -150,15 +149,6 @@ class TestBrandingAssets(unittest.TestCase):
             "@color/brave_brand_text_color",
             brand_xml,
             "ic_brave_brand.xml must reference @color/brave_brand_text_color to avoid Android Lint UnusedResources",
-        )
-
-        # Verify brave_icon_search.xml references @color/shield_text_color
-        with open(os.path.join(drawable_dir, "brave_icon_search.xml"), "r", encoding="utf-8") as f:
-            search_xml = f.read()
-        self.assertIn(
-            "@color/shield_text_color",
-            search_xml,
-            "brave_icon_search.xml must reference @color/shield_text_color",
         )
 
     def test_svg_validity(self):
@@ -350,7 +340,7 @@ class TestBrandingAssets(unittest.TestCase):
 
             self.assertEqual(len(copied_pngs), 156, f"Expected 156 copied PNGs, found {len(copied_pngs)}")
             self.assertEqual(len(copied_svgs), 10, f"Expected 10 copied SVGs, found {len(copied_svgs)}")
-            self.assertEqual(len(copied_xmls), 38, f"Expected 38 copied XMLs, found {len(copied_xmls)}")
+            self.assertEqual(len(copied_xmls), 37, f"Expected 37 copied XMLs, found {len(copied_xmls)}")
 
     def test_aapt2_compile_and_link(self):
         """Deep verification: compile and link all branding XML and Android PNG drawables with AAPT2 if available."""

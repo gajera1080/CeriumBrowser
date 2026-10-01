@@ -52,13 +52,12 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
-# 5. Check all 10 Android Vector Drawable logos in branding/android/drawable/
+# 5. Check all 9 Android Vector Drawable logos in branding/android/drawable/
 echo "Checking Android vector logo drawables..."
 REQUIRED_DRAWABLES=(
   "ic_brave_logo.xml"
   "ic_brave.xml"
   "ic_brave_36.xml"
-  "brave_icon_search.xml"
   "ic_channel_brave.xml"
   "ic_brave_notification.xml"
   "chrome_logo_on_circular_background.xml"
@@ -74,7 +73,7 @@ for d in "${REQUIRED_DRAWABLES[@]}"; do
   fi
 done
 if [[ ${FAILURES} -eq 0 ]]; then
-  echo " [OK] All 10 vector logo drawables exist in branding/android/drawable/."
+  echo " [OK] All 9 vector logo drawables exist in branding/android/drawable/."
 fi
 
 # 5b. Check adaptive launcher icon container (app_icon.xml)
