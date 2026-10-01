@@ -43,24 +43,32 @@ Braving
 2. Repository Structure
 -----------------------
 
-    braving/
-    |-- branding/            App identity, strings, package name, icons
+    Braving/
+    |-- branding/            Master vector identity, Android drawables, static PNGs
+    |   |-- android/         Vector logo drawables, adaptive and themed icons
+    |   `-- brave-core-static/ 156 static PNGs and 10 SVGs for brave-core overlay
+    |-- docs/                Architecture, building, debloating, and release docs
     |-- metadata/            Release manifests and exact upstream commits
-    |-- docs/                Architecture and release documentation
-    |-- scripts/android/   Python mutators (e.g. apply-branding.py)
-    
-    |       |-- branding/    App identity, strings, package name, icons
-    |       |-- build/       GN arguments, toolchain settings, manifest
-    |       |-- features/    Feature disabling (Wallet, Ads, Rewards, VPN)
-    |       |-- origin/      Minimal / origin policy configurations
-    |       `-- telemetry/   Disable P3A analytics and metrics reporting
-    `-- scripts/             Build and validation scripts
-        `-- android/         Android-specific build scripts
-            |-- build-android.sh     Phase 2: Compiles the Braving APK
-            |-- generate-icons.sh    Generates launcher icons
-            |-- prepare-source.sh    Phase 1: Validates revisions & applies mutators
-            |-- verify-all.sh        Runs all verifications
-            |-- verify-branding.sh   Lints for unintentional Brave trademark remnants
+    |   `-- releases/        Generated release manifests (package_id, commits, arch)
+    |-- patches/             Unified patches for branding, debloating, and updater
+    |   `-- android/
+    |       |-- 0001-braving-branding.patch
+    |       |-- 0002-custom-updater-endpoint.patch
+    |       `-- debloat/     Modular enterprise debloating patches
+    `-- scripts/             Modular build, mutator, signing, and verification suite
+        |-- android/         Android build orchestration and Python mutators
+        |   |-- apply-assets.sh      Applies static raster and vector branding assets
+        |   |-- apply-branding.py    GRD/GRDP string de-branding and XTB remapping
+        |   |-- apply-features.py    GN build fixes and WebUI bundle decoupling
+        |   |-- build-android.sh     Phase 2: Compiles the release Braving APK
+        |   |-- filter-build-log.py  Real-time CI stream filter preventing log truncation
+        |   |-- prepare-source.sh    Phase 1: Dynamic checkout, patches, & mutators
+        |   |-- sign-apk.sh          v1/v2/v3 APK release signing & verification
+        |   |-- verify-all.sh        Master 5-step verification suite
+        |   `-- verify-branding.sh   Validates AAPT2 limits & complete de-branding
+        |-- download-cache.sh Distributed CI Siso warm cache restore
+        |-- upload-cache.sh   Distributed CI Siso warm cache chunker and upload
+        `-- tests/            Automated unit and integration test suite
 
 
 3. Building Braving
@@ -82,17 +90,16 @@ Braving
 
     To validate revisions, checkout the source code, and apply Braving
     branding mutators, run the preparation script with the desired
-    Brave version:
+    Brave version (or omit to auto-resolve latest stable):
 
-        ./scripts/prepare-source.sh <BRAVE_VERSION>
+        ./scripts/android/prepare-source.sh [BRAVE_VERSION]
 
 
 3.3. Build Braving APK
 
-    Once the source is prepared, you can start the compilation
-    process. This step handles GN configuration and Ninja compilation:
+    Once the source is prepared, compile the release APK:
 
-        ./scripts/build-android.sh --arch=arm64 --release
+        ./scripts/android/build-android.sh --arch=arm64 --release
 
 
 4. Special Thanks

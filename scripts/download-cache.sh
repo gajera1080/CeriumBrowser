@@ -55,8 +55,8 @@ mkdir -p "${OUT_DIR}"
 # Extract without -m to preserve original compiler timestamps from Stage 2
 cat chunk.tar.gz.* | tar -xzf - -C "${OUT_DIR}"
 
-# Clean the process lock file
-rm -f "${OUT_DIR}/Release/.siso_lock"
+# Clean the process lock file and legacy deps if present
+rm -f "${OUT_DIR}/Release/.siso_lock" "${OUT_DIR}/Release/.ninja_deps"
 
 # CRITICAL: Delete build.ninja.d to prevent Siso from auto-triggering gn gen.
 # build.ninja.d is a depfile listing all .gn/.gni files that were inputs to gn gen.

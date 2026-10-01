@@ -2,10 +2,10 @@
 """
 Braving Test Suite: Python Mutators and Git Patch Suite
 Validates that:
-1. Dynamic GN array mutators (apply-features.py) execute properly and idempotently.
-2. Shields offline rules provisioning (apply-shields-fallback.py) creates all required files.
-3. Debloat policy enforcement (enforce-policies.py) executes cleanly.
-4. Git patch suite (0001, 0002, 0003) applies cleanly and complies with all compiler fixes.
+1. Python 3.11 syntax compatibility is maintained across all scripts and embedded heredocs.
+2. Dynamic GN array mutators (apply-features.py) execute properly and idempotently.
+3. Braving UI string branding and XTB localization mutators (apply-branding.py) execute properly and idempotently.
+4. Git patch suite (branding, custom updater endpoint, debloat policies) applies cleanly.
 """
 
 import os

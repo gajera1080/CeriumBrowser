@@ -9,7 +9,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 MANIFEST=""
 TARGET_ARCH="arm64"
-IS_RELEASE=true
 DRY_RUN=false
 GN_ONLY=false
 
@@ -32,13 +31,12 @@ while [[ $# -gt 0 ]]; do
     GN_ONLY=true
     shift
     ;;
-  --release)
-      IS_RELEASE=true
+    --release)
       shift
       ;;
     --debug)
-      IS_RELEASE=false
-      shift
+      echo "ERROR: Debug builds are disabled for production releases. Only --release is supported." >&2
+      exit 1
       ;;
     --dry-run)
       DRY_RUN=true
@@ -68,7 +66,7 @@ echo "========================================================"
 echo " Braving Android Build"
 echo " Manifest    : ${MANIFEST}"
 echo " Architecture: ${TARGET_ARCH}"
-echo " Release Mode: ${IS_RELEASE}"
+echo " Release Mode: true"
 echo "========================================================"
 
 # Extract required revisions from manifest
@@ -133,9 +131,9 @@ fi
 command -v node >/dev/null 2>&1 || { echo "ERROR: node is required." >&2; exit 1; }
 command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm is required." >&2; exit 1; }
 
-# --- TELEMETRY AND RESOURCE CHECK ---
+# --- SYSTEM RESOURCES CHECK ---
 echo "========================================================"
-echo " Runner Resources Check"
+echo " System Resources Check"
 echo "========================================================"
 lscpu | grep -E "^CPU\(s\):|^Model name:|^Socket\(s\):|^Core\(s\) per socket:|^Thread\(s\) per core:" || true
 echo ""
@@ -357,9 +355,6 @@ GN_ARGS_FILE="${OUT_DIR}/args.gn"
 echo ""
 echo "Writing GN build arguments to ${GN_ARGS_FILE}..."
 
-IS_DEBUG_GN=$([[ "${IS_RELEASE}" == "true" ]] && echo "false" || echo "true")
-IS_OFFICIAL_GN=$([[ "${IS_RELEASE}" == "true" ]] && echo "true" || echo "false")
-
 cat <<EOF > "${GN_ARGS_FILE}"
 import("//brave/build/args/brave_defaults.gni")
 import("//brave/build/args/blink_platform_defaults.gni")
@@ -368,9 +363,9 @@ import("//brave/build/args/android_defaults.gni")
 
 target_os = "android"
 target_cpu = "${TARGET_ARCH}"
-is_debug = ${IS_DEBUG_GN}
-is_official_build = ${IS_OFFICIAL_GN}
-is_java_debug = ${IS_DEBUG_GN}
+is_debug = false
+is_official_build = true
+is_java_debug = false
 symbol_level = 0
 blink_symbol_level = 0
 v8_symbol_level = 0
@@ -379,24 +374,18 @@ is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"
+brave_channel = ""
 target_android_output_format = "apk"
+android_override_version_name = "${BRAVE_VERSION}"
+enable_android_secondary_abi = false
+skip_secondary_abi_for_cq = true
+dcheck_always_on = false
+enable_java_asserts = false
+exclude_unwind_tables = true
+strip_debug_info = true
 use_siso = true
 
-# Debloating & Feature Disabling (Now handled by Enterprise Policies)
-# enable_brave_wallet = false
-# enable_brave_vpn = false
-# enable_brave_vpn_v1 = false
-# enable_brave_vpn_v2 = false
-# enable_ai_chat = false
-# enable_brave_news = false
-# enable_brave_rewards = false
-# enable_brave_ads = false
-# enable_brave_talk = false
-# enable_brave_stats_updater = false
-# enable_web_discovery = false
-# enable_web_discovery_native = false
-# enable_sparkle = false
-
+# Debloated subsystems (wallet, vpn, ai_chat, news, rewards, p3a, stats) are enforced via Enterprise Policies
 brave_services_key = "no-key"
 service_key_stt = "no-key"
 service_key_aichat = "no-key"
@@ -479,8 +468,8 @@ fi
 
 T_NINJA_START=$(date +%s)
 
-# Step 10: Build chrome_public_bundle (or custom BUILD_TARGET)
-BUILD_TARGET="${BUILD_TARGET:-chrome_public_bundle}"
+# Step 10: Build chrome_public_apk (or custom BUILD_TARGET)
+BUILD_TARGET="${BUILD_TARGET:-chrome_public_apk}"
 echo ""
 echo "Building target: ${BUILD_TARGET}"
 echo "This will take a long time (hours on first build)..."
@@ -542,39 +531,10 @@ OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
 OUTPUT_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
 
-# If ChromePublic.aab was built, convert it into a Deflate-compressed Universal APK via bundletool
-if [[ -f "${OUT_DIR}/apks/ChromePublic.aab" ]]; then
-  echo ""
-  echo "Converting ChromePublic.aab to compressed Universal APK via bundletool..."
-  export PATH="${SRC_DIR}/third_party/jdk/current/bin:${PATH}"
-  BUNDLETOOL_JAR="${SRC_DIR}/third_party/android_build_tools/bundletool/cipd/bundletool.jar"
-  ZIPALIGN_BIN=$(find "${SRC_DIR}/third_party/android_sdk/public/build-tools" -name "zipalign" \( -type f -o -type l \) 2>/dev/null | sort -V | tail -n 1 || true)
-  APKSIGNER_BIN=$(find "${SRC_DIR}/third_party/android_sdk/public/build-tools" -name "apksigner" \( -type f -o -type l \) 2>/dev/null | sort -V | tail -n 1 || true)
-  JARSIGNER_BIN="${SRC_DIR}/third_party/jdk/current/bin/jarsigner"
-  if [[ ! -x "${JARSIGNER_BIN}" ]]; then
-    JARSIGNER_BIN=$(command -v jarsigner || echo "jarsigner")
-  fi
-  DEBUG_KEYSTORE_PATH="${SRC_DIR}/build/android/chromium-debug.keystore"
-  DEBUG_KEYSTORE_PASS="chromium"
-  DEBUG_KEY_PASS="chromium"
-  DEBUG_KEY_NAME="chromiumdebugkey"
-
-  python3 "${BRAVE_DIR}/build/android/aab_to_apk.py" \
-    --bundletool="${BUNDLETOOL_JAR}" \
-    --target-aab-path="${OUT_DIR}/apks/ChromePublic.aab" \
-    --output-apk-path="${OUT_DIR}/apks/${OUTPUT_NAME}" \
-    --output-path="${OUT_DIR}/apks/" \
-    --key-path="${DEBUG_KEYSTORE_PATH}" \
-    --key-passwd="${DEBUG_KEYSTORE_PASS}" \
-    --prvt-key-passwd="${DEBUG_KEY_PASS}" \
-    --key-name="${DEBUG_KEY_NAME}" \
-    --zipalign-path="${ZIPALIGN_BIN}" \
-    --apksigner-path="${APKSIGNER_BIN}" \
-    --jarsigner-path="${JARSIGNER_BIN}"
-fi
-
-# Find the built APK (prioritize freshly generated OUTPUT_NAME, then browser APKs over trichrome/library apks)
-if [[ -f "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
+# Find the built APK (prioritize ChromePublic.apk, freshly generated OUTPUT_NAME, or browser APKs)
+if [[ -f "${OUT_DIR}/apks/ChromePublic.apk" ]]; then
+  BUILT_APK="${OUT_DIR}/apks/ChromePublic.apk"
+elif [[ -f "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
   BUILT_APK="${OUT_DIR}/apks/${OUTPUT_NAME}"
 else
   BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)

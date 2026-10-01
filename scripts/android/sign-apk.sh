@@ -206,7 +206,7 @@ if [[ ${#TARGET_APKS[@]} -eq 0 ]]; then
       dest="${OUTPUT_APK_DIR}/$(basename "${apk}")"
       cp -f "${apk}" "${dest}"
       TARGET_APKS+=("${dest}")
-    done < <(find "${OUT_DIR}/apks" -maxdepth 1 \( -name "Braving*.apk" -o -name "Brave*.apk" \) -type f -print0 | sort -z)
+    done < <(find "${OUT_DIR}/apks" -maxdepth 1 \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f -print0 | sort -z)
   fi
 fi
 
@@ -217,8 +217,9 @@ fi
 
 TMP_ALIGNED=""
 TMP_SIGNED=""
+TMP_STRIPPED=""
 cleanup() {
-  rm -f "${TMP_ALIGNED:-}" "${TMP_SIGNED:-}" "${TMP_SIGNED:+${TMP_SIGNED}.idsig}"
+  rm -f "${TMP_ALIGNED:-}" "${TMP_SIGNED:-}" "${TMP_SIGNED:+${TMP_SIGNED}.idsig}" "${TMP_STRIPPED:-}" "${TMP_STRIPPED:+${TMP_STRIPPED}.nosig.tmp}"
 }
 trap cleanup EXIT
 
@@ -234,19 +235,52 @@ for apk in "${TARGET_APKS[@]}"; do
 
   TMP_ALIGNED="$(mktemp "${TMPDIR:-/tmp}/braving-aligned-XXXXXX.apk")"
   TMP_SIGNED="$(mktemp "${TMPDIR:-/tmp}/braving-signed-XXXXXX.apk")"
+  TMP_STRIPPED="$(mktemp "${TMPDIR:-/tmp}/braving-stripped-XXXXXX.apk")"
+  cp -f "${apk}" "${TMP_STRIPPED}"
 
-  "${ZIPALIGN_BIN}" -p -f 4 "${apk}" "${TMP_ALIGNED}"
+  # Strip any existing v1 JAR signatures (e.g. debug signatures) to ensure clean single-identity signing
+  python3 - "${TMP_STRIPPED}" <<'PYEOF'
+import os, sys, zipfile
+target = sys.argv[1]
+tmp_clean = target + ".nosig.tmp"
+has_sig = False
+try:
+    with zipfile.ZipFile(target, 'r') as zin:
+        sig_entries = [
+            n for n in zin.namelist()
+            if n.startswith("META-INF/") and any(n.upper().endswith(ext) for ext in (".SF", ".RSA", ".DSA", ".EC", "MANIFEST.MF"))
+        ]
+        if sig_entries:
+            has_sig = True
+            with zipfile.ZipFile(tmp_clean, 'w') as zout:
+                for item in zin.infolist():
+                    if item.filename not in sig_entries:
+                        zout.writestr(item, zin.read(item.filename))
+    if has_sig and os.path.exists(tmp_clean):
+        os.replace(tmp_clean, target)
+except Exception:
+    if os.path.exists(tmp_clean):
+        try:
+            os.unlink(tmp_clean)
+        except OSError:
+            pass
+PYEOF
+
+  "${ZIPALIGN_BIN}" -p -f 4 "${TMP_STRIPPED}" "${TMP_ALIGNED}"
   BRAVING_KS_PASS="${KEY_PASS}" "${APKSIGNER_BIN}" sign \
     --ks "${KEYSTORE_PATH}" \
     --ks-key-alias "${KEY_ALIAS}" \
     --ks-pass env:BRAVING_KS_PASS \
+    --v1-signing-enabled true \
+    --v2-signing-enabled true \
+    --v3-signing-enabled true \
     --in "${TMP_ALIGNED}" \
     --out "${TMP_SIGNED}"
 
   "${APKSIGNER_BIN}" verify --verbose "${TMP_SIGNED}"
   mv -f "${TMP_SIGNED}" "${apk}"
   chmod 0644 "${apk}" 2>/dev/null || true
-  rm -f "${TMP_ALIGNED}" "${apk}.idsig"
+  rm -f "${TMP_ALIGNED}" "${TMP_STRIPPED}" "${TMP_STRIPPED}.nosig.tmp" "${apk}.idsig"
 
   # Sync between out/apks and build-workspace/src/out/Release/apks
   if [[ -d "${OUT_DIR}/apks" && "${apk}" != "${OUT_DIR}/apks/${apk_name}" ]]; then

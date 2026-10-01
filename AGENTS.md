@@ -65,10 +65,10 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 - If custom behavior is required (such as offline ad-block rules when the network is down or before first update), **hook into the existing system's fallback/failure paths** rather than constructing a parallel engine.
 - Modifications must remain asynchronous, non-blocking to the main browser thread, and preserve native Blink/V8 performance characteristics.
 
-### Offline Shields & Resource Bundling
-- Braving includes pre-bundled, offline adblock lists sourced from uBlock Origin defaults (EasyList, EasyPrivacy, Peter Lowe, scriptlets, redirect resources).
-- These rules are downloaded dynamically at preparation time (`prepare-source.sh`) and packaged into `brave_components_resources.pak` via Grit (`brave_shields_resources.grdp`).
-- `apply-shields-fallback.py` hooks `ad_block_component_filters_provider.cc` and `ad_block_default_resource_provider.cc` so that if component updater rules are not yet downloaded or fail to load, the engine immediately falls back to the internal bundled resources.
+### Component Updates & Shields Protection
+- Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/android/0002-custom-updater-endpoint.patch`.
+- Enforces Braving publisher key verification (`kBravingPublisherKeyHash`), batches component requests, and appends `disable-pings`.
+- Eagerly initializes `ad_block_service()` on startup to ensure instant ad-blocking protection.
 
 ---
 
@@ -87,8 +87,8 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 Braving strips all unneeded promotional, cryptocurrency, and auxiliary subsystems:
 - **Hidden Subsystems**: Brave Wallet / Crypto, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards / BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle auto-updater.
 - **Enforced via Native Policies**:
-  To avoid constant build breakages caused by upstream dependency mismatches, Braving for Android does *not* use compile-time GN arguments (`enable_brave_wallet = false`) to strip code. Instead, we compile the modules but strictly lock them down at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` (or similar policy mutators).
-  - UI & Policy Mutators: `prune-ui.py` and `enforce-policies.py` remove settings UI elements and enforce native policies so hidden features cannot be reached.
+  To avoid constant build breakages caused by upstream dependency mismatches, Braving does *not* use compile-time GN arguments (`enable_brave_wallet = false`) to strip code. Instead, we compile the modules but strictly lock them down at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` via `patches/android/debloat/0004-enforce-enterprise-policies.patch`.
+  - Debloat Patches: `patches/android/debloat/` (0001 through 0004) disable promotional flags, unlock backend policy state, and enforce mandatory privacy policies so hidden features cannot be reached or leak data.
 
 ---
 

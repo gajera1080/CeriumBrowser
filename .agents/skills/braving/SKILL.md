@@ -102,40 +102,28 @@ def replace_in_file(filepath, search, replacement):
 ### Rule: Reuse Existing Brave & Chromium Subsystems
 Do not reinvent browser engines. When implementing custom behavior, hook into the existing system's fallback/failure paths rather than constructing a parallel engine.
 
-### Offline Shields Fallback Mechanism
-Brave normally downloads ad-blocking filter lists asynchronously after browser startup via its component updater. In an offline environment or on a fresh installation, this leaves ads unblocked.
-1. `prepare-source.sh` downloads the latest uBlock Origin default lists (EasyList, EasyPrivacy, Peter Lowe's adservers, badware, quick-fixes, unbreak, and `resources.json` scriptlet/redirect rules) at prepare time.
-2. `apply-shields-fallback.py` registers these files in `components/resources/brave_shields_resources.grdp` so Grit compiles them directly into `brave_resources.pak`.
-3. `apply-shields-fallback.py` patches `ad_block_component_filters_provider.cc` and `ad_block_default_resource_provider.cc`: if component lists are unavailable or empty on disk, the engine immediately reads the bundled fallback resources from memory.
+### Component Updates & Shields Protection
+Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/android/0002-custom-updater-endpoint.patch`:
+1. Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
+2. Batches component checks into a single request and appends `disable-pings`.
+3. Eagerly initializes `ad_block_service()` on startup in `brave_browser_process_impl.cc` to ensure immediate ad-blocking without startup delay.
 
 ---
 
 ## 5. De-Branding & Debloating
 
 ### 1. De-Branding Suite
-- Master logo lives at `branding/logo.png`.
-- `scripts/android/generate-icons.sh` uses ImageMagick / Python PIL to generate all density-specific launcher icons (`mipmap-mdpi` through `mipmap-xxxhdpi`), adaptive icons (foreground/background), splash screens, and Android 13+ themed XML drawables.
-- Dedicated vector icons for Braving Shields reside in `branding/shields_drawables/`.
+- Master vector logo lives at `branding/logo.svg`.
+- 156 static raster PNG logos across all standard Android densities (`mipmap-mdpi` through `mipmap-xxxhdpi`) and 10 static SVGs reside in `branding/brave-core-static/`.
+- `scripts/android/apply-assets.sh` deploys all static assets into `brave-core` resource overlays with zero build-time dynamic rendering (no PIL or rsvg-convert).
+- Dedicated vector icons for Braving Shields reside in `branding/android/shields_drawables/`.
+- `scripts/android/apply-branding.py` rebrands GRD/GRDP strings and remaps Grit 63-bit XTB translation fingerprints safely across all locales.
 
-### 2. Radical Debloating
+### 2. Radical Debloating (Enterprise Policy Approach)
 Stripped subsystems: Brave Wallet, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards, BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle updater.
-- **Enforced via `args.gn`**:
-  ```gn
-  enable_brave_wallet = false
-  enable_brave_vpn = false
-  enable_brave_vpn_v1 = false
-  enable_brave_vpn_v2 = false
-  enable_ai_chat = false
-  enable_brave_news = false
-  enable_brave_rewards = false
-  enable_brave_ads = false
-  enable_brave_talk = false
-  enable_brave_stats_updater = false
-  enable_web_discovery = false
-  enable_web_discovery_native = false
-  enable_sparkle = false
-  ```
-- Disabling these in `args.gn` avoids compiling hundreds of megabytes of C++, Dart Sass WebUI transpilation, and Rust wasm packages (`opaque_ke`).
+- **Enforced via Native Enterprise Policies**:
+  To avoid constant upstream build breakages caused by GN dependency mismatches on Android, Braving compiles modules cleanly but locks them down unconditionally at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` via `patches/android/debloat/0004-enforce-enterprise-policies.patch`.
+- `apply-features.py` isolates Polymer and WebUI resources so Android builds do not transpile unused desktop-only frontend bundles.
 
 ---
 

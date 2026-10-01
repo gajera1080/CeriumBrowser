@@ -293,21 +293,13 @@ gn_arguments:
     is_debug: false
     is_official_build: true
     is_component_build: false
-    symbol_level: 1
+    symbol_level: 0
     disable_fieldtrial_testing_config: true
   braving_overrides:
     chrome_public_manifest_package: "org.braving.browser"
 
 EOF
 echo " [OK] Recorded ${UPSTREAM_META_FILE}"
-
-# If local brave-core repo exists, verify mutators apply cleanly
-TARGET_BRAVE_DIR="${BRAVE_CORE_DIR:-}"
-if [[ -n "${TARGET_BRAVE_DIR}" && -d "${TARGET_BRAVE_DIR}/.git" ]]; then
-  echo ""
-  echo "Validating mutators against brave-core commit ${BRAVE_CORE_COMMIT}..."
-  # Skipping for now since verify-patches is deprecated.
-fi
 
 # Generate Release Manifest
 RELEASE_MANIFEST_DIR="${REPO_ROOT}/metadata/releases"
@@ -341,8 +333,6 @@ EOF
 
 echo ""
 echo "Successfully generated release manifest: ${RELEASE_MANIFEST}"
-
-# --- Added for Phase 1 Source Preparation ---
 
 WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-$PWD}/build-workspace}"
 SRC_DIR="${WORKSPACE_DIR}/src"

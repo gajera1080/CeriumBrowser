@@ -4,71 +4,74 @@ This document outlines the standard release lifecycle for Braving Android builds
 
 ---
 
-## The Monthly Release Pipeline
+## The Release Pipeline
 
 ```
-1. Choose Brave version (e.g. BRAVE_VERSION=<BRAVE_VERSION>)
+1. Resolve Brave version (manual or dynamic GitHub API auto-resolve)
                   ↓
-2. Trigger Phase 1 (prepare-source.sh)
+2. Trigger Phase 1: prepare-source.sh (fetches brave-core, applies patches & mutators)
                   ↓
-3. Validate generated release manifest
+3. Validate manifests and assets: verify-all.sh (runs all 5 verification tiers)
                   ↓
-4. Trigger Phase 2 (build-android.sh)
+4. Trigger Phase 2: build-android.sh (restores warm cache, builds chrome_public_apk)
                   ↓
-5. Run automated test suite & branding verifier
+5. Sign and verify APK: sign-apk.sh (v1, v2, v3 release signatures)
                   ↓
-6. Publish Braving GitHub / GitLab release
+6. Publish Braving GitHub / GitLab release artifacts
 ```
 
 ---
 
 ## Step-by-Step Instructions
 
-### Step 1: Select Upstream Brave Version
-Identify the new stable release tag from upstream `brave-core` (e.g. `v<BRAVE_VERSION>`).
-Create the upstream metadata file:
-```
-metadata/upstream-<BRAVE_VERSION>.yaml
-```
-Record:
-- exact brave-core tag and commit hash
-- exact Chromium revision and version tag
-
-### Step 2: Run Source Preparation
-Execute the Phase 1 script:
+### Step 1: Source Preparation
+Execute the Phase 1 preparation script:
 ```bash
-./scripts/prepare-source.sh <BRAVE_VERSION>
+./scripts/android/prepare-source.sh
+# Or pass a specific version:
+# ./scripts/android/prepare-source.sh 1.95.104
 ```
-This script checks out the exact revisions, verifies mutators execute cleanly, and writes the release manifest to `metadata/releases/<BRAVE_VERSION>.yaml`.
+This script:
+- Dynamically resolves the latest upstream stable Brave version and pinned Chromium commit.
+- Checks out `brave-core` at the exact commit hash (`--depth 1`).
+- Applies unified patches from `patches/android/`.
+- Executes programmatic Python mutators (`apply-features.py`, `apply-assets.sh`, `apply-branding.py`).
+- Generates `metadata/upstream-<version>.yaml` and `metadata/releases/<version>.yaml`.
 
-### Step 3: Verify the Manifest
-Inspect `metadata/releases/<BRAVE_VERSION>.yaml` to confirm:
-- `package_id` is `org.braving.browser`
-- No floating versions (`latest`, `master`) are used
-- All mutator hashes and target architectures are explicitly declared
+### Step 2: Run Verification Suite
+Run the master verification suite before building:
+```bash
+./scripts/android/verify-all.sh
+```
+This verifies:
+1. Manifest and upstream metadata schema validity.
+2. Python 3.11 syntax compatibility and unit tests.
+3. Patch application against `brave-core`.
+4. Branding assets and AAPT2 limits.
+5. Build and signing orchestration dry-run.
 
-### Step 4: Build Android Target
+### Step 3: Compile Android Target
 Run the Phase 2 compilation:
 ```bash
-./scripts/build-android.sh --manifest="metadata/releases/<BRAVE_VERSION>.yaml" --arch=arm64 --release
+./scripts/android/build-android.sh --arch=arm64 --release
+```
+
+### Step 4: Sign Release APK
+If signing credentials were provided via environment variables, `build-android.sh` signs automatically. Otherwise, run standalone signing:
+```bash
+./scripts/android/sign-apk.sh --apk="out/apks/Braving-<version>-arm64.apk"
 ```
 
 ### Step 5: Test APK
-Run the branding verification tool:
+Install the signed APK on a physical device or emulator:
 ```bash
-./scripts/verify-branding.sh
+adb install -r out/apks/Braving-<version>-arm64.apk
 ```
-Install the generated APK onto a physical device or emulator to test:
-- App launches and displays "Braving" launcher title
-- Navigation, tabs, and HTTPS loading
-- Zero crashes on startup
-- Privacy Shields functioning properly
-- Complete absence of Wallet, Ads, and VPN prompts
+Verify:
+- Launcher icon displays the crisp Braving circular gradient icon.
+- App displays "Braving" launcher title and application title.
+- Android 13+ monochrome themed icon renders correctly in light and dark modes.
+- Toolbar Shields icon displays the colored Braving icon when shields are ON and outline when OFF.
+- Clean absence of crypto wallet, VPN upsells, AI chat prompts, and ads.
+- Offline and online ad blocking works seamlessly.
 
-### Step 6: Publish Release
-Tag the Braving repository with the release version:
-```bash
-git tag -a v<BRAVE_VERSION> -m "Braving release <BRAVE_VERSION>"
-git push origin v<BRAVE_VERSION>
-```
-Upload the release APKs and SHA256 checksums to the release page.

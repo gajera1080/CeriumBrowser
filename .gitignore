@@ -14,10 +14,10 @@ __pycache__/
 *.swp
 *~
 /metadata/
-__pycache__/
-.agents/ORIGINAL_REQUEST.md
-.agents/sentinel/
-.agents/teamwork_preview_*/
+
+# Agent scratch files (keep .agents/skills/ tracked)
+.agents/*
+!.agents/skills/
 
 # Signing keystores & GitLab Secure Files
 .secure_files/

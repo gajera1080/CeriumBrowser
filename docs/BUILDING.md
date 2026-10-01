@@ -40,19 +40,21 @@ git clone https://gitlab.com/braving/braving-browser.git "${BRAVING_DIR}"
 
 ## 3. Version Selection & Source Preparation (Phase 1)
 
-Select the target Brave version (e.g. `<BRAVE_VERSION>`):
+Select the target Brave version or omit to resolve latest upstream stable automatically:
 
 ```bash
 cd "${BRAVING_DIR}"
-./scripts/prepare-source.sh <BRAVE_VERSION>
+./scripts/android/prepare-source.sh
+# Or specify a target version:
+# ./scripts/android/prepare-source.sh 1.95.104
 ```
 
 What `prepare-source.sh` performs:
-1. Validates `metadata/upstream-<BRAVE_VERSION>.yaml`.
-2. Resolves exact brave-core tag (`v<BRAVE_VERSION>`) and commit (`449b91b1c032bd6c94aacd054757a97e128635b5`).
-3. Resolves exact Chromium revision (`152.0.7977.76` / `0d89dfa2dd7c1ec4b8a14b9f303f887bb63b6174`).
-4. Applies Braving programmatic mutators (e.g. apply-branding.py).
-5. Generates the release manifest at `metadata/releases/<BRAVE_VERSION>.yaml`.
+1. Dynamically resolves latest stable Brave version from GitHub API and Google Gitiles.
+2. Generates `metadata/upstream-<version>.yaml` and release manifest at `metadata/releases/<version>.yaml`.
+3. Fetches `brave-core` at exact release commit (`--depth 1`).
+4. Applies Braving unified patches (`patches/android/`).
+5. Executes programmatic Python mutators (`apply-features.py`, `apply-assets.sh`, `apply-branding.py`).
 
 ---
 
@@ -62,7 +64,7 @@ Once the source is prepared, trigger the Android build:
 
 ```bash
 cd "${BRAVING_DIR}"
-./scripts/build-android.sh --manifest="metadata/releases/<BRAVE_VERSION>.yaml" --arch=arm64 --release
+./scripts/android/build-android.sh --arch=arm64 --release
 ```
 
 ### Build Arguments Configured by Braving:
@@ -71,38 +73,55 @@ target_os = "android"
 target_cpu = "arm64"
 is_debug = false
 is_official_build = true
-is_component_build = false
+is_java_debug = false
 symbol_level = 0
+blink_symbol_level = 0
+v8_symbol_level = 0
+enable_resource_allowlist_generation = false
+is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "org.braving.browser"
-enable_brave_wallet = false
-enable_brave_rewards = false
-enable_brave_ads = false
-enable_brave_vpn = false
-enable_ai_chat = false
-enable_brave_news = false
-enable_play_services = false
+android_channel = "stable"
+brave_channel = ""
+target_android_output_format = "apk"
+enable_android_secondary_abi = false
+skip_secondary_abi_for_cq = true
+dcheck_always_on = false
+enable_java_asserts = false
+exclude_unwind_tables = true
+strip_debug_info = true
+use_siso = true
 ```
 
-The resulting APK will be placed in:
+The resulting signed APK will be placed in:
 ```
-${BRAVING_DIR}/out/apks/Braving-<BRAVE_VERSION>-arm64.apk
+${BRAVING_DIR}/out/apks/Braving-<version>-arm64.apk
 ```
 
 ---
 
-## 5. Verification
+## 5. Master Verification Suite
 
-Verify branding integrity:
+Run all 5 verification tiers:
 ```bash
-./scripts/verify-branding.sh
+./scripts/android/verify-all.sh
 ```
 
 ---
 
-## 6. Troubleshooting
+## 6. Standalone APK Release Signing
+
+To sign an existing or newly compiled APK using release credentials:
+```bash
+./scripts/android/sign-apk.sh --apk="out/apks/Braving-<version>-arm64.apk"
+```
+
+---
+
+## 7. Troubleshooting
 
 - **Out of Memory during linking**:
-  Add `concurrent_links = 2` or `symbol_level = 0` to `args.gn`.
-- **Mutator Application Failure**:
-  Ensure the source checkout matches the exact git commit defined in `metadata/upstream-<version>.yaml`. Braving strictly avoids fuzzy mutator application.
+  `args.gn` already configures `symbol_level = 0` to minimize linker memory pressure.
+- **GitLab CI 4MB log truncation**:
+  `build-android.sh` automatically routes compilation stdout through `filter-build-log.py`, throttling step progress while passing 100% of compiler errors and warnings unbuffered.
+
