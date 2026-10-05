@@ -33,10 +33,11 @@ prepare_source:
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/android/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/android/verify-all.sh
-    - export DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep '\.yaml$' | sed 's/\.yaml$//' | head -n 1)
-    - export DYNAMIC_CHROMIUM_VERSION=$(grep -E '^chromium_version:' "metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" | awk '{print $2}' | tr -d '"'\'')
-    - echo "DYNAMIC_BRAVE_VERSION=${DYNAMIC_BRAVE_VERSION}" > build.env
-    - echo "DYNAMIC_CHROMIUM_VERSION=${DYNAMIC_CHROMIUM_VERSION}" >> build.env
+    - |
+      export DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep '\.yaml$' | sed 's/\.yaml$//' | head -n 1)
+      export DYNAMIC_CHROMIUM_VERSION=$(python3 -c "import sys, yaml; print(yaml.safe_load(open(f'metadata/releases/{sys.argv[1]}.yaml'))['chromium_version'])" "${DYNAMIC_BRAVE_VERSION}")
+      echo "DYNAMIC_BRAVE_VERSION=${DYNAMIC_BRAVE_VERSION}" > build.env
+      echo "DYNAMIC_CHROMIUM_VERSION=${DYNAMIC_CHROMIUM_VERSION}" >> build.env
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"

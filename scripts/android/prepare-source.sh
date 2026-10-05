@@ -339,6 +339,12 @@ EOF
 echo ""
 echo "Successfully generated release manifest: ${RELEASE_MANIFEST}"
 
+# Record resolved versions to build.env for GitLab CI dotenv artifacts
+cat <<EOF > "${REPO_ROOT}/build.env"
+DYNAMIC_BRAVE_VERSION=${BRAVE_VERSION}
+DYNAMIC_CHROMIUM_VERSION=${CHROMIUM_VERSION}
+EOF
+
 WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-$PWD}/build-workspace}"
 SRC_DIR="${WORKSPACE_DIR}/src"
 BRAVE_DIR="${SRC_DIR}/brave"
