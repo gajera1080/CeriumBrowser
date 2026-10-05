@@ -1,0 +1,31 @@
+
+Authors of Braving
+==================
+
+    Braving is developed and maintained by
+    gajgaje2000 <gajgaje2000@gmail.com>.
+
+    Other contributors to the Braving project are credited collectively
+    as The Braving Contributors.
+
+    Major parts of Braving are based on code written by Brave Software, Inc.
+    <https://brave.com/>, specifically the Brave Core browser and Shields
+    protection subsystems. Without this code, Braving wouldn't exist.
+
+    Upstream browser engine foundations are based on the Chromium open-source
+    project <https://www.chromium.org/>, developed and maintained by Google LLC
+    and the Chromium Authors.
+
+    Content blocking and network privacy filter specifications are based
+    on work by Raymond Hill (gorhill) and the uBlock Origin project
+    <https://github.com/gorhill/uBlock>, as well as filter list maintainers
+    from EasyList, EasyPrivacy, and Fanboy's filter lists.
+
+    The GitLab CI/CD pipeline automation and package caching architecture
+    powering automated reproducible builds was created and optimized
+    for GitLab infrastructure.
+
+    Many people have reported bugs, suggested improvements, and assisted
+    with testing. Most of these people and projects are mentioned in the
+    file THANKS.
+

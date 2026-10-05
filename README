@@ -2,14 +2,15 @@ Braving
 =======
 
     0. Overview
-    1. Architecture Overview
-    2. Repository Structure
-    3. Building Braving
-       3.1. Prerequisites
-       3.2. Prepare Source
-       3.3. Build Braving APK
-    4. Special Thanks
-    5. License
+    1. Downloads & Official Releases
+    2. Architecture Overview
+    3. Repository Structure
+    4. Building Braving
+       4.1. Prerequisites
+       4.2. Prepare Source
+       4.3. Build Braving APK
+    5. Special Thanks
+    6. License
 
 
 0. Overview
@@ -22,7 +23,29 @@ Braving
     upstream source code with reproducible, mutator-driven modifications.
 
 
-1. Architecture Overview
+1. Downloads & Official Releases
+--------------------------------
+
+    Pre-built production packages are automatically published on the release
+    branch every 15 days and upon upstream updates. You do not need to
+    compile from source to install and use Braving.
+
+    To download official signed APKs directly:
+
+        https://gitlab.com/braving/braving-browser/-/releases
+
+    On the releases page, select the latest release tag (v<version>)
+    and download the package matching your device architecture:
+
+        - braving-android-arm64-v<version>.apk   (Modern 64-bit ARM devices)
+        - braving-android-arm-v<version>.apk     (Legacy 32-bit ARM devices)
+        - braving-android-x86_64-v<version>.apk  (x86_64 devices and emulators)
+
+    Each release includes recorded SHA256 checksums to verify package
+    integrity prior to installation.
+
+
+2. Architecture Overview
 ------------------------
 
     User selects BRAVE_VERSION
@@ -40,14 +63,17 @@ Braving
     Braving APK / AAB
 
 
-2. Repository Structure
+3. Repository Structure
 -----------------------
 
     Braving/
+    |-- AUTHORS              Lead author and contributor credits
+    |-- CONTRIBUTING         Branch model (release vs main) & contribution guide
+    |-- THANKS               Detailed acknowledgments and community thanks
     |-- branding/            Master vector identity, Android drawables, static PNGs
     |   |-- android/         Vector logo drawables, adaptive and themed icons
     |   `-- brave-core-static/ 156 static PNGs and 10 SVGs for brave-core overlay
-    |-- docs/                Architecture, building, debloating, and release docs
+    |-- docs/                Architecture, building, debloating, and technical audits
     |-- metadata/            Release manifests and exact upstream commits
     |   `-- releases/        Generated release manifests (package_id, commits, arch)
     |-- patches/             Unified patches for branding, debloating, and updater
@@ -64,17 +90,20 @@ Braving
         |   |-- filter-build-log.py  Real-time CI stream filter preventing log truncation
         |   |-- prepare-source.sh    Phase 1: Dynamic checkout, patches, & mutators
         |   |-- sign-apk.sh          v1/v2/v3 APK release signing & verification
-        |   |-- verify-all.sh        Master 5-step verification suite
+        |   |-- verify-all.sh        Master 6-step verification suite
         |   `-- verify-branding.sh   Validates AAPT2 limits & complete de-branding
+        |-- ci/              Automated CI/CD release gating and direct release publishing
+        |   |-- check-release-needed.sh  Checks if release tag v<version> exists
+        |   `-- publish-release-direct.sh Direct APK upload & GitLab Release publisher
         |-- download-cache.sh Distributed CI Siso warm cache restore
         |-- upload-cache.sh   Distributed CI Siso warm cache chunker and upload
         `-- tests/            Automated unit and integration test suite
 
 
-3. Building Braving
+4. Building Braving
 -------------------
 
-3.1. Prerequisites
+4.1. Prerequisites
 
     Building Braving requires a Linux environment (x86_64 or aarch64).
     You will need the following tools installed:
@@ -86,7 +115,7 @@ Braving
       - Android SDK & NDK (for mobile builds)
 
 
-3.2. Prepare Source
+4.2. Prepare Source
 
     To validate revisions, checkout the source code, and apply Braving
     branding mutators, run the preparation script with the desired
@@ -95,29 +124,26 @@ Braving
         ./scripts/android/prepare-source.sh [BRAVE_VERSION]
 
 
-3.3. Build Braving APK
+4.3. Build Braving APK
 
     Once the source is prepared, compile the release APK:
 
         ./scripts/android/build-android.sh --arch=arm64 --release
 
 
-4. Special Thanks
+5. Special Thanks
 -----------------
 
     Braving would not be possible without the incredible work and
-    resources provided by others. Special thanks to:
+    resources provided by others. Special thanks to Brave Software,
+    the Chromium Authors, GitLab, and Raymond Hill (uBlock Origin).
 
-      - Brave Software (https://brave.com/) for their excellent
-        open-source browser code and privacy-preserving Shields.
-        Their commitment to open source makes this project possible.
-
-      - GitLab (https://gitlab.com/) for providing generous and robust
-        Continuous Integration and Continuous Deployment (CI/CD)
-        infrastructure that powers our automated reproducible builds.
+    For complete author and contributor credits, see the file AUTHORS.
+    For comprehensive community and upstream acknowledgments, see the
+    file THANKS.
 
 
-5. License
+6. License
 ----------
 
     This project is licensed under the Mozilla Public License 2.0 (MPL-2.0).

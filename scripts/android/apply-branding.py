@@ -35,6 +35,8 @@ BLOAT_KEYWORDS = (
     "SPEEDREADER",
 )
 
+AUTHORS_RE = re.compile(r"\b(?:Brave|Braving)\s+Authors\b")
+
 # Match standalone "Brave" (or "Brave's"), excluding:
 # - URLs/domains/paths (preceded by ., /, _, - or followed by ://, .[a-zA-Z])
 # - "Brave Search" (unless followed by "widget", e.g. "Try the Brave Search widget" -> "Try the Braving Search widget")
@@ -157,6 +159,7 @@ def should_skip_grdp_file(rel_path: str) -> bool:
 def replace_outside_ph_and_tags(block_str: str) -> str:
     parts = PH_OR_TAG_RE.split(block_str)
     for i in range(0, len(parts), 2):
+        parts[i] = AUTHORS_RE.sub("Braving Contributors", parts[i])
         parts[i] = BRAVE_RE.sub("Braving", parts[i])
     return "".join(parts)
 
@@ -175,7 +178,8 @@ def process_grd_or_grdp_file(full_path: str, fp_map: dict, branded_fps: set) -> 
         msg_str = match.group(0)
         has_brave = "Brave" in msg_str
         has_braving = "Braving" in msg_str
-        if not has_brave and not has_braving:
+        has_authors = "Authors" in msg_str
+        if not has_brave and not has_braving and not has_authors:
             return msg_str
 
         try:
@@ -188,7 +192,11 @@ def process_grd_or_grdp_file(full_path: str, fp_map: dict, branded_fps: set) -> 
         if should_skip_bloat(name, desc):
             return msg_str
 
-        if has_braving and not BRAVE_RE.search( replace_outside_ph_and_tags_probe(msg_str) ):
+        if (
+            has_braving
+            and not BRAVE_RE.search(replace_outside_ph_and_tags_probe(msg_str))
+            and not AUTHORS_RE.search(msg_str)
+        ):
             # Already branded on a previous run; record its current FP for idempotence
             branded_fps.add(get_fingerprint_for_xtb(elem))
             return msg_str
@@ -270,16 +278,24 @@ def update_xtb_file(xtb_path: str, fp_map: dict, branded_fps: set) -> int:
     return updated_count
 
 
-PREF_ATTR_RE = re.compile(r'(\bandroid:(?:title|summary)=")([^"]*)(")')
+PREF_ATTR_RE = re.compile(r'(\b(?:android|app):(?:title|summary|dialogTitle|dialogMessage)=")([^"]*)(")')
 STRING_NODE_RE = re.compile(r'(<string\b[^>]*>)([^<]*)(</string>)')
 BRAVE_WORD_RE = re.compile(r"\b(?:Brave|Braving)\s*-\s*Debug\b|\bBrave\b")
 
 
 def process_xml_preferences(brave_dir: str) -> int:
     changed = 0
-    for rel in [
-        "android/java/res/xml/developer_preferences.xml",
-    ]:
+    candidate_prefs = list(XML_PREFERENCE_FILES)
+    for res_dir in ["android/java/res/xml", "android/java/brave-res/xml"]:
+        full_res = os.path.join(brave_dir, res_dir)
+        if os.path.isdir(full_res):
+            for f in sorted(os.listdir(full_res)):
+                if f.endswith(".xml"):
+                    rel = os.path.relpath(os.path.join(full_res, f), brave_dir)
+                    if rel not in candidate_prefs:
+                        candidate_prefs.append(rel)
+
+    for rel in candidate_prefs:
         p = os.path.join(brave_dir, rel)
         if not os.path.isfile(p):
             continue
@@ -339,8 +355,18 @@ def apply_branding(brave_dir: str, strict: bool = False) -> int:
                 print(f" [OK] Branded {c} messages in {display_rel}")
         return file_results[norm_path]
 
+    # Discover top-level GRDs dynamically to handle newly added upstream string files
+    grd_targets = list(TOP_LEVEL_GRD_FILES)
+    for root, dirs, files in os.walk(brave_dir):
+        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "vendor", "out", "target", "build-workspace")]
+        for f in files:
+            if f.endswith(("_strings.grd", "_strings_override.grd", "_generated_resources.grd")):
+                rel = os.path.relpath(os.path.join(root, f), brave_dir)
+                if rel not in grd_targets and not should_skip_bloat(rel, ""):
+                    grd_targets.append(rel)
+
     # Process top-level GRDs, their <part> GRDPs, and their <file> XTBs
-    for rel_grd in TOP_LEVEL_GRD_FILES:
+    for rel_grd in grd_targets:
         grd_path = os.path.join(brave_dir, rel_grd)
         if not os.path.isfile(grd_path):
             continue

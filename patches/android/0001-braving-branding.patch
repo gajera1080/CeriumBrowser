@@ -1,58 +1,11 @@
-From: Braving Authors <support@braving.org>
+From: gajgaje2000 <gajgaje2000@gmail.com>
 Date: Fri, 5 Sep 2026 10:15:00 +0000
-Subject: [PATCH] [branding] Rebrand release app/theme/brave, toolbar shields icons, and package ID to Braving
+Subject: [PATCH] [branding] Rebrand release app/theme/brave and package ID to Braving
 
 Updates release BRANDING and res_brave_base/values/channel_constants.xml under
-app/theme/brave to Braving, switches the Android toolbar Shields button from
-legacy btn_brave PNGs to the vector Shields icons, and sets the release
-Android manifest package ID to org.braving.browser.
+app/theme/brave to Braving, suppresses Android lint warnings for Braving assets,
+and sets the release Android manifest package ID to org.braving.browser.
 ---
-diff --git a/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml b/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml
-index 8e19b30..9d0a124 100644
---- a/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml
-+++ b/android/java/brave-res/layout/brave_custom_tabs_toolbar.xml
-@@ -11,7 +11,7 @@
- 
-     <ImageButton android:id="@+id/brave_shields_button"
-         style="@style/ToolbarButton"
--        android:src="@drawable/btn_brave"
-+        android:src="@drawable/ic_social_brave_release_favicon_fullheight_color"
-         android:layout_marginEnd="42dp"
-         android:layout_gravity="center_vertical|end"
-         android:contentDescription="@string/accessibility_toolbar_btn_brave_shields" />
-diff --git a/android/java/brave-res/layout/brave_toolbar.xml b/android/java/brave-res/layout/brave_toolbar.xml
-index 24570d7..c1a044a 100644
---- a/android/java/brave-res/layout/brave_toolbar.xml
-+++ b/android/java/brave-res/layout/brave_toolbar.xml
-@@ -63,7 +63,7 @@
-           style="@style/ToolbarButton"
-           android:layout_marginTop="8dp"
-           android:layout_marginBottom="8dp"
--          android:src="@drawable/btn_brave"
-+          android:src="@drawable/ic_social_brave_release_favicon_fullheight_color"
-           android:layout_gravity="center"
-           android:contentDescription="@string/accessibility_toolbar_btn_brave_shields" />
-   </FrameLayout>
-diff --git a/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java b/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java
-index 4a52041..c9a8b12 100644
---- a/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java
-+++ b/android/java/org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl.java
-@@ -1306,11 +1306,13 @@ public abstract class BraveToolbarLayoutImpl extends ToolbarLayout
-         }
- 
-         if (tab == null) {
--            mBraveShieldsButton.setImageResource(R.drawable.btn_brave_off);
-+            mBraveShieldsButton.setImageResource(
-+                    R.drawable.ic_social_brave_outline_favicon_fullheight);
-             return;
-         }
-         mBraveShieldsButton.setImageResource(
--                isShieldsOnForTab(tab) ? R.drawable.btn_brave : R.drawable.btn_brave_off);
-+                isShieldsOnForTab(tab) ? R.drawable.ic_social_brave_release_favicon_fullheight_color
-+                                       : R.drawable.ic_social_brave_outline_favicon_fullheight);
- 
-         if (mRewardsLayout == null) return;
-         if (isIncognito()) {
 diff --git a/app/theme/brave/BRANDING b/app/theme/brave/BRANDING
 index 7a81c45..c01e4a2 100644
 --- a/app/theme/brave/BRANDING
@@ -93,7 +46,7 @@ index 4759d6a..8f21975 100644
 +    <string name="search_widget_title" translatable="false">Braving search</string>
 +    <string name="quick_action_search_widget_title" translatable="false">Braving quick action search</string>
  </resources>
-diff --git a/build/commands/lib/buildArgs.ts b/build/commands/lib/buildArgs.ts
+ diff --git a/build/commands/lib/buildArgs.ts b/build/commands/lib/buildArgs.ts
 index b0fe5f1..92518e9 100644
 --- a/build/commands/lib/buildArgs.ts
 +++ b/build/commands/lib/buildArgs.ts
@@ -110,14 +63,18 @@ diff --git a/chromium_src/chrome/android/expectations/lint-suppressions.xml b/ch
 index 59b1d45..f1e8a23 100644
 --- a/chromium_src/chrome/android/expectations/lint-suppressions.xml
 +++ b/chromium_src/chrome/android/expectations/lint-suppressions.xml
-@@ -84,6 +84,10 @@
+@@ -84,6 +84,14 @@
  
          <!-- Is used at brave_base_module_resources -->
          <ignore regexp="The resource `R.drawable.themed_app_icon` appears to be unused" />
-+        <ignore regexp="The resource `R.mipmap.layered_app_icon` appears to be unused" />
-+        <ignore regexp="The resource `R.mipmap.layered_app_icon_background` appears to be unused" />
-+        <ignore regexp="The resource `R.drawable.btn_brave` appears to be unused" />
-+        <ignore regexp="The resource `R.drawable.btn_brave_off` appears to be unused" />
++        <ignore regexp="The resource `?R.mipmap.layered_app_icon`? appears to be unused" />
++        <ignore regexp="The resource `?R.mipmap.layered_app_icon_background`? appears to be unused" />
++        <ignore regexp="The resource `?R.drawable.btn_brave`? appears to be unused" />
++        <ignore regexp="The resource `?R.drawable.btn_brave_off`? appears to be unused" />
++        <ignore regexp="The resource `?R.string.prefs_support_section`? appears to be unused" />
++        <ignore regexp="The resource `?R.string.prefs_rate_brave`? appears to be unused" />
++        <ignore regexp="The resource `?R.string.in_app_update_text`? appears to be unused" />
++        <ignore regexp="The resource `?R.drawable.ic_star_circle`? appears to be unused" />
  
          <!-- Was used at upstream's settings_no_match.xml, settings_zero_state.xml which we have overridden -->
          <ignore regexp="The resource `R.color.settings_search_logo_color_1` appears to be unused" />

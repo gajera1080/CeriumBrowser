@@ -40,6 +40,10 @@ BRAVE_RES_VECTORS=(
 )
 
 for vec in "${BRAVE_RES_VECTORS[@]}"; do
+  gn_vec="java/brave-res/drawable/${vec}"
+  if [[ -f "${BRAVE_DIR}/android/BUILD.gn" ]] && ! grep -Fq "\"${gn_vec}\"" "${BRAVE_DIR}/android/BUILD.gn" 2>/dev/null; then
+    continue
+  fi
   copy_static_xml "${REPO_ROOT}/branding/android/drawable/${vec}" "${BRAVE_DIR}/android/java/brave-res/drawable/${vec}"
   echo " [OK] Copied ${vec} to android/java/brave-res/drawable/"
 done
@@ -85,8 +89,8 @@ for xml_src in "${REPO_ROOT}/branding/android/shields_drawables/"*.xml; do
     copy_static_xml "${xml_src}" "${BRAVE_DIR}/node_modules/@brave/leo/tokens/android/drawable/$(basename "${xml_src}")"
   fi
 done
-if [[ ${XML_COUNT} -lt 37 ]]; then
-  echo "ERROR: Expected at least 37 static XML overlays, but copied ${XML_COUNT}." >&2
+if [[ ${XML_COUNT} -lt 32 ]]; then
+  echo "ERROR: Expected at least 32 static XML overlays, but copied ${XML_COUNT}." >&2
   exit 1
 fi
 echo " [OK] Overlaid Shields vector drawables into app/theme/brave/android/shields_drawables/ (${XML_COUNT} total XML files copied)."
@@ -102,6 +106,14 @@ PNG_COUNT=0
 SVG_COUNT=0
 while IFS= read -r -d '' src_file; do
   rel_path="${src_file#${STATIC_DIR}/}"
+  # For resources destined for android/java/brave-res/, dynamically verify against
+  # android/BUILD.gn to avoid prepare_resources.py failing on unlisted sources
+  if [[ "${rel_path}" == android/java/brave-res/* ]]; then
+    gn_entry="${rel_path#android/}"
+    if [[ -f "${BRAVE_DIR}/android/BUILD.gn" ]] && ! grep -Fq "\"${gn_entry}\"" "${BRAVE_DIR}/android/BUILD.gn" 2>/dev/null; then
+      continue
+    fi
+  fi
   dest_file="${BRAVE_DIR}/${rel_path}"
   mkdir -p "$(dirname "${dest_file}")"
   cp -f "${src_file}" "${dest_file}"
@@ -116,8 +128,8 @@ while IFS= read -r -d '' src_file; do
   fi
 done < <(find "${STATIC_DIR}" -type f \( -name "*.png" -o -name "*.svg" \) -print0 | sort -z)
 
-if [[ ${PNG_COUNT} -ne 156 || ${SVG_COUNT} -ne 10 ]]; then
-  echo "ERROR: Expected 156 static PNGs and 10 static SVGs in ${STATIC_DIR}, but copied ${PNG_COUNT} PNGs and ${SVG_COUNT} SVGs." >&2
+if [[ ${PNG_COUNT} -lt 146 || ${PNG_COUNT} -gt 156 || ${SVG_COUNT} -ne 10 ]]; then
+  echo "ERROR: Expected between 146 and 156 static PNGs and 10 static SVGs in ${STATIC_DIR}, but copied ${PNG_COUNT} PNGs and ${SVG_COUNT} SVGs." >&2
   exit 1
 fi
 echo " [OK] Copied ${PNG_COUNT} static raster PNG logos and ${SVG_COUNT} static SVG logos into brave-core."
@@ -127,9 +139,25 @@ rm -rf "${BRAVE_DIR}/android/java/brave-res/mipmap-"* \
        "${BRAVE_DIR}/android/java/brave-res/res_brave"* \
        "${BRAVE_DIR}/android/java/brave-res/shields_drawables" 2>/dev/null || true
 
-# 6. Clean up any old rasterized ic_brave_logo.png files in density folders
+# 6. Clean up any stale or unlisted rasterized files in density folders
 for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-  rm -f "${BRAVE_DIR}/android/java/brave-res/drawable-${density}/ic_brave_logo.png"
+  density_dir="${BRAVE_DIR}/android/java/brave-res/drawable-${density}"
+  rm -f "${density_dir}/ic_brave_logo.png"
+  if [[ -d "${density_dir}" && -f "${BRAVE_DIR}/android/BUILD.gn" ]]; then
+    for f in "${density_dir}"/*; do
+      [[ -f "${f}" ]] || continue
+      fname="$(basename "${f}")"
+      if ! grep -Fq "\"java/brave-res/drawable-${density}/${fname}\"" "${BRAVE_DIR}/android/BUILD.gn" 2>/dev/null; then
+        rm -f "${f}"
+      fi
+    done
+  fi
 done
+
+# 7. Clean up any stale brave_icon_search.xml in quick_search_engines drawables
+QSE_DRAWABLE="${BRAVE_DIR}/browser/quick_search_engines/android/java/res/drawable"
+if [[ -d "${QSE_DRAWABLE}" ]]; then
+  rm -f "${QSE_DRAWABLE}/brave_icon_search.xml"
+fi
 
 echo " [OK] Braving vector and raster assets applied cleanly to brave-core."

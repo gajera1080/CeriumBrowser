@@ -1,6 +1,6 @@
 ---
 name: braving-browser
-description: Canonical guide and operational expert for the Braving Browser project (customized, de-branded, debloated downstream Brave distribution for Android, Linux, Windows, macOS). Use whenever working with Braving architecture, GN build arguments, programmatic Python mutators, offline adblock bundling, branding assets, Siso/Ninja build orchestration, distributed GitLab Generic Package Registry caching, or CI/CD pipelines.
+description: Canonical guide and operational expert for the Braving Browser project (customized, de-branded, debloated downstream Brave distribution for Android, Linux, Windows, macOS). Use whenever working with Braving architecture, GN build arguments, programmatic Python mutators, offline adblock bundling, branding assets, Siso/Ninja build orchestration, distributed GitLab Generic Package Registry caching, verifying changes end-to-end via prepare-source and verify-all, or CI/CD pipelines.
 ---
 
 # Braving Browser: The Complete Engineering & Agent Guide
@@ -44,8 +44,8 @@ flowchart TD
 ### Key Principles:
 1. **Zero Permanent Commits in `brave-core`**:
    The `build-workspace/src/brave` and `build-workspace/src` directories are ephemeral build artifacts fetched and constructed at build time. Never make permanent commits in `brave-core`.
-2. **Version Independence**:
-   Never hardcode versions (e.g. `1.95.102`) into scripts or CI files. When `BRAVE_VERSION` is omitted, `prepare-source.sh` dynamically queries GitHub's `/releases/latest` and Google's Gitiles API to determine the exact pinned commits for both `brave-core` and Chromium.
+2. **Version Independence & Continuous Roll Forward (Always Target Latest Upstream)**:
+   Never hardcode versions (e.g. `<version>`) into scripts or CI files. Braving is engineered to roll forward continuously with upstream Brave and Chromium tags. All mutators, patches, branding assets, and verification workflows must always be tested and maintained to work against the latest stable upstream release tag. When `BRAVE_VERSION` is omitted, `prepare-source.sh` dynamically queries GitHub's `/releases/latest` and Google's Gitiles API to determine the exact pinned commits for both `brave-core` and Chromium.
 3. **Lightweight Metadata Generation**:
    `metadata/releases/*.yaml` files are generated dynamically at build time and stored as pipeline artifacts.
 
@@ -106,7 +106,7 @@ Do not reinvent browser engines. When implementing custom behavior, hook into th
 Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/android/0002-custom-updater-endpoint.patch`:
 1. Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
 2. Batches component checks into a single request and appends `disable-pings`.
-3. Eagerly initializes `ad_block_service()` on startup in `brave_browser_process_impl.cc` to ensure immediate ad-blocking without startup delay.
+3. Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
 
 ---
 
@@ -192,25 +192,41 @@ BUILD_RES=${PIPESTATUS[0]}
 
 ## 8. Operational Runbooks for Agents
 
-### 1. Running Local Verification
-Before proposing changes or pushing:
-```bash
-./scripts/android/verify-all.sh
-```
-This runs 5 comprehensive verification steps:
-1. Manifest & upstream metadata schema validation.
-2. Python mutator syntax check.
-3. Isolated upstream patch retirement validation.
-4. Branding & asset suite verification.
-5. Android build orchestration dry-run.
+### 1. Mandatory Two-Step Local Verification
+Before proposing changes, creating pull requests, or finalizing work:
+Agents must ALWAYS perform the two-step verification workflow:
+
+1. **Step 1: Fast Local Master Verification Suite (`verify-all.sh`)**
+   ```bash
+   ./scripts/android/verify-all.sh
+   ```
+   Runs 6 master verification steps: manifest validation, mutator syntax & unit tests, CI automation script checks, patch retirement across trees, branding asset limits, and orchestration dry-run.
+
+2. **Step 2: ALWAYS Validate Using `prepare-source.sh`**
+   ```bash
+   # Dynamically auto-resolves latest upstream stable release (default):
+   ./scripts/android/prepare-source.sh
+
+   # Or validate against an explicit target release version:
+   ./scripts/android/prepare-source.sh "<version>"
+   ```
+   Why this is mandatory:
+   `verify-all.sh` verifies syntax, unit tests, and dry-run execution, but `prepare-source.sh` executes the complete end-to-end source pipeline against real upstream trees:
+   - Queries GitHub / Gitiles APIs to resolve exact commit pins.
+   - Shallow-fetches or resets `brave-core` at the exact tag.
+   - Applies all unified diff patches in `patches/`.
+   - Executes `apply-features.py --strict`.
+   - Executes `apply-assets.sh` (branding overlay and vector icons).
+   - Executes `apply-branding.py --strict` (GRD/GRDP/XTB string and translation remapping).
+   If any patch fails or mutator breaks against real sources, `prepare-source.sh` fails loudly and immediately. Both commands must pass with exit code 0.
 
 ### 2. Testing Build Orchestration (Dry-Run / GN-Only)
 ```bash
 # Validate argument parsing and manifest loading:
-./scripts/android/build-android.sh --manifest="metadata/releases/1.95.102.yaml" --arch=arm64 --release --dry-run
+./scripts/android/build-android.sh --manifest="metadata/releases/<version>.yaml" --arch=arm64 --release --dry-run
 
 # Run up to gn gen (verifies args.gn syntax without starting compilation):
-./scripts/android/build-android.sh --manifest="metadata/releases/1.95.102.yaml" --arch=arm64 --release --gn-only
+./scripts/android/build-android.sh --manifest="metadata/releases/<version>.yaml" --arch=arm64 --release --gn-only
 ```
 
 ### 3. Adding a New Debloating Flag
@@ -223,10 +239,13 @@ This runs 5 comprehensive verification steps:
 
 ## 9. Guardrails & Agent Commandments
 
-1. **NEVER make permanent direct commits in `brave-core` or `chromium`**.
-2. **Use Hybrid Patching**: `.patch` files for simple edits (XML/constants), Python mutators for dynamic/GN array edits.
-3. **NEVER hardcode version numbers** in scripts or CI configs.
-4. **NEVER commit secrets** (tokens, keystore passwords, API keys) into the repository.
-5. **Always preserve `set -euo pipefail`** in all shell scripts.
-6. **Always verify idempotence** on all programmatic mutators.
-7. **Always respect user instructions regarding Git operations** (e.g. "dont commit and push").
+1. **Always target and validate the latest upstream release**: Develop, test, and maintain all patches, mutators, and build configs against the latest stable upstream Brave tag. Fix any upstream code shifts or patch conflicts immediately.
+2. **NEVER make permanent direct commits in `brave-core` or `chromium`**.
+3. **ALWAYS validate using `prepare-source.sh` and `verify-all.sh`**: Every patch, mutator, and branding asset must pass against real upstream sources via `prepare-source.sh` in addition to unit tests in `verify-all.sh`.
+4. **Use Hybrid Patching**: `.patch` files for simple edits (XML/constants), Python mutators for dynamic/GN array edits.
+5. **NEVER hardcode version numbers** in scripts or CI configs (always use `<version>` placeholders in comments and templates).
+6. **NEVER commit secrets** (tokens, keystore passwords, API keys) into the repository.
+7. **Always preserve `set -euo pipefail`** in all shell scripts.
+8. **Always verify idempotence** on all programmatic mutators.
+9. **Always respect user instructions regarding Git operations** (e.g. "dont commit and push" or "commit but do not push").
+10. **Branch Model (`release` vs `main`)**: `release` is the production release branch (official signed releases and release tags); `main` is for active development, automated testing, and community merges. All merge requests must target `main`.

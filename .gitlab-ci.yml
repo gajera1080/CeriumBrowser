@@ -1,17 +1,21 @@
 # GitLab CI Pipeline for Braving Android
 # RELEASE MODE: BRAVE_VERSION -> exact matching brave-core release -> exact pinned Chromium
 # Builds minimal Chromium + Brave Shields with custom Braving branding
+#
+# Schedule: 15-day automated releases on `release` branch (cron: 0 0 1,16 * *)
+# Release Gating: Skips build if v<version> tag already exists
 
 stages:
   - prepare
   - cache_prep
   - build
+  - publish
 
 variables:
   GIT_DEPTH: 1
   BRAVE_VERSION:
     value: ""
-    description: "Brave release version (e.g. 1.94.120). Leave empty to auto-fetch latest stable from GitHub."
+    description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
   TARGET_ARCH:
     value: "arm64"
     description: "Target Android architecture: arm64, arm, x86_64"
@@ -29,7 +33,11 @@ prepare_source:
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/android/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/android/verify-all.sh
-    - echo "DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep .yaml | sed 's/\.yaml//' | head -n 1)" > build.env
+    - export DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep '\.yaml$' | sed 's/\.yaml$//' | head -n 1)
+    - export DYNAMIC_CHROMIUM_VERSION=$(grep -E '^chromium_version:' "metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" | awk '{print $2}' | tr -d '"'\'')
+    - echo "DYNAMIC_BRAVE_VERSION=${DYNAMIC_BRAVE_VERSION}" > build.env
+    - echo "DYNAMIC_CHROMIUM_VERSION=${DYNAMIC_CHROMIUM_VERSION}" >> build.env
+    - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
     paths:
@@ -55,16 +63,16 @@ prepare_chromium_cache:
   needs:
     - job: prepare_source
       artifacts: true
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
   variables:
     GIT_STRATEGY: fetch
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
     CACHE_PREP_ONLY: "true"
     BUILD_TARGET: "v8 third_party/blink/public:blink"
+  cache:
+    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    paths:
+      - build-workspace/src/brave/
+    policy: pull
   before_script:
     - 'if [ -z "${DYNAMIC_BRAVE_VERSION:-}" ]; then echo "ERROR: DYNAMIC_BRAVE_VERSION is missing from build.env."; exit 1; fi'
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config
@@ -89,12 +97,12 @@ prepare_chromium_cache:
     name: "braving-cache-logs-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
-      - build-workspace/build.log
-      - build-workspace/src/out/Release/siso*
-      - build-workspace/src/out/Release/.ninja_log
+      - build-workspace/build-artifacts.tar.xz
     expire_in: 2 days
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
 
 # ----------------------------------------------------
 # Stage 3: Android Build (Phase 2 on Large Runner)
@@ -109,16 +117,16 @@ build_android:
       artifacts: true
     - job: prepare_source
       artifacts: true
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
   variables:
     GIT_STRATEGY: fetch
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
     ANDROID_KEYSTORE_FILE: "braving_android.jks"
     ANDROID_KEY_ALIAS: "braving"
+  cache:
+    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    paths:
+      - build-workspace/src/brave/
+    policy: pull
   before_script:
     - 'if [ -z "${DYNAMIC_BRAVE_VERSION:-}" ]; then echo "ERROR: DYNAMIC_BRAVE_VERSION is missing from build.env."; exit 1; fi'
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config
@@ -135,12 +143,41 @@ build_android:
     name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
-      - build-workspace/src/out/Release/apks/*.apk
-      - out/apks/*.apk
-      - metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml
-      - build-workspace/build.log
-      - build-workspace/src/out/Release/siso*
-      - build-workspace/src/out/Release/.ninja_log
+      - out/apks/
+      - build-workspace/build-artifacts.tar.xz
+      - metadata/releases/*.yaml
+      - metadata/upstream-*.yaml
     expire_in: 30 days
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+
+# ----------------------------------------------------
+# Stage 4: Production Release — Direct APK Upload & Auto-Tag
+# ----------------------------------------------------
+publish_release:
+  stage: publish
+  image: debian:bookworm-slim
+  needs:
+    - job: build_android
+      artifacts: true
+    - job: prepare_source
+      artifacts: true
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl python3 ca-certificates
+  rules:
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "release"'
+  script:
+    - echo "Publishing official release v${DYNAMIC_BRAVE_VERSION} on release branch..."
+    - ./scripts/ci/publish-release-direct.sh
+  artifacts:
+    name: "braving-release-${DYNAMIC_BRAVE_VERSION}"
+    when: on_success
+    paths:
+      - out/apks/
+      - metadata/releases/*.yaml
+      - metadata/upstream-*.yaml
+    expire_in: 90 days

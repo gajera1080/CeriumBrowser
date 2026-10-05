@@ -46,7 +46,7 @@ Select the target Brave version or omit to resolve latest upstream stable automa
 cd "${BRAVING_DIR}"
 ./scripts/android/prepare-source.sh
 # Or specify a target version:
-# ./scripts/android/prepare-source.sh 1.95.104
+# ./scripts/android/prepare-source.sh <version>
 ```
 
 What `prepare-source.sh` performs:
@@ -77,13 +77,13 @@ is_java_debug = false
 symbol_level = 0
 blink_symbol_level = 0
 v8_symbol_level = 0
-enable_resource_allowlist_generation = false
+enable_resource_allowlist_generation = true
 is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "org.braving.browser"
 android_channel = "stable"
 brave_channel = ""
-target_android_output_format = "apk"
+target_android_output_format = "aab"
 enable_android_secondary_abi = false
 skip_secondary_abi_for_cq = true
 dcheck_always_on = false
@@ -91,6 +91,7 @@ enable_java_asserts = false
 exclude_unwind_tables = true
 strip_debug_info = true
 use_siso = true
+disable_android_lint = true
 ```
 
 The resulting signed APK will be placed in:

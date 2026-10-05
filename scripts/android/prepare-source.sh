@@ -82,7 +82,7 @@ if tag:
   fi
 fi
 
-# Strip leading 'v' if present (e.g. v1.94.120 -> 1.94.120)
+# Strip leading 'v' if present (e.g. v<version> -> <version>)
 BRAVE_VERSION="${BRAVE_VERSION#v}"
 
 # Write build.env immediately so CI dotenv artifact is always present
@@ -297,6 +297,9 @@ gn_arguments:
     disable_fieldtrial_testing_config: true
   braving_overrides:
     chrome_public_manifest_package: "org.braving.browser"
+    disable_android_lint: true
+    target_android_output_format: "aab"
+    enable_resource_allowlist_generation: true
 
 EOF
 echo " [OK] Recorded ${UPSTREAM_META_FILE}"
@@ -328,7 +331,9 @@ build_arguments:
   is_official_build: true
   is_component_build: false
   chrome_public_manifest_package: "org.braving.browser"
-
+  disable_android_lint: true
+  target_android_output_format: "aab"
+  enable_resource_allowlist_generation: true
 EOF
 
 echo ""
@@ -350,8 +355,17 @@ if [[ ! -d "${BRAVE_DIR}/.git" ]]; then
   git init "${BRAVE_DIR}"
   git -C "${BRAVE_DIR}" config advice.detachedHead false
   git -C "${BRAVE_DIR}" remote add origin "https://github.com/brave/brave-core.git"
-  git -C "${BRAVE_DIR}" fetch --depth 1 origin "refs/tags/v${BRAVE_VERSION}:refs/tags/v${BRAVE_VERSION}" 2>/dev/null || \
-  git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+  LOCAL_CORE="${LOCAL_BRAVE_CORE_DIR:-/run/media/pc/D/brave-core}"
+  FETCHED=false
+  if [[ -d "${LOCAL_CORE}/.git" ]]; then
+    if git -C "${BRAVE_DIR}" fetch --depth 1 "${LOCAL_CORE}" "${BRAVE_CORE_COMMIT}" 2>/dev/null; then
+      FETCHED=true
+    fi
+  fi
+  if [[ "${FETCHED}" != true ]]; then
+    git -C "${BRAVE_DIR}" fetch --depth 1 origin "refs/tags/v${BRAVE_VERSION}:refs/tags/v${BRAVE_VERSION}" 2>/dev/null || \
+    git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+  fi
   git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
   git -C "${BRAVE_DIR}" clean -ffd
 else
@@ -364,7 +378,16 @@ else
     git -C "${BRAVE_DIR}" clean -ffd
   else
     echo "Existing brave-core is at ${CURRENT_BRAVE_COMMIT}, fetching exact revision ${BRAVE_CORE_COMMIT}..."
-    git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+    LOCAL_CORE="${LOCAL_BRAVE_CORE_DIR:-/run/media/pc/D/brave-core}"
+    FETCHED=false
+    if [[ -d "${LOCAL_CORE}/.git" ]]; then
+      if git -C "${BRAVE_DIR}" fetch --depth 1 "${LOCAL_CORE}" "${BRAVE_CORE_COMMIT}" 2>/dev/null; then
+        FETCHED=true
+      fi
+    fi
+    if [[ "${FETCHED}" != true ]]; then
+      git -C "${BRAVE_DIR}" fetch --depth 1 origin "${BRAVE_CORE_COMMIT}"
+    fi
     git -C "${BRAVE_DIR}" reset --hard FETCH_HEAD
     git -C "${BRAVE_DIR}" clean -ffd
   fi

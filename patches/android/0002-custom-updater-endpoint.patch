@@ -1,5 +1,9 @@
+From: gajgaje2000 <gajgaje2000@gmail.com>
+Date: Fri, 5 Sep 2026 10:15:00 +0000
+Subject: [PATCH] [updater] Route component updates through secure GitLab Pages endpoint
+---
 diff --git a/app/brave_main_delegate.cc b/app/brave_main_delegate.cc
-index 8e3d9387b..94c714d3a 100644
+index a990f051d..13ea322fc 100644
 --- a/app/brave_main_delegate.cc
 +++ b/app/brave_main_delegate.cc
 @@ -59,7 +59,7 @@ std::string GetUpdateURLHost() {
@@ -23,7 +27,7 @@ index 8e3d9387b..94c714d3a 100644
  
    // For Self-host sync service URL
 diff --git a/browser/net/brave_network_audit_allowed_lists.h b/browser/net/brave_network_audit_allowed_lists.h
-index b827b398e..e7bde0e08 100644
+index b827b398e..5a971e1b8 100644
 --- a/browser/net/brave_network_audit_allowed_lists.h
 +++ b/browser/net/brave_network_audit_allowed_lists.h
 @@ -69,7 +69,7 @@ inline constexpr auto kAllowedUrlPrefixes = std::to_array<std::string_view>({
@@ -36,10 +40,10 @@ index b827b398e..e7bde0e08 100644
      "https://safebrowsing.brave.com/",
      "https://static.brave.com/",
 diff --git a/chromium_src/components/crx_file/crx_verifier.cc b/chromium_src/components/crx_file/crx_verifier.cc
-index 1ef46f91c..79a385f92 100644
+index 9ff355a55..8e07aae3b 100644
 --- a/chromium_src/components/crx_file/crx_verifier.cc
 +++ b/chromium_src/components/crx_file/crx_verifier.cc
-@@ -24,24 +24,47 @@ constexpr uint8_t kBravePublisherKeyHash[] = {
+@@ -24,14 +24,39 @@ constexpr uint8_t kBravePublisherKeyHash[] = {
      0xf0, 0xa7, 0xf5, 0x1b, 0xb0, 0x8e, 0x3e, 0xb5, 0x64, 0xab, 0x85,
      0xbd, 0x19, 0xd6, 0xff, 0x49, 0xa7, 0x35, 0x19, 0x84, 0xf7};
  
@@ -47,6 +51,11 @@ index 1ef46f91c..79a385f92 100644
 +    0x6c, 0xa6, 0xf8, 0x05, 0x9a, 0x5b, 0x05, 0x09, 0x6d, 0x39, 0x85,
 +    0x21, 0xae, 0xe2, 0x70, 0xfb, 0xa5, 0x71, 0xd6, 0xfd, 0x07, 0x90,
 +    0xf3, 0x54, 0x8e, 0x14, 0x01, 0x16, 0xc1, 0x26, 0xff, 0x21};
++
++constexpr uint8_t kBravingPublisherKeyHash2[] = {
++    0x4f, 0xfe, 0x6f, 0xfd, 0x83, 0x1c, 0x20, 0xeb, 0xdd, 0xa2, 0xef,
++    0x26, 0x3b, 0x82, 0xbe, 0x88, 0xc9, 0x65, 0x25, 0x3a, 0xd9, 0x38,
++    0x90, 0xcc, 0x87, 0x94, 0x58, 0x48, 0xe3, 0xa1, 0xd5, 0xf5};
 +
  auto GetBravePublisherKeyHash() {
    static auto brave_publisher_key = std::to_array(kBravePublisherKeyHash);
@@ -58,8 +67,14 @@ index 1ef46f91c..79a385f92 100644
 +  return base::span(braving_publisher_key);
 +}
 +
++auto GetBravingPublisherKeyHash2() {
++  static auto braving_publisher_key2 = std::to_array(kBravingPublisherKeyHash2);
++  return base::span(braving_publisher_key2);
++}
++
 +bool IsBravingPublisher(base::span<const uint8_t> key_hash) {
-+  return GetBravingPublisherKeyHash() == key_hash;
++  return GetBravingPublisherKeyHash() == key_hash ||
++         GetBravingPublisherKeyHash2() == key_hash;
 +}
 +
  // Used in the patch in crx_verifier.cc.
@@ -69,12 +84,7 @@ index 1ef46f91c..79a385f92 100644
  }
  
  }  // namespace
- 
- namespace crx_file {
- 
- void SetBravePublisherKeyHashForTesting(base::span<const uint8_t> test_key) {
-   GetBravePublisherKeyHash().copy_from(test_key);
- }
+@@ -44,4 +69,13 @@ void SetBravePublisherKeyHashForTesting(base::span<const uint8_t> test_key) {
  
  }  // namespace crx_file
  
@@ -90,7 +100,7 @@ index 1ef46f91c..79a385f92 100644
 +#undef IsBravePublisher
 diff --git a/chromium_src/components/update_client/net/network_impl.cc b/chromium_src/components/update_client/net/network_impl.cc
 new file mode 100644
-index 000000000..f8154e92a
+index 000000000..83e399df3
 --- /dev/null
 +++ b/chromium_src/components/update_client/net/network_impl.cc
 @@ -0,0 +1,52 @@
@@ -147,10 +157,10 @@ index 000000000..f8154e92a
 +#undef AttachStringForUpload
 +#undef LOAD_DISABLE_CACHE
 diff --git a/chromium_src/components/update_client/update_checker.cc b/chromium_src/components/update_client/update_checker.cc
-index 2b6c18493..56c18f7e4 100644
+index 4806e338a..87532fdd2 100644
 --- a/chromium_src/components/update_client/update_checker.cc
 +++ b/chromium_src/components/update_client/update_checker.cc
-@@ -80,12 +80,9 @@ void SequentialUpdateChecker::CheckNext() {
+@@ -79,12 +79,9 @@ void SequentialUpdateChecker::CheckNext() {
    DCHECK(update_context_);
  
    // Support multiple checks in a single call, but only if they are all Brave.
@@ -213,10 +223,24 @@ index 2b6c18493..56c18f7e4 100644
          FROM_HERE,
          base::BindOnce(
 diff --git a/components/brave_shields/core/browser/ad_block_component_filters_provider.cc b/components/brave_shields/core/browser/ad_block_component_filters_provider.cc
-index 59b47cf1b..29df510bc 100644
+index 3e81a8eef..0f949c2ba 100644
 --- a/components/brave_shields/core/browser/ad_block_component_filters_provider.cc
 +++ b/components/brave_shields/core/browser/ad_block_component_filters_provider.cc
-@@ -151,7 +151,18 @@ void AdBlockComponentFiltersProvider::LoadFilterSet(
+@@ -123,6 +123,13 @@ void AdBlockComponentFiltersProvider::OnComponentReady(
+ bool AdBlockComponentFiltersProvider::IsInitialized() const {
+   return !component_path_.empty();
+ }
++bool AdBlockComponentFiltersProvider::IsPrimaryDefaultProvider() const {
++  if (engine_is_default_) {
++    return component_id_ == "iodkpdagapdfkphljnddpjlldadblomo";
++  }
++  return component_id_ == "cdbbhgbmjhfnhnmgeddbliobbofkgdhe";
++}
++
+ 
+ base::FilePath AdBlockComponentFiltersProvider::GetFilterSetPath() {
+   if (component_path_.empty()) {
+@@ -151,7 +158,18 @@ void AdBlockComponentFiltersProvider::LoadFilterSet(
  
    base::ThreadPool::PostTaskAndReplyWithResult(
        FROM_HERE, {base::MayBlock()},
@@ -236,6 +260,18 @@ index 59b47cf1b..29df510bc 100644
        base::BindOnce(&OnReadDATFileData, std::move(cb), permission_mask_,
                       flow));
  }
+diff --git a/components/brave_shields/core/browser/ad_block_component_filters_provider.h b/components/brave_shields/core/browser/ad_block_component_filters_provider.h
+index 99a1f4893..b483fe105 100644
+--- a/components/brave_shields/core/browser/ad_block_component_filters_provider.h
++++ b/components/brave_shields/core/browser/ad_block_component_filters_provider.h
+@@ -72,6 +72,7 @@ class AdBlockComponentFiltersProvider : public AdBlockFiltersProvider {
+   std::string GetNameForDebugging() override;
+ 
+   bool IsInitialized() const override;
++  bool IsPrimaryDefaultProvider() const override;
+ 
+  private:
+   friend class ::AdBlockComponentFiltersProviderTest;
 diff --git a/components/brave_shields/core/browser/ad_block_component_installer.cc b/components/brave_shields/core/browser/ad_block_component_installer.cc
 index 7f69e1d61..9b43b7e65 100644
 --- a/components/brave_shields/core/browser/ad_block_component_installer.cc
@@ -257,82 +293,56 @@ index 7f69e1d61..9b43b7e65 100644
  }
  
  AdBlockComponentInstallerPolicy::~AdBlockComponentInstallerPolicy() = default;
-diff --git a/browser/brave_browser_process_impl.cc b/browser/brave_browser_process_impl.cc
-index 4a2c78901..b81234567 100644
---- a/browser/brave_browser_process_impl.cc
-+++ b/browser/brave_browser_process_impl.cc
-@@ -318,6 +318,7 @@ void BraveBrowserProcessImpl::StartBraveServices() {
- #endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
- 
-   // eagerly initialize for component updater
-+  ad_block_service();
-   https_upgrade_exceptions_service();
- 
-   if (base::FeatureList::IsEnabled(
-diff --git a/components/brave_shields/core/browser/ad_block_component_service_manager.cc b/components/brave_shields/core/browser/ad_block_component_service_manager.cc
-index 89abcdef0..123456789 100644
---- a/components/brave_shields/core/browser/ad_block_component_service_manager.cc
-+++ b/components/brave_shields/core/browser/ad_block_component_service_manager.cc
-@@ -169,6 +169,28 @@ AdBlockComponentServiceManager::AdBlockComponentServiceManager(
-                      weak_factory_.GetWeakPtr()));
-   catalog_provider_->AddObserver(this);
- 
-+  if (component_update_service_ && filter_list_catalog_.empty()) {
-+    SetFilterListCatalog({
-+        FilterListCatalogEntry(
-+            "default", "https://easylist.to/easylist.txt",
-+            "Braving Default AdBlock Filters", {}, "https://easylist.to/",
-+            "Default ad and tracker blocking rules", true, true, true, 3,
-+            {"ANDROID", "IOS", "LINUX", "MAC", "WINDOWS"},
-+            "iodkpdagapdfkphljnddpjlldadblomo",
-+            kAdBlockFilterListCatalogComponentBase64PublicKey),
-+        FilterListCatalogEntry(
-+            "F0F275F4-6317-49E8-A2D6-8203E0AD78FB",
-+            "https://secure.fanboy.co.nz/fanboy-annoyance_ubo.txt",
-+            "Braving First-Party & Annoyance Filters", {},
-+            "https://easylist.to/",
-+            "Supplemental annoyance, cookie notice, and social widget rules",
-+            false, true, false, 3,
-+            {"ANDROID", "IOS", "LINUX", "MAC", "WINDOWS"},
-+            "cdbbhgbmjhfnhnmgeddbliobbofkgdhe",
-+            kAdBlockFilterListCatalogComponentBase64PublicKey),
-+    });
-+  }
-+
-   if (IsAdBlockOnlyModeSupportedAndFeatureEnabled(locale_)) {
-     local_state_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
-     local_state_change_registrar_->Init(local_state_);
-@@ -514,7 +536,10 @@ base::ListValue AdBlockComponentServiceManager::GetRegionalLists() {
- void AdBlockComponentServiceManager::OnFilterListCatalogLoaded(
-     const std::string& catalog_json) {
-   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
--  SetFilterListCatalog(FilterListCatalogFromJSON(catalog_json));
-+  auto parsed_catalog = FilterListCatalogFromJSON(catalog_json);
-+  if (!parsed_catalog.empty() || filter_list_catalog_.empty()) {
-+    SetFilterListCatalog(std::move(parsed_catalog));
-+  }
- 
-   update_check_timer_.Start(
-       FROM_HERE,
-diff --git a/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc b/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
-index 112233445..556677889 100644
---- a/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
-+++ b/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
-@@ -25,10 +25,8 @@
- namespace brave_shields {
- 
- AdBlockFiltersProviderManager::AdBlockFiltersProviderManager() {
--  suppress_default_engine_startup_change_notification_ =
--      base::FeatureList::IsEnabled(features::kAdblockDATCache);
--  suppress_additional_engine_startup_change_notification_ =
--      base::FeatureList::IsEnabled(features::kAdblockDATCache);
-+  suppress_default_engine_startup_change_notification_ = false;
-+  suppress_additional_engine_startup_change_notification_ = false;
+diff --git a/components/brave_shields/core/browser/ad_block_filters_provider.cc b/components/brave_shields/core/browser/ad_block_filters_provider.cc
+index 0863ee13b..d0fadc575 100644
+--- a/components/brave_shields/core/browser/ad_block_filters_provider.cc
++++ b/components/brave_shields/core/browser/ad_block_filters_provider.cc
+@@ -58,6 +58,10 @@ bool AdBlockFiltersProvider::IsInitialized() const {
+   return true;
  }
  
- AdBlockFiltersProviderManager::~AdBlockFiltersProviderManager() = default;
++bool AdBlockFiltersProvider::IsPrimaryDefaultProvider() const {
++  return false;
++}
++
+ base::WeakPtr<AdBlockFiltersProvider> AdBlockFiltersProvider::AsWeakPtr() {
+   return weak_factory_.GetWeakPtr();
+ }
+diff --git a/components/brave_shields/core/browser/ad_block_filters_provider.h b/components/brave_shields/core/browser/ad_block_filters_provider.h
+index 41c7f4b03..1f5047600 100644
+--- a/components/brave_shields/core/browser/ad_block_filters_provider.h
++++ b/components/brave_shields/core/browser/ad_block_filters_provider.h
+@@ -54,6 +54,7 @@ class AdBlockFiltersProvider {
+   // Intended to be overridden if the provider implementation is not immediately
+   // ready at creation time.
+   virtual bool IsInitialized() const;
++  virtual bool IsPrimaryDefaultProvider() const;
+ 
+  protected:
+   bool engine_is_default_;
+diff --git a/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc b/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
+index 651b7e054..f8b87b5e0 100644
+--- a/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
++++ b/components/brave_shields/core/browser/ad_block_filters_provider_manager.cc
+@@ -133,6 +133,16 @@ bool AdBlockFiltersProviderManager::AreAllProvidersInitialized(
+   }
+   for (auto* const& provider : filters_providers) {
+     if (!provider->IsInitialized()) {
++      if (provider->GetNameForDebugging() == "ComponentProvidersGate") {
++        return false;
++      }
++      if (provider->GetNameForDebugging() ==
++          "AdBlockComponentFiltersProvider") {
++        if (provider->IsPrimaryDefaultProvider()) {
++          return false;
++        }
++        continue;
++      }
+       return false;
+     }
+   }
 diff --git a/components/update_client/BUILD.gn b/components/update_client/BUILD.gn
-index a3c19dfff..8c8c02046 100644
+index a3c19dfff..fb0211a46 100644
 --- a/components/update_client/BUILD.gn
 +++ b/components/update_client/BUILD.gn
 @@ -7,7 +7,7 @@ import("//build/buildflag_header.gni")

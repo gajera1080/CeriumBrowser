@@ -1,0 +1,73 @@
+From: gajgaje2000 <gajgaje2000@gmail.com>
+Date: Fri, 2 Oct 2026 10:00:00 +0000
+Subject: [PATCH] [debloat] Disable Google Play in-app update and origin restart prompts
+
+Stubs out Google Play Core in-app update checks, update download listeners,
+and completeUpdate() restart calls in BraveActivity. Sideloaded and independent
+distributions crash or encounter restart loops when Play Core methods are
+invoked. Also disables automatic settings launcher restart prompt.
+---
+diff --git a/android/java/org/chromium/chrome/browser/app/BraveActivity.java b/android/java/org/chromium/chrome/browser/app/BraveActivity.java
+--- a/android/java/org/chromium/chrome/browser/app/BraveActivity.java
++++ b/android/java/org/chromium/chrome/browser/app/BraveActivity.java
+@@ -427,17 +427,7 @@
+ 
+         executeInitSafeBrowsing(0);
+ 
+-        if (mAppUpdateManager == null) {
+-            mAppUpdateManager = AppUpdateManagerFactory.create(BraveActivity.this);
+-        }
+-        mAppUpdateManager
+-                .getAppUpdateInfo()
+-                .addOnSuccessListener(
+-                        appUpdateInfo -> {
+-                            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+-                                completeUpdateSnackbar();
+-                            }
+-                        });
++        // Braving: Google Play In-App Update disabled
+         // Executes Leo voice prompt if it was triggered from quick search app widget
+         maybeExecuteLeoVoicePrompt();
+ 
+@@ -1694,6 +1684,7 @@
+     }
+ 
+     private void completeUpdateSnackbar() {
++        if (true) return;
+         Snackbar snackbar =
+                 Snackbar.make(
+                                 getResources().getString(R.string.in_app_update_text),
+@@ -1725,12 +1716,14 @@
+ 
+     private final InstallStateUpdatedListener mInstallStateUpdatedListener =
+             installState -> {
++                if (true) return;
+                 if (installState.installStatus() == InstallStatus.DOWNLOADED) {
+                     completeUpdateSnackbar();
+                 }
+             };
+ 
+     private void checkAppUpdate() {
++        if (true) return;
+         mAppUpdateManager = AppUpdateManagerFactory.create(BraveActivity.this);
+         mAppUpdateManager.registerListener(mInstallStateUpdatedListener);
+ 
+@@ -1750,6 +1743,7 @@
+     }
+ 
+     private void startAppUpdateFlow(AppUpdateInfo appUpdateInfo, int appUpdateType) {
++        if (true) return;
+         try {
+             mAppUpdateManager.startUpdateFlowForResult(
+                     appUpdateInfo, appUpdateType, BraveActivity.this, 1);
+diff --git a/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSettingsLauncherHelper.java b/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSettingsLauncherHelper.java
+--- a/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSettingsLauncherHelper.java
++++ b/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSettingsLauncherHelper.java
+@@ -24,6 +24,7 @@
+ public class BraveOriginSettingsLauncherHelper {
+     @CalledByNative
+     public static void showOriginSettingsForRestart() {
++        if (true) return;
+         Activity activity = ApplicationStatus.getLastTrackedFocusedActivity();
+         if (activity == null) {
+             return;

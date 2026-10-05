@@ -295,6 +295,15 @@ PYEOF
   echo " [OK] Signed and verified: ${apk}"
 done
 
+# Generate SHA256 checksums alongside signed artifacts
+if [[ -d "${OUTPUT_APK_DIR}" ]] && compgen -G "${OUTPUT_APK_DIR}/*.apk" > /dev/null 2>&1; then
+  (cd "${OUTPUT_APK_DIR}" && sha256sum *.apk > SHA256SUMS.txt 2>/dev/null || true)
+  echo " [OK] Generated SHA256SUMS.txt in ${OUTPUT_APK_DIR}"
+fi
+if [[ -d "${OUT_DIR}/apks" ]] && compgen -G "${OUT_DIR}/apks/*.apk" > /dev/null 2>&1; then
+  (cd "${OUT_DIR}/apks" && sha256sum *.apk > SHA256SUMS.txt 2>/dev/null || true)
+fi
+
 echo "========================================================"
 echo " APK SIGNING COMPLETE"
 echo "========================================================"

@@ -25,9 +25,10 @@ While Android (ARM64, ARM, x86_64) is currently the active primary target in CI/
 ### CRITICAL RULE: Do NOT make permanent direct commits in `brave-core` or `chromium`.
 - The `build-workspace/src/brave` and `build-workspace/src` directories are treated as **ephemeral, dynamic build artifacts**. They are fetched and constructed dynamically at build time.
 - If you make a manual change in `brave-core` for local testing, you **MUST** extract that change into an automated programmatic Python mutator script stored in the **Braving** repository. The CI pipeline clones a fresh upstream repository and will never see local `brave-core` Git commits.
-- **The build flow MUST be version-independent:**
+- **The build flow MUST be version-independent & always target the latest upstream version:**
+  - **Always Target Latest Upstream Version**: Braving is engineered to continuously roll forward with upstream Brave and Chromium releases. All mutators, patches, branding assets, and verification workflows must always be tested and maintained to work against the latest stable upstream release tag. Never pin or regress to older releases to bypass issues.
   - If `BRAVE_VERSION` is empty in CI/CD, the build system automatically resolves the latest stable release from the GitHub API and Google Gitiles API.
-  - **Never hardcode versions** (e.g., `1.95.102`) in CI configs or scripts to "fix" a build. The pipeline is engineered to roll forward continuously with upstream Brave and Chromium tags.
+  - **Never hardcode versions** (e.g., `<version>`) in CI configs or scripts to "fix" a build. The pipeline is engineered to roll forward continuously with upstream Brave and Chromium tags.
   - Manifests (`metadata/releases/` and `metadata/upstream/`) are generated dynamically by preparation scripts and are pipeline artifacts, not static git-pinned files.
 
 ---
@@ -68,7 +69,7 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 ### Component Updates & Shields Protection
 - Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/android/0002-custom-updater-endpoint.patch`.
 - Enforces Braving publisher key verification (`kBravingPublisherKeyHash`), batches component requests, and appends `disable-pings`.
-- Eagerly initializes `ad_block_service()` on startup to ensure instant ad-blocking protection.
+- Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
 
 ---
 
@@ -88,7 +89,7 @@ Braving strips all unneeded promotional, cryptocurrency, and auxiliary subsystem
 - **Hidden Subsystems**: Brave Wallet / Crypto, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards / BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle auto-updater.
 - **Enforced via Native Policies**:
   To avoid constant build breakages caused by upstream dependency mismatches, Braving does *not* use compile-time GN arguments (`enable_brave_wallet = false`) to strip code. Instead, we compile the modules but strictly lock them down at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` via `patches/android/debloat/0004-enforce-enterprise-policies.patch`.
-  - Debloat Patches: `patches/android/debloat/` (0001 through 0004) disable promotional flags, unlock backend policy state, and enforce mandatory privacy policies so hidden features cannot be reached or leak data.
+  - Debloat Patches: `patches/android/debloat/` (0001 through 0006) disable promotional flags, unlock backend policy state, remove rating prompts, disable Play in-app updates, and enforce mandatory privacy policies so hidden features cannot be reached or leak data.
 
 ---
 
@@ -138,16 +139,28 @@ In `scripts/android/build-android.sh`, build output is piped through `filter-bui
 ## 8. Agent Checklist & Verification Rules
 
 Before submitting changes or proposing pull requests:
-1. **Never make commits in `brave-core`**: Changes must live in `Braving` as mutators or scripts.
-2. **Never create `.patch` files**: Implement modifications as idempotent Python mutators.
-3. **Never hardcode versions**: Ensure scripts work with dynamically resolved versions.
-4. **Preserve strict error handling**: Shell scripts must run under `set -euo pipefail`.
-5. **Run the local verification suite**:
-   ```bash
-   ./scripts/android/verify-all.sh
-   ```
-   All 5 verification steps (manifest validation, mutator syntax, patch retirement, branding verification, orchestration dry-run) must pass cleanly.
-6. **Never write secrets into files**: API keys, tokens, or keystore passwords must be passed via environment variables.
+1. **Always target and validate the latest upstream release**: Develop, test, and maintain all patches, mutators, and build configs against the latest stable upstream Brave tag. Fix any upstream code shifts or patch conflicts immediately.
+2. **Never make commits in `brave-core`**: Changes must live in `Braving` as mutators or scripts.
+3. **Never create brittle patches**: Prefer resilient programmatic Python mutators with semantic anchors. When unified `.patch` files are used, ensure they apply cleanly without fuzz across versions.
+4. **Never hardcode versions**: Ensure scripts work dynamically with auto-resolved versions.
+5. **Preserve strict error handling**: Shell scripts must run under `set -euo pipefail`.
+6. **Run the mandatory two-step verification suite**:
+   - **Step A: Run the master verification suite**:
+     ```bash
+     ./scripts/android/verify-all.sh
+     ```
+     All 6 verification steps (manifest validation, mutator syntax & unit tests, CI automation scripts, patch retirement across trees, branding verification, orchestration dry-run) must pass cleanly.
+   - **Step B: ALWAYS validate using `prepare-source.sh`**:
+     ```bash
+     # Auto-resolve latest upstream stable release (default):
+     ./scripts/android/prepare-source.sh
+
+     # Or validate against an explicit target version:
+     ./scripts/android/prepare-source.sh "<version>"
+     ```
+     This executes the complete end-to-end source preparation pipeline against real upstream sources: resolving commit hashes, fetching/resetting `brave-core`, applying all git patches in `patches/`, and running all programmatic mutators (`apply-features.py --strict`, `apply-assets.sh`, and `apply-branding.py --strict`). Both verification steps must exit 0 before changes can be accepted or committed.
+7. **Never write secrets into files**: API keys, tokens, or keystore passwords must be passed via environment variables.
+8. **Branch Model (`release` vs `main`)**: The `release` branch is the production release branch (official releases, signed APK artifacts, and release tags). The `main` branch is for active testing, integration, and community merges. All merge requests and development topic branches must target `main`.
 
 ---
 **Summary for Agents:**

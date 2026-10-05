@@ -1,0 +1,119 @@
+From: gajgaje2000 <gajgaje2000@gmail.com>
+Date: Thu, 1 Oct 2026 12:00:00 +0000
+Subject: [PATCH] [debloat] Remove Rate Brave prompt, review dialog, and telemetry endpoint
+
+Removes the Rate Brave prompt, Google Play review dialog flow, feedback
+telemetry submission to https://feedback.brave.com/1/feedback, and the
+support_section / rate_brave entries from Android settings.
+---
+diff --git a/android/java/brave-res/xml/brave_main_preferences.xml b/android/java/brave-res/xml/brave_main_preferences.xml
+index 98bc1cbb1..123781162 100644
+--- a/android/java/brave-res/xml/brave_main_preferences.xml
++++ b/android/java/brave-res/xml/brave_main_preferences.xml
+@@ -160,15 +160,6 @@
+         android:order="23"
+         icon="@drawable/ic_product_translate"
+         android:title="@string/language_settings"/>
+-    <PreferenceCategory
+-        android:key="support_section"
+-        android:order="24"
+-        android:title="@string/prefs_support_section"/>
+-    <Preference
+-        android:key="rate_brave"
+-        android:order="28"
+-        android:icon="@drawable/ic_star_circle"
+-        android:title="@string/prefs_rate_brave"/>
+     <org.chromium.components.browser_ui.settings.ChromeBasePreference
+         android:fragment="org.chromium.chrome.browser.download.settings.BraveDownloadSettings"
+         android:key="brave_downloads"
+diff --git a/android/java/org/chromium/chrome/browser/rate/BraveAskPlayStoreRatingDialog.java b/android/java/org/chromium/chrome/browser/rate/BraveAskPlayStoreRatingDialog.java
+index fc2c1f97e..b189088f5 100644
+--- a/android/java/org/chromium/chrome/browser/rate/BraveAskPlayStoreRatingDialog.java
++++ b/android/java/org/chromium/chrome/browser/rate/BraveAskPlayStoreRatingDialog.java
+@@ -68,6 +68,7 @@ public class BraveAskPlayStoreRatingDialog extends BottomSheetDialogFragment {
+ 
+     @Override
+     public void show(@NonNull FragmentManager manager, @Nullable String tag) {
++        if (true) return;
+         try {
+             BraveAskPlayStoreRatingDialog fragment =
+                     (BraveAskPlayStoreRatingDialog) manager.findFragmentByTag(
+@@ -148,6 +149,7 @@ public class BraveAskPlayStoreRatingDialog extends BottomSheetDialogFragment {
+     }
+ 
+     private void launchReviewFlow() {
++        if (true) return;
+         if (mReviewManager == null || !(mContext instanceof Activity)) {
+             RateUtils.getInstance().openPlaystore(mContext);
+             return;
+diff --git a/android/java/org/chromium/chrome/browser/rate/BraveRateDialogFragment.java b/android/java/org/chromium/chrome/browser/rate/BraveRateDialogFragment.java
+index 0f3a22969..e8c40d2ae 100644
+--- a/android/java/org/chromium/chrome/browser/rate/BraveRateDialogFragment.java
++++ b/android/java/org/chromium/chrome/browser/rate/BraveRateDialogFragment.java
+@@ -61,6 +61,7 @@ public class BraveRateDialogFragment extends BottomSheetDialogFragment {
+ 
+     @Override
+     public void show(@NonNull FragmentManager manager, @Nullable String tag) {
++        if (true) return;
+         try {
+             BraveRateDialogFragment fragment = (BraveRateDialogFragment) manager.findFragmentByTag(
+                     BraveRateDialogFragment.TAG_FRAGMENT);
+diff --git a/android/java/org/chromium/chrome/browser/rate/RateFeedbackUtils.java b/android/java/org/chromium/chrome/browser/rate/RateFeedbackUtils.java
+index dfb5e08ab..1223a0646 100644
+--- a/android/java/org/chromium/chrome/browser/rate/RateFeedbackUtils.java
++++ b/android/java/org/chromium/chrome/browser/rate/RateFeedbackUtils.java
+@@ -65,6 +65,7 @@ public class RateFeedbackUtils {
+     }
+ 
+     private static void sendRateFeedback(String userSelection, String userFeedback) {
++        if (true) return;
+         Context context = ContextUtils.getApplicationContext();
+         String appVersion =
+                 AboutChromeSettings.getApplicationVersion(
+diff --git a/android/java/org/chromium/chrome/browser/rate/RateUtils.java b/android/java/org/chromium/chrome/browser/rate/RateUtils.java
+index 2cdf8623f..c0a1b8266 100644
+--- a/android/java/org/chromium/chrome/browser/rate/RateUtils.java
++++ b/android/java/org/chromium/chrome/browser/rate/RateUtils.java
+@@ -71,6 +71,7 @@ public class RateUtils {
+ 
+     /** Returns the user preference for whether the rate is enabled. */
+     public boolean getPrefRateEnabled() {
++        if (true) return false;
+         return ChromeSharedPreferences.getInstance().readBoolean(PREF_RATE, false);
+     }
+ 
+@@ -143,6 +144,7 @@ public class RateUtils {
+      * </ul>
+      */
+     public boolean shouldShowRateDialog(Context context) {
++        if (true) return false;
+         if (getPrefRateDontShowAgain()) {
+             return false;
+         }
+         return isQaForceRateDialogEnabled() || (mainCriteria() && anyOneSubCriteria(context));
+     }
+ 
+     /**
+diff --git a/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java b/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java
+--- a/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java
++++ b/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java
+@@ -475,8 +475,9 @@
+     // A wrapper to suppress NullAway warning for the prefs which always present
+     private void setPreferenceOrder(CharSequence key, int order) {
+         Preference preference = findPreference(key);
+-        assumeNonNull(preference);
+-        preference.setOrder(order);
++        if (preference != null) {
++            preference.setOrder(order);
++        }
+     }
+ 
+     private void updatePreferenceIcon(String preferenceString, int drawable) {
+@@ -618,6 +619,7 @@
+     }
+ 
+     private void initRateBrave() {
++        if (true) return;
+         Preference rateBravePreference = findPreference(PREF_RATE_BRAVE);
+         assumeNonNull(rateBravePreference);
+         rateBravePreference.setOnPreferenceClickListener(

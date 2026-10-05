@@ -342,6 +342,93 @@ class TestBrandingAssets(unittest.TestCase):
             self.assertEqual(len(copied_svgs), 10, f"Expected 10 copied SVGs, found {len(copied_svgs)}")
             self.assertEqual(len(copied_xmls), 37, f"Expected 37 copied XMLs, found {len(copied_xmls)}")
 
+    def test_apply_assets_modern_build_gn_skips_and_cleans_unlisted_drawables(self):
+        """On modern versions where android/BUILD.gn does not track btn_brave or obsolete drawables, apply-assets.sh must not copy or leave unlisted drawables."""
+        import subprocess
+        import tempfile
+
+        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            android_dir = os.path.join(tmpdir, "android")
+            os.makedirs(android_dir, exist_ok=True)
+            build_gn = os.path.join(android_dir, "BUILD.gn")
+            with open(build_gn, "w", encoding="utf-8") as f:
+                f.write('android_resources("java_resources") {\n  sources = [ "java/brave-res/drawable/ic_brave_logo.xml" ]\n}\n')
+
+            # Pre-seed stale drawables to verify cleanup
+            stale_dir = os.path.join(tmpdir, "android/java/brave-res/drawable-hdpi")
+            os.makedirs(stale_dir, exist_ok=True)
+            stale_btn = os.path.join(stale_dir, "btn_brave.png")
+            stale_custom = os.path.join(stale_dir, "unlisted_stale.png")
+            with open(stale_btn, "wb") as f:
+                f.write(b"stale")
+            with open(stale_custom, "wb") as f:
+                f.write(b"stale_custom")
+
+            res = subprocess.run(["bash", apply_script, tmpdir], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"apply-assets.sh failed: {res.stderr}\n{res.stdout}")
+
+            copied_pngs = []
+            for root, _, files in os.walk(tmpdir):
+                for f in files:
+                    if f.endswith(".png"):
+                        copied_pngs.append(os.path.join(root, f))
+                    self.assertNotIn("btn_brave", f, f"btn_brave file must not exist on modern builds: {f}")
+
+            self.assertEqual(len(copied_pngs), 146, f"Expected 146 copied PNGs on modern build, found {len(copied_pngs)}")
+            self.assertFalse(os.path.exists(stale_btn), "Stale btn_brave.png was not cleaned up")
+            self.assertFalse(os.path.exists(stale_custom), "Stale unlisted_stale.png was not cleaned up")
+
+    def test_apply_assets_legacy_build_gn_includes_tracked_drawables(self):
+        """On legacy versions where android/BUILD.gn lists all 10 btn_brave drawables, apply-assets.sh must copy all 156 PNGs."""
+        import subprocess
+        import tempfile
+
+        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        densities = ["hdpi", "mdpi", "xhdpi", "xxhdpi", "xxxhdpi"]
+        legacy_sources = []
+        for d in densities:
+            legacy_sources.append(f'    "java/brave-res/drawable-{d}/btn_brave.png",')
+            legacy_sources.append(f'    "java/brave-res/drawable-{d}/btn_brave_off.png",')
+        sources_str = "\n".join(legacy_sources)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            android_dir = os.path.join(tmpdir, "android")
+            os.makedirs(android_dir, exist_ok=True)
+            build_gn = os.path.join(android_dir, "BUILD.gn")
+            with open(build_gn, "w", encoding="utf-8") as f:
+                f.write(f'android_resources("java_resources") {{\n  sources = [\n{sources_str}\n  ]\n}}\n')
+
+            res = subprocess.run(["bash", apply_script, tmpdir], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"apply-assets.sh failed: {res.stderr}\n{res.stdout}")
+
+            copied_pngs = [os.path.join(root, f) for root, _, files in os.walk(tmpdir) for f in files if f.endswith(".png")]
+            self.assertEqual(len(copied_pngs), 156, f"Expected 156 copied PNGs on legacy build, found {len(copied_pngs)}")
+            btn_brave_hdpi = os.path.join(tmpdir, "android/java/brave-res/drawable-hdpi/btn_brave.png")
+            self.assertTrue(os.path.isfile(btn_brave_hdpi), "btn_brave.png was not copied on legacy build")
+
+    def test_apply_assets_selective_build_gn_tracks_individual_drawables(self):
+        """When android/BUILD.gn only tracks a specific drawable, only that exact drawable is copied."""
+        import subprocess
+        import tempfile
+
+        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            android_dir = os.path.join(tmpdir, "android")
+            os.makedirs(android_dir, exist_ok=True)
+            build_gn = os.path.join(android_dir, "BUILD.gn")
+            with open(build_gn, "w", encoding="utf-8") as f:
+                f.write('android_resources("java_resources") {\n  sources = [ "java/brave-res/drawable-hdpi/btn_brave.png" ]\n}\n')
+
+            res = subprocess.run(["bash", apply_script, tmpdir], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"apply-assets.sh failed: {res.stderr}\n{res.stdout}")
+
+            copied_pngs = [os.path.join(root, f) for root, _, files in os.walk(tmpdir) for f in files if f.endswith(".png")]
+            self.assertEqual(len(copied_pngs), 147, f"Expected 147 copied PNGs (146 base + 1 selective), found {len(copied_pngs)}")
+            self.assertTrue(os.path.isfile(os.path.join(tmpdir, "android/java/brave-res/drawable-hdpi/btn_brave.png")))
+            self.assertFalse(os.path.exists(os.path.join(tmpdir, "android/java/brave-res/drawable-hdpi/btn_brave_off.png")))
+            self.assertFalse(os.path.exists(os.path.join(tmpdir, "android/java/brave-res/drawable-mdpi/btn_brave.png")))
+
     def test_aapt2_compile_and_link(self):
         """Deep verification: compile and link all branding XML and Android PNG drawables with AAPT2 if available."""
         import glob

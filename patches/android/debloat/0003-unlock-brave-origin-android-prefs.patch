@@ -1,35 +1,24 @@
-From: Braving Authors <support@braving.org>
+From: gajgaje2000 <gajgaje2000@gmail.com>
 Date: Sun, 27 Sep 2026 11:40:00 +0000
 Subject: [PATCH] [debloat] Unlock Brave Origin subscription prefs on Android
 
-Marks Brave Origin subscription and cached credential summary as active on
-Android so that:
+Marks Brave Origin cached credential summary as active on Android so that:
 1. Survey panelist reporting settings in Brave Shields & privacy are hidden.
 2. Settings screens wait for PolicyService initialization without flashing
    disabled items.
 3. Promotional callouts and dormant user retention dialogs are suppressed.
 ---
 diff --git a/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSubscriptionPrefs.java b/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSubscriptionPrefs.java
+index d42fe0d..b9a8998 100644
 --- a/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSubscriptionPrefs.java
 +++ b/android/java/org/chromium/chrome/browser/brave_origin/BraveOriginSubscriptionPrefs.java
-@@ -230,9 +230,8 @@ public class BraveOriginSubscriptionPrefs {
-         if (profile == null) {
-             Log.e(TAG, "getIsSubscriptionActive profile is null");
-             return false;
-         }
--        return UserPrefs.get(profile)
--                .getBoolean(BravePref.BRAVE_ORIGIN_SUBSCRIPTION_ACTIVE_ANDROID);
-+        return true;
-     }
- 
-     /**
-@@ -520,8 +519,7 @@ public class BraveOriginSubscriptionPrefs {
+@@ -566,6 +566,7 @@ public class BraveOriginSubscriptionPrefs {
       * cheap sync answer and tolerate state as of the last refresh.
       */
      public static boolean getIsCredentialSummaryActiveCached() {
--        return ChromeSharedPreferences.getInstance()
--                .readBoolean(BravePreferenceKeys.BRAVE_ORIGIN_CREDENTIAL_SUMMARY_CACHED, false);
-+        return true;
++        if (true) return true;
+         return ChromeSharedPreferences.getInstance()
+                 .readBoolean(BravePreferenceKeys.BRAVE_ORIGIN_CREDENTIAL_SUMMARY_CACHED, false);
      }
  
      /**

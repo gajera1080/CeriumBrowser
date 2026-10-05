@@ -145,8 +145,8 @@ echo "========================================================"
 T_START=$(date +%s)
 T_CHECKOUT_START=${T_START}
 
-# Phase 2: Checkout Chromium
-if [[ ! -d "${BRAVE_DIR}/.git" ]]; then
+# Phase 2: Verify brave-core
+if [[ ! -d "${BRAVE_DIR}" ]]; then
   echo "ERROR: Prepared brave-core not found in ${BRAVE_DIR}." >&2
   echo "Please run scripts/android/prepare-source.sh (Phase 1) first." >&2
   exit 1
@@ -313,6 +313,11 @@ if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
   if [[ -f "${BRAVE_DIR}/build/util/version.py" && -n "${BRAVE_VERSION}" ]]; then
     python3 "${BRAVE_DIR}/build/util/version.py" update --brave-version "${BRAVE_VERSION}" "${SRC_DIR}/chrome/VERSION"
   fi
+  # Apply version display mutators to Chromium src so APK versionName, Settings,
+  # and C++/Java version strings display clean Brave version (e.g. <version>)
+  # without prepending Chromium major milestone (e.g. <milestone>.)
+  echo "Applying version display mutators to Chromium src..."
+  python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}"
 fi
 
 echo ""
@@ -369,14 +374,16 @@ is_java_debug = false
 symbol_level = 0
 blink_symbol_level = 0
 v8_symbol_level = 0
-enable_resource_allowlist_generation = false
+enable_resource_allowlist_generation = true
 is_component_build = false
 disable_fieldtrial_testing_config = true
 chrome_public_manifest_package = "${PACKAGE_ID}"
 android_channel = "stable"
 brave_channel = ""
-target_android_output_format = "apk"
+target_android_output_format = "aab"
+chrome_version_name = "${BRAVE_VERSION}"
 android_override_version_name = "${BRAVE_VERSION}"
+android_default_version_name = "${BRAVE_VERSION}"
 enable_android_secondary_abi = false
 skip_secondary_abi_for_cq = true
 dcheck_always_on = false
@@ -384,6 +391,7 @@ enable_java_asserts = false
 exclude_unwind_tables = true
 strip_debug_info = true
 use_siso = true
+disable_android_lint = true
 
 # Debloated subsystems (wallet, vpn, ai_chat, news, rewards, p3a, stats) are enforced via Enterprise Policies
 brave_services_key = "no-key"
@@ -468,8 +476,8 @@ fi
 
 T_NINJA_START=$(date +%s)
 
-# Step 10: Build chrome_public_apk (or custom BUILD_TARGET)
-BUILD_TARGET="${BUILD_TARGET:-chrome_public_apk}"
+# Step 10: Build chrome_public_bundle (or custom BUILD_TARGET)
+BUILD_TARGET="${BUILD_TARGET:-chrome_public_bundle}"
 echo ""
 echo "Building target: ${BUILD_TARGET}"
 echo "This will take a long time (hours on first build)..."
@@ -496,6 +504,43 @@ for f in /tmp/siso.* /tmp/siso_*; do
     cp -f "$f" "${OUT_DIR}/" 2>/dev/null || true
   fi
 done
+
+# Compress build.log to build.log.gz for compact CI artifact storage
+if [[ -f "${WORKSPACE_DIR}/build.log" ]]; then
+  gzip -k -f "${WORKSPACE_DIR}/build.log" || true
+fi
+
+# Package build logs, Siso traces, and configs into .tar.xz artifact
+archive_build_artifacts() {
+  local archive_path="${WORKSPACE_DIR}/build-artifacts.tar.xz"
+  echo "Compressing build logs and diagnostic artifacts to ${archive_path}..."
+  local entries=()
+  if [[ -f "${WORKSPACE_DIR}/build.log" ]]; then
+    entries+=(-C "${WORKSPACE_DIR}" "build.log")
+  fi
+  if [[ -d "${OUT_DIR}" ]]; then
+    if [[ -f "${OUT_DIR}/args.gn" ]]; then
+      entries+=(-C "${OUT_DIR}" "args.gn")
+    fi
+    if [[ -f "${OUT_DIR}/.ninja_log" ]]; then
+      entries+=(-C "${OUT_DIR}" ".ninja_log")
+    fi
+    for s_file in "${OUT_DIR}"/siso*; do
+      if [[ -e "${s_file}" ]]; then
+        entries+=(-C "${OUT_DIR}" "$(basename "${s_file}")")
+      fi
+    done
+  fi
+
+  if [[ ${#entries[@]} -gt 0 ]]; then
+    XZ_OPT="-T0 -6" tar -cJf "${archive_path}" "${entries[@]}" 2>/dev/null || \
+      tar -czf "${WORKSPACE_DIR}/build-artifacts.tar.gz" "${entries[@]}" 2>/dev/null || true
+    if [[ -f "${archive_path}" ]]; then
+      echo " [OK] Packed build artifacts: ${archive_path} ($(du -h "${archive_path}" | cut -f1))"
+    fi
+  fi
+}
+archive_build_artifacts
 
 if [[ ${BUILD_RES} -ne 0 ]]; then
   echo "========================================================"
@@ -525,26 +570,81 @@ fi
 
 T_PKG_START=$(date +%s)
 
-# Step 11: Collect APK artifact
+# Step 11: Collect and Optimize Artifacts (AAB Bundle & Standalone Universal APK)
 BRAVING_VERSION=$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")
 OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
 OUTPUT_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
+OUTPUT_AAB_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.aab"
 
-# Find the built APK (prioritize ChromePublic.apk, freshly generated OUTPUT_NAME, or browser APKs)
-if [[ -f "${OUT_DIR}/apks/ChromePublic.apk" ]]; then
-  BUILT_APK="${OUT_DIR}/apks/ChromePublic.apk"
-elif [[ -f "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
-  BUILT_APK="${OUT_DIR}/apks/${OUTPUT_NAME}"
-else
-  BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
+BUILT_AAB=$(find "${OUT_DIR}/apks" -name "*.aab" -type f 2>/dev/null | sort | head -n 1 || true)
+BUILT_APK=""
+
+if [[ -n "${BUILT_AAB}" ]]; then
+  echo ""
+  echo "Found Android App Bundle: ${BUILT_AAB}"
+  cp -f "${BUILT_AAB}" "${OUTPUT_APK_DIR}/${OUTPUT_AAB_NAME}"
+  echo " [OK] Saved App Bundle artifact: ${OUTPUT_APK_DIR}/${OUTPUT_AAB_NAME}"
+
+  # Step 11a: Convert AAB to Universal Standalone APK via bundletool
+  BUNDLETOOL_JAR="${SRC_DIR}/third_party/android_build_tools/bundletool/cipd/bundletool.jar"
+  if [[ ! -f "${BUNDLETOOL_JAR}" ]]; then
+    BUNDLETOOL_JAR=$(find "${SRC_DIR}" -name "bundletool*.jar" -type f 2>/dev/null | head -n 1 || true)
+  fi
+
+  if [[ -f "${BUNDLETOOL_JAR}" ]]; then
+    echo "Converting AAB to Universal Standalone APK with compressed native libraries (bundletool)..."
+    APKS_ARCHIVE="${OUT_DIR}/apks/universal.apks"
+    rm -f "${APKS_ARCHIVE}"
+
+    java -jar "${BUNDLETOOL_JAR}" build-apks \
+      --bundle="${BUILT_AAB}" \
+      --output="${APKS_ARCHIVE}" \
+      --mode=universal
+
+    RAW_UNIVERSAL="${OUT_DIR}/apks/universal.apk"
+    rm -f "${RAW_UNIVERSAL}"
+    unzip -q -o "${APKS_ARCHIVE}" "universal.apk" -d "${OUT_DIR}/apks/"
+
+    # Step 11b: Optimize APK size (Ultra-Slim locale pruning)
+    SLIM_UNIVERSAL="${OUT_DIR}/apks/universal_slim.apk"
+    if [[ -f "${SCRIPT_DIR}/slim_apk.py" ]]; then
+      echo "Applying Ultra-Slim locale optimization..."
+      python3 "${SCRIPT_DIR}/slim_apk.py" "${RAW_UNIVERSAL}" "${SLIM_UNIVERSAL}"
+    else
+      cp -f "${RAW_UNIVERSAL}" "${SLIM_UNIVERSAL}"
+    fi
+
+    # Step 11c: 4-byte alignment via zipalign
+    ZIPALIGN_BIN=$(find "${SRC_DIR}/third_party/android_sdk" -name "zipalign" -type f -perm /111 2>/dev/null | head -n 1 || command -v zipalign || true)
+    FINAL_UNSIGNED="${OUT_DIR}/apks/${OUTPUT_NAME}.unsigned"
+    if [[ -n "${ZIPALIGN_BIN}" && -x "${ZIPALIGN_BIN}" ]]; then
+      echo "Aligning package with zipalign..."
+      "${ZIPALIGN_BIN}" -p -f 4 "${SLIM_UNIVERSAL}" "${FINAL_UNSIGNED}"
+    else
+      cp -f "${SLIM_UNIVERSAL}" "${FINAL_UNSIGNED}"
+    fi
+
+    BUILT_APK="${FINAL_UNSIGNED}"
+  else
+    echo "WARNING: bundletool.jar not found at ${BUNDLETOOL_JAR}. Falling back to pre-existing APKs."
+  fi
+fi
+
+# Fallback: search for direct APK outputs
+if [[ -z "${BUILT_APK}" ]]; then
+  if [[ -f "${OUT_DIR}/apks/ChromePublic.apk" ]]; then
+    BUILT_APK="${OUT_DIR}/apks/ChromePublic.apk"
+  elif [[ -f "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
+    BUILT_APK="${OUT_DIR}/apks/${OUTPUT_NAME}"
+  else
+    BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic*.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
+  fi
 fi
 if [[ -z "${BUILT_APK}" ]]; then
-  # Fallback: search anywhere in OUT_DIR
-  BUILT_APK=$(find "${OUT_DIR}" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
+  BUILT_APK=$(find "${OUT_DIR}" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic*.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
 fi
 if [[ -z "${BUILT_APK}" ]]; then
-  # Final fallback to any apk in apks directory
   BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f 2>/dev/null | sort | head -n 1 || true)
 fi
 
@@ -562,6 +662,9 @@ if [[ -n "${BUILT_APK}" ]]; then
     echo "Signing release APK via sign-apk.sh..."
     "${SCRIPT_DIR}/sign-apk.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
   fi
+
+  # Final refresh of diagnostics archive
+  archive_build_artifacts
 
   T_END=$(date +%s)
   echo ""
