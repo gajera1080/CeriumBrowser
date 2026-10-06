@@ -209,7 +209,11 @@ document.addEventListener('DOMContentLoaded', function () {
 """)
 
     with open(user_agent_utils, "w") as f:
-        f.write("""#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = kBraveBrandNameForCHUA;
+        f.write("""namespace {
+constexpr char kBraveBrandNameForCHUA[] = "Brave";
+}  // namespace
+
+#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = kBraveBrandNameForCHUA;
 
 #define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE \\
   base::StrCat({major_version, ".0.0.0"})
@@ -540,6 +544,8 @@ def test_apply_features():
         with open(user_agent_utils) as f:
             uau_content = f.read()
             assert 'brand = "Google Chrome";' in uau_content
+            assert "(void)kBraveBrandNameForCHUA;" in uau_content
+            assert "[[maybe_unused]] constexpr char kBraveBrandNameForCHUA" in uau_content
             assert "BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version" in uau_content
 
         with open(brave_content_browser_client) as f:

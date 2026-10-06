@@ -549,9 +549,17 @@ replace_in_file(
 # across all websites, removing Brave brand leakage and version freezing.
 replace_in_file(
     "chromium_src/components/embedder_support/user_agent_utils.cc",
-    re.compile(r"#define\s+BRAVE_GET_USER_AGENT_BRAND_LIST\s+brand\s*=\s*kBraveBrandNameForCHUA;"),
-    '#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = "Google Chrome";',
-    check_token='brand = "Google Chrome";'
+    re.compile(r"constexpr\s+char\s+kBraveBrandNameForCHUA\[\]\s*=\s*\"Brave\";"),
+    '[[maybe_unused]] constexpr char kBraveBrandNameForCHUA[] = "Brave";',
+    check_token='[[maybe_unused]] constexpr char kBraveBrandNameForCHUA'
+)
+replace_in_file(
+    "chromium_src/components/embedder_support/user_agent_utils.cc",
+    re.compile(
+        r"#define\s+BRAVE_GET_USER_AGENT_BRAND_LIST\s+brand\s*=\s*(?:kBraveBrandNameForCHUA|\"Google Chrome\");(?:\s*\(void\)kBraveBrandNameForCHUA;)?"
+    ),
+    '#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = "Google Chrome"; (void)kBraveBrandNameForCHUA;',
+    check_token='brand = "Google Chrome"; (void)kBraveBrandNameForCHUA;'
 )
 replace_in_file(
     "chromium_src/components/embedder_support/user_agent_utils.cc",
@@ -587,6 +595,7 @@ replace_in_file(
     ),
     """bool BraveUserAgentExceptions::CanShowBrave(const GURL& url) {
   // Braving: Never show Brave brand; always identify as standard Chrome
+  (void)url;
   return false;
 }""",
     check_token="// Braving: Never show Brave brand; always identify as standard Chrome"
@@ -599,6 +608,7 @@ replace_in_file(
     ),
     """bool ShouldHideBraveBrand(const GURL& url) {
   // Braving: Always hide Brave brand across all domains
+  (void)url;
   return true;
 }""",
     check_token="// Braving: Always hide Brave brand across all domains"
