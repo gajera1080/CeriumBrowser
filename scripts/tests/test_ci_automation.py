@@ -48,7 +48,7 @@ class TestReleaseCheckLogic(unittest.TestCase):
 class TestPublishReleasePayload(unittest.TestCase):
     """Tests the release payload generation from publish-release-direct.sh."""
 
-    def _generate_payload(self, version, arch, commit_sha, apk_url, sha256=None, apk_name=None, chromium_version=None):
+    def _generate_payload(self, version, arch, commit_sha, apk_url, sha256=None, apk_name=None, chromium_version=None, sha256_url=None):
         """Simulates the Python payload generator used by publish-release-direct.sh."""
         apk_name = apk_name or f"braving-android-{arch}-v{version}.apk"
         chromium_part = f" and Chromium v{chromium_version}" if chromium_version else ""
@@ -70,19 +70,26 @@ class TestPublishReleasePayload(unittest.TestCase):
             "- P3A Telemetry\n",
         ])
         description = "\n".join(description_lines)
+        links = [
+            {
+                "name": apk_name,
+                "url": apk_url,
+                "link_type": "package",
+            }
+        ]
+        if sha256_url:
+            links.append({
+                "name": "SHA256SUMS.txt",
+                "url": sha256_url,
+                "link_type": "package",
+            })
         payload = {
             "name": f"Release v{version}",
             "tag_name": f"v{version}",
             "ref": commit_sha,
             "description": description,
             "assets": {
-                "links": [
-                    {
-                        "name": apk_name,
-                        "url": apk_url,
-                        "link_type": "package",
-                    }
-                ]
+                "links": links
             }
         }
         return payload
@@ -111,6 +118,17 @@ class TestPublishReleasePayload(unittest.TestCase):
         payload = self._generate_payload("1.96.60", "arm64", "abc", "http://x")
         link = payload["assets"]["links"][0]
         self.assertEqual(link["link_type"], "package")
+
+    def test_asset_links_with_sha256(self):
+        """When sha256_url is provided, links must include SHA256SUMS.txt package."""
+        payload = self._generate_payload(
+            "1.96.60", "arm64", "abc", "http://x/apk",
+            sha256="deadbeef", sha256_url="http://x/sha256"
+        )
+        self.assertEqual(len(payload["assets"]["links"]), 2)
+        self.assertEqual(payload["assets"]["links"][1]["name"], "SHA256SUMS.txt")
+        self.assertEqual(payload["assets"]["links"][1]["url"], "http://x/sha256")
+        self.assertEqual(payload["assets"]["links"][1]["link_type"], "package")
 
     def test_no_hardcoded_versions(self):
         """Payload fields must use the dynamic version, not hardcoded values."""

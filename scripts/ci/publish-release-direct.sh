@@ -195,47 +195,48 @@ if [[ -n "${APK_SHA256}" ]]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 5. Step 1: Upload APK to GitLab Project Uploads API
+# 5. Step 1: Upload Release Assets to GitLab Generic Package Registry
 # ------------------------------------------------------------------------------
-UPLOADS_ENDPOINT="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/uploads"
+# We use the GitLab Generic Package Registry instead of /projects/:id/uploads
+# because the uploads endpoint returns HTTP 401 Unauthorized with CI_JOB_TOKEN,
+# whereas the Generic Package Registry natively authenticates via JOB-TOKEN: ${CI_JOB_TOKEN}
+# and provides permanent, direct package URLs suitable for release asset links.
+PACKAGE_NAME="braving-release"
+PACKAGE_VERSION="${DYNAMIC_BRAVE_VERSION}"
+PACKAGE_REGISTRY_BASE="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME}/${PACKAGE_VERSION}"
+FULL_APK_URL="${PACKAGE_REGISTRY_BASE}/${APK_BASENAME}"
+FULL_SHA256_URL="${PACKAGE_REGISTRY_BASE}/SHA256SUMS.txt"
 
 if [[ "${DRY_RUN}" == "true" ]]; then
   echo ""
-  echo "--- [DRY-RUN] Step 1: Upload APK ---"
+  echo "--- [DRY-RUN] Step 1: Upload Release Assets to Generic Package Registry ---"
   echo "Executing command (simulated):"
   echo "  curl --fail-with-body \\"
   echo "    --header \"JOB-TOKEN: [MASKED]\" \\"
-  echo "    --form \"file=@${APK_PATH}\" \\"
-  echo "    \"${UPLOADS_ENDPOINT}\""
-  UPLOAD_URL="/uploads/0123456789abcdef0123456789abcdef/${APK_BASENAME}"
-  FULL_APK_URL="${CI_PROJECT_URL%/}${UPLOAD_URL}"
-  echo "Simulated Upload URL: ${FULL_APK_URL}"
+  echo "    --upload-file \"${APK_PATH}\" \\"
+  echo "    \"${FULL_APK_URL}\""
+  echo "Simulated Package URL: ${FULL_APK_URL}"
+  if [[ -f "${SHA256_FILE}" ]]; then
+    echo "Simulated SHA256SUMS URL: ${FULL_SHA256_URL}"
+  fi
 else
   echo ""
-  echo "--- Step 1: Uploading APK to GitLab Uploads API ---"
-  UPLOAD_RESPONSE="$(curl --fail-with-body --silent --show-error \
+  echo "--- Step 1: Uploading Release Assets to GitLab Generic Package Registry ---"
+  echo "Uploading APK package: ${APK_BASENAME}..."
+  curl --fail-with-body --silent --show-error --location \
     --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-    --form "file=@${APK_PATH}" \
-    "${UPLOADS_ENDPOINT}")"
+    --upload-file "${APK_PATH}" \
+    "${FULL_APK_URL}"
+  echo "APK package upload complete: ${FULL_APK_URL}"
 
-  # Parse the json response using python3 -c to safely extract the upload URL
-  UPLOAD_URL="$(python3 -c '
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    print(data["url"])
-except Exception as e:
-    sys.stderr.write(f"Error parsing upload response JSON: {e}\n")
-    sys.exit(1)
-' <<< "${UPLOAD_RESPONSE}")"
-
-  # Construct the full direct download URL
-  if [[ "${UPLOAD_URL}" == /* ]]; then
-    FULL_APK_URL="${CI_PROJECT_URL%/}${UPLOAD_URL}"
-  else
-    FULL_APK_URL="${CI_PROJECT_URL%/}/${UPLOAD_URL}"
+  if [[ -f "${SHA256_FILE}" ]]; then
+    echo "Uploading SHA256SUMS.txt to Generic Package Registry..."
+    curl --fail-with-body --silent --show-error --location \
+      --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+      --upload-file "${SHA256_FILE}" \
+      "${FULL_SHA256_URL}"
+    echo "SHA256SUMS upload complete: ${FULL_SHA256_URL}"
   fi
-  echo "Upload complete: ${FULL_APK_URL}"
 fi
 
 # ------------------------------------------------------------------------------
@@ -243,6 +244,11 @@ fi
 # ------------------------------------------------------------------------------
 # Build the JSON payload using python3 -c to safely handle multiline formatting,
 # quote escaping, and special characters.
+SHA256_URL_ARG=""
+if [[ -f "${SHA256_FILE}" ]]; then
+  SHA256_URL_ARG="${FULL_SHA256_URL}"
+fi
+
 RELEASE_PAYLOAD="$(python3 -c '
 import json, sys
 
@@ -253,6 +259,7 @@ apk_url = sys.argv[4]
 sha256 = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else ""
 apk_name = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else f"Braving-{version}-{arch}.apk"
 chromium_version = sys.argv[7] if len(sys.argv) > 7 and sys.argv[7] else ""
+sha256_url = sys.argv[8] if len(sys.argv) > 8 and sys.argv[8] else ""
 
 chromium_part = f" and Chromium v{chromium_version}" if chromium_version else ""
 
@@ -277,24 +284,32 @@ description_lines.extend([
 
 description = "\n".join(description_lines)
 
+links = [
+    {
+        "name": apk_name,
+        "url": apk_url,
+        "link_type": "package",
+    }
+]
+if sha256_url:
+    links.append({
+        "name": "SHA256SUMS.txt",
+        "url": sha256_url,
+        "link_type": "package",
+    })
+
 payload = {
     "name": f"Release v{version}",
     "tag_name": f"v{version}",
     "ref": commit_sha,
     "description": description,
     "assets": {
-        "links": [
-            {
-                "name": apk_name,
-                "url": apk_url,
-                "link_type": "package",
-            }
-        ]
+        "links": links
     }
 }
 
 print(json.dumps(payload))
-' "${DYNAMIC_BRAVE_VERSION}" "${TARGET_ARCH}" "${CI_COMMIT_SHA}" "${FULL_APK_URL}" "${APK_SHA256}" "${APK_BASENAME}" "${DYNAMIC_CHROMIUM_VERSION}")"
+' "${DYNAMIC_BRAVE_VERSION}" "${TARGET_ARCH}" "${CI_COMMIT_SHA}" "${FULL_APK_URL}" "${APK_SHA256}" "${APK_BASENAME}" "${DYNAMIC_CHROMIUM_VERSION}" "${SHA256_URL_ARG}")"
 
 # ------------------------------------------------------------------------------
 # 7. Step 3: Create GitLab Release via Releases API
@@ -317,13 +332,32 @@ if [[ "${DRY_RUN}" == "true" ]]; then
 else
   echo ""
   echo "--- Step 2: Creating GitLab Release v${DYNAMIC_BRAVE_VERSION} ---"
-  RELEASE_RESPONSE="$(curl --fail-with-body --silent --show-error \
+  TMP_RESPONSE="$(mktemp /tmp/gitlab-release-response-XXXXXX.json)"
+  trap 'rm -f "${TMP_RESPONSE}"' EXIT
+
+  HTTP_CODE="$(curl --silent --show-error --output "${TMP_RESPONSE}" --write-out "%{http_code}" \
     --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
     --header "Content-Type: application/json" \
     --request POST \
     "${RELEASES_ENDPOINT}" \
     --data "${RELEASE_PAYLOAD}")"
-  echo "GitLab Release successfully created via API."
+
+  if [[ "${HTTP_CODE}" == "201" || "${HTTP_CODE}" == "200" ]]; then
+    echo "GitLab Release successfully created via API."
+  elif [[ "${HTTP_CODE}" == "409" ]]; then
+    echo "Release v${DYNAMIC_BRAVE_VERSION} already exists (HTTP 409). Updating release..."
+    curl --fail-with-body --silent --show-error \
+      --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+      --header "Content-Type: application/json" \
+      --request PUT \
+      "${RELEASES_ENDPOINT}/v${DYNAMIC_BRAVE_VERSION}" \
+      --data "${RELEASE_PAYLOAD}"
+    echo "GitLab Release successfully updated via API."
+  else
+    echo "ERROR: Failed to create release (HTTP ${HTTP_CODE}):" >&2
+    cat "${TMP_RESPONSE}" >&2
+    exit 1
+  fi
 fi
 
 # ------------------------------------------------------------------------------

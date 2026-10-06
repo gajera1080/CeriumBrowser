@@ -527,7 +527,84 @@ replace_in_file(
     check_token="// Braving: Overrides disabled for clean Lit WebUI compatibility"
 )
 
-# 11. Enable kBraveAdblockDefault1pBlocking by default so first-party ad blocking works cleanly in Standard Mode
+# Neutralize IDR_FLAGS_UI_APP_JS concatenation in BraveContentClient::GetDataResourceBytes
+# so native Lit 3.0 flags-app WebUI loads cleanly without Brave promo script injection.
+replace_in_file(
+    "common/brave_content_client.cc",
+    re.compile(
+        r"scoped_refptr<base::RefCountedMemory>\s+BraveContentClient::GetDataResourceBytes\(\s*"
+        r"int resource_id\)\s*\{\s*"
+        r"if\s*\(resource_id\s*==\s*IDR_FLAGS_UI_APP_JS\)\s*\{[\s\S]*?\}\s*"
+        r"return ChromeContentClient::GetDataResourceBytes\(resource_id\);\s*\}"
+    ),
+    """scoped_refptr<base::RefCountedMemory> BraveContentClient::GetDataResourceBytes(
+    int resource_id) {
+  // Braving: Direct delegate to pure Chromium Lit WebUI resources without Brave promo injection
+  return ChromeContentClient::GetDataResourceBytes(resource_id);
+}""",
+    check_token="// Braving: Direct delegate to pure Chromium Lit WebUI resources"
+)
+
+# 11. Ensure Client Hints and User-Agent always identify as standard modern Chrome
+# across all websites, removing Brave brand leakage and version freezing.
+replace_in_file(
+    "chromium_src/components/embedder_support/user_agent_utils.cc",
+    re.compile(r"#define\s+BRAVE_GET_USER_AGENT_BRAND_LIST\s+brand\s*=\s*kBraveBrandNameForCHUA;"),
+    '#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = "Google Chrome";',
+    check_token='brand = "Google Chrome";'
+)
+replace_in_file(
+    "chromium_src/components/embedder_support/user_agent_utils.cc",
+    re.compile(
+        r"#define\s+BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE\s*\\\s*\n\s*"
+        r"base::StrCat\(\s*\{\s*major_version\s*,\s*\"\.0\.0\.0\"\s*\}\s*\)"
+    ),
+    "#define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version",
+    check_token="#define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version"
+)
+
+# Preserve full version fidelity in UserAgentMetadata instead of zeroing out last 3 version components
+replace_in_file(
+    "browser/brave_content_browser_client.cc",
+    re.compile(
+        r"blink::UserAgentMetadata\s+BraveContentBrowserClient::GetUserAgentMetadata\(\)\s*\{[\s\S]*?"
+        r"metadata\.full_version\s*=\s*base::StrCat\([\s\S]*?\);\s*"
+        r"return\s+metadata;\s*\}"
+    ),
+    """blink::UserAgentMetadata BraveContentBrowserClient::GetUserAgentMetadata() {
+  // Braving: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity
+  return ChromeContentBrowserClient::GetUserAgentMetadata();
+}""",
+    check_token="// Braving: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity"
+)
+
+# Always hide Brave brand across all domains so Braving consistently identifies as Chrome
+replace_in_file(
+    "components/brave_user_agent/browser/brave_user_agent_exceptions.cc",
+    re.compile(
+        r"bool\s+BraveUserAgentExceptions::CanShowBrave\s*\(\s*const\s+GURL&\s*url\s*\)\s*\{[\s\S]*?"
+        r"return\s+!excepted_domains_\.contains\(domain\);\s*\}"
+    ),
+    """bool BraveUserAgentExceptions::CanShowBrave(const GURL& url) {
+  // Braving: Never show Brave brand; always identify as standard Chrome
+  return false;
+}""",
+    check_token="// Braving: Never show Brave brand; always identify as standard Chrome"
+)
+replace_in_file(
+    "components/brave_user_agent/browser/brave_user_agent_exceptions.cc",
+    re.compile(
+        r"bool\s+ShouldHideBraveBrand\s*\(\s*const\s+GURL&\s*url\s*\)\s*\{[\s\S]*?"
+        r"return\s+exceptions\s*&&\s*!exceptions->CanShowBrave\(url\);\s*\}"
+    ),
+    """bool ShouldHideBraveBrand(const GURL& url) {
+  // Braving: Always hide Brave brand across all domains
+  return true;
+}""",
+    check_token="// Braving: Always hide Brave brand across all domains"
+)
+
+# 12. Enable kBraveAdblockDefault1pBlocking by default so first-party ad blocking works cleanly in Standard Mode
 replace_in_file(
     "components/brave_shields/core/common/features.cc",
     re.compile(
@@ -537,7 +614,7 @@ replace_in_file(
     check_token="BASE_FEATURE(kBraveAdblockDefault1pBlocking, base::FEATURE_ENABLED_BY_DEFAULT);"
 )
 
-# 12. Clean APK and Settings version display (remove Chromium major version milestone from APK name)
+# 13. Clean APK and Settings version display (remove Chromium major version milestone from APK name)
 explicit_src_dir = any(arg.startswith("--src-dir=") for arg in sys.argv[2:])
 if explicit_src_dir or (src_dir and os.path.exists(os.path.join(src_dir, "chrome", "version.gni"))):
     replace_in_src(

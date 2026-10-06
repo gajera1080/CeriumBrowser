@@ -31,9 +31,13 @@ def setup_mock_brave(brave_dir):
     quick_search_adapter = os.path.join(brave_dir, "browser/quick_search_engines/android/java/src/org/chromium/brave/browser/quick_search_engines/settings/QuickSearchEnginesAdapter.java")
     qse_build_gn = os.path.join(brave_dir, "browser/quick_search_engines/android/BUILD.gn")
     brave_flags_overrides = os.path.join(brave_dir, "components/flags_ui/resources/brave_flags_overrides.js")
+    brave_content_client = os.path.join(brave_dir, "common/brave_content_client.cc")
+    user_agent_utils = os.path.join(brave_dir, "chromium_src/components/embedder_support/user_agent_utils.cc")
+    brave_content_browser_client = os.path.join(brave_dir, "browser/brave_content_browser_client.cc")
+    brave_user_agent_exceptions = os.path.join(brave_dir, "components/brave_user_agent/browser/brave_user_agent_exceptions.cc")
     brave_shields_features = os.path.join(brave_dir, "components/brave_shields/core/common/features.cc")
 
-    for p in [webpack_rules, rust_wasm, webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_shields_features]:
+    for p in [webpack_rules, rust_wasm, webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_content_client, user_agent_utils, brave_content_browser_client, brave_user_agent_exceptions, brave_shields_features]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
     with open(webpack_rules, "w") as f:
@@ -186,6 +190,68 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 ''')
 
+    with open(brave_content_client, "w") as f:
+        f.write("""scoped_refptr<base::RefCountedMemory> BraveContentClient::GetDataResourceBytes(
+    int resource_id) {
+  if (resource_id == IDR_FLAGS_UI_APP_JS) {
+    const ui::ResourceBundle& resource_bundle =
+        ui::ResourceBundle::GetSharedInstance();
+    const std::string flags_js =
+        resource_bundle.LoadDataResourceString(resource_id) +
+        resource_bundle.LoadDataResourceString(
+            IDR_FLAGS_UI_BRAVE_FLAGS_OVERRIDES_JS);
+    auto bytes = base::MakeRefCounted<base::RefCountedString>();
+    bytes->as_string().assign(flags_js.data(), flags_js.length());
+    return bytes;
+  }
+  return ChromeContentClient::GetDataResourceBytes(resource_id);
+}
+""")
+
+    with open(user_agent_utils, "w") as f:
+        f.write("""#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = kBraveBrandNameForCHUA;
+
+#define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE \\
+  base::StrCat({major_version, ".0.0.0"})
+""")
+
+    with open(brave_content_browser_client, "w") as f:
+        f.write("""blink::UserAgentMetadata BraveContentBrowserClient::GetUserAgentMetadata() {
+  blink::UserAgentMetadata metadata =
+      ChromeContentBrowserClient::GetUserAgentMetadata();
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(embedder_support::kUserAgent)) {
+    return metadata;
+  }
+  DCHECK_EQ(3UL, metadata.brand_version_list.size());
+  for (auto& brand_version : metadata.brand_full_version_list) {
+    base::Version version(brand_version.version);
+    brand_version.version =
+        base::StrCat({base::NumberToString(version.components()[0]), ".0.0.0"});
+  }
+  base::Version version(metadata.full_version);
+  metadata.full_version =
+      base::StrCat({base::NumberToString(version.components()[0]), ".0.0.0"});
+  return metadata;
+}
+""")
+
+    with open(brave_user_agent_exceptions, "w") as f:
+        f.write("""bool BraveUserAgentExceptions::CanShowBrave(const GURL& url) {
+  if (!is_ready_) {
+    return true;
+  }
+  std::string domain = net::registry_controlled_domains::GetDomainAndRegistry(
+      url, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+  return !excepted_domains_.contains(domain);
+}
+
+bool ShouldHideBraveBrand(const GURL& url) {
+  auto* exceptions = BraveUserAgentExceptions::GetInstance();
+  return exceptions && !exceptions->CanShowBrave(url);
+}
+""")
+
     with open(brave_shields_features, "w") as f:
         f.write("""// Copyright (c) 2020 The Brave Authors. All rights reserved.
 namespace brave_shields::features {
@@ -206,6 +272,10 @@ BASE_FEATURE(kBraveAdblockDefault1pBlocking, base::FEATURE_DISABLED_BY_DEFAULT);
         "quick_search_adapter": quick_search_adapter,
         "qse_build_gn": qse_build_gn,
         "brave_flags_overrides": brave_flags_overrides,
+        "brave_content_client": brave_content_client,
+        "user_agent_utils": user_agent_utils,
+        "brave_content_browser_client": brave_content_browser_client,
+        "brave_user_agent_exceptions": brave_user_agent_exceptions,
         "brave_shields_features": brave_shields_features,
     }
 
@@ -451,11 +521,36 @@ def test_apply_features():
             assert '"java/res/drawable/brave_icon_search.xml"' not in qse_content
             assert 'android_resources("java_resources")' in qse_content
 
+        brave_content_client = mock_files["brave_content_client"]
+        user_agent_utils = mock_files["user_agent_utils"]
+        brave_content_browser_client = mock_files["brave_content_browser_client"]
+        brave_user_agent_exceptions = mock_files["brave_user_agent_exceptions"]
+
         with open(brave_flags_overrides) as f:
             bfo_content = f.read()
             assert "document.addEventListener('DOMContentLoaded'" not in bfo_content
             assert "Interested in cool new Brave features" not in bfo_content
             assert "// Braving: Overrides disabled for clean Lit WebUI compatibility" in bfo_content
+
+        with open(brave_content_client) as f:
+            bcc_content = f.read()
+            assert "return ChromeContentClient::GetDataResourceBytes(resource_id);" in bcc_content
+            assert "IDR_FLAGS_UI_APP_JS" not in bcc_content
+
+        with open(user_agent_utils) as f:
+            uau_content = f.read()
+            assert 'brand = "Google Chrome";' in uau_content
+            assert "BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version" in uau_content
+
+        with open(brave_content_browser_client) as f:
+            bcbc_content = f.read()
+            assert "return ChromeContentBrowserClient::GetUserAgentMetadata();" in bcbc_content
+            assert "base::NumberToString(version.components()[0])" not in bcbc_content
+
+        with open(brave_user_agent_exceptions) as f:
+            buae_content = f.read()
+            assert "return false;" in buae_content
+            assert "return true;" in buae_content
 
         with open(brave_shields_features) as f:
             bsf_content = f.read()
@@ -467,6 +562,8 @@ def test_apply_features():
         assert "Skipped" in res_idem.stdout
         assert "Skipped components/brave_shields/core/common/features.cc (already patched)" in res_idem.stdout
         assert "Skipped android/nala/BUILD.gn (already patched)" in res_idem.stdout
+        assert "Skipped common/brave_content_client.cc (already patched)" in res_idem.stdout
+        assert "Skipped chromium_src/components/embedder_support/user_agent_utils.cc (already patched)" in res_idem.stdout
 
         # Test Chromium src clean version display mutators
         src_tmpdir = os.path.join(tmpdir, "mock_src")
