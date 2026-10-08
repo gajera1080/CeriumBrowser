@@ -147,6 +147,33 @@ if [[ ! -d "${BRAVE_DIR}" ]]; then
   exit 1
 fi
 
+
+if [[ ! -d "${SRC_DIR}/.git" ]]; then
+  echo ""
+  echo "Fetching clean Chromium at exact revision with NO history (${CHROMIUM_VERSION} @ ${CHROMIUM_COMMIT})..."
+  mkdir -p "${SRC_DIR}"
+  git init "${SRC_DIR}"
+  git -C "${SRC_DIR}" config advice.detachedHead false
+  git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git" 2>/dev/null || git -C "${SRC_DIR}" remote set-url origin "https://chromium.googlesource.com/chromium/src.git"
+  git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
+  git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
+  git -C "${SRC_DIR}" reset --hard FETCH_HEAD
+  git -C "${SRC_DIR}" clean -ffd
+else
+  echo "Chromium source directory already exists, verifying commit..."
+  CURRENT_COMMIT=$(git -C "${SRC_DIR}" rev-parse HEAD 2>/dev/null || echo "")
+  if [[ "${CURRENT_COMMIT}" != "${CHROMIUM_COMMIT}" ]]; then
+    echo "Existing source is at ${CURRENT_COMMIT}, fetching exact revision ${CHROMIUM_COMMIT}..."
+    git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
+    git -C "${SRC_DIR}" reset --hard FETCH_HEAD
+    git -C "${SRC_DIR}" clean -ffd
+  else
+    echo "Existing source is at ${CURRENT_COMMIT}, resetting to clean state..."
+    git -C "${SRC_DIR}" reset --hard HEAD
+    git -C "${SRC_DIR}" clean -ffd
+  fi
+fi
+
 DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
 if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
   echo ""

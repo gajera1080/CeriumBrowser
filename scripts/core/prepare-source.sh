@@ -16,7 +16,8 @@ echo " Braving Source Preparation (RELEASE MODE)"
 echo " Rule          : Exact brave-core -> Exact Chromium"
 echo "========================================================"
 
-# Step 0: Resolve upstream release versions & generate metadata
+# Step 0: Clean stale metadata and resolve upstream release versions
+rm -f "${REPO_ROOT}/metadata/releases"/*.yaml "${REPO_ROOT}/metadata"/upstream-*.yaml "${REPO_ROOT}/build.env"
 python3 "${REPO_ROOT}/scripts/core/resolve-versions.py" "${BRAVE_VERSION}" --repo-root="${REPO_ROOT}"
 
 # Load resolved dynamic environment
