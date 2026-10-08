@@ -297,7 +297,7 @@ class TestCIScriptSyntax(unittest.TestCase):
                 inputs['compile_target'].get('options'),
                 ['all', 'android', 'windows', 'windows_x64', 'windows_arm64']
             )
-            self.assertNotIn('default', inputs['compile_target'])
+            self.assertEqual(inputs['compile_target'].get('default'), 'all')
             self.assertIn('COMPILE_TARGET', variables)
         else:
             # Release branch builds all targets automatically without arch input prompt

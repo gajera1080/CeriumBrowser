@@ -6,6 +6,7 @@ spec:
       description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
     compile_target:
       type: string
+      default: "all"
       options:
         - "all"
         - "android"
