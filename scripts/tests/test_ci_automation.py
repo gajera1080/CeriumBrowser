@@ -181,6 +181,22 @@ class TestCIScriptSyntax(unittest.TestCase):
     def test_publish_release_syntax(self):
         self._check_bash_syntax('scripts/ci/publish-release-direct.sh')
 
+    def test_publish_release_dry_run(self):
+        """publish-release-direct.sh --dry-run must exit 0 and simulate multi-arch release."""
+        env = os.environ.copy()
+        env.update({
+            "DYNAMIC_BRAVE_VERSION": "1.96.61",
+            "TARGET_ARCH": "all",
+            "CI_COMMIT_BRANCH": "release",
+        })
+        res = subprocess.run(
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+            capture_output=True, text=True, env=env
+        )
+        self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
+        self.assertIn("Braving Direct Release Publisher", res.stdout)
+        self.assertIn("Release v1.96.61", res.stdout)
+
     def test_apply_patches_syntax(self):
         self._check_bash_syntax('scripts/android/apply-patches.sh')
 

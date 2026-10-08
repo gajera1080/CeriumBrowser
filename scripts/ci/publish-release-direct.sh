@@ -59,6 +59,8 @@ else
   RELEASE_TAG="v${DYNAMIC_BRAVE_VERSION}-${TARGET_PLATFORM}"
 fi
 
+DYNAMIC_CHROMIUM_VERSION="${DYNAMIC_CHROMIUM_VERSION:-${CHROMIUM_VERSION:-}}"
+
 if [[ -z "${DYNAMIC_CHROMIUM_VERSION}" && -f "${REPO_ROOT}/metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" ]]; then
   DYNAMIC_CHROMIUM_VERSION="$(grep -E '^chromium_version:' "${REPO_ROOT}/metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'" || true)"
 fi
@@ -115,10 +117,10 @@ for d in "${REPO_ROOT}/out/apks" "out/apks" "${REPO_ROOT}/build-workspace/src/ou
   fi
 done
 
-# Search Windows packages
+# Search Windows packages (both zip archives and installer executables across all architectures)
 for d in "${REPO_ROOT}/out/packages" "out/packages"; do
   if [[ -d "$d" ]]; then
-    for f in "$d"/Braving-Windows-"${TARGET_ARCH}"-*.zip; do
+    for f in "$d"/Braving-Windows-*.zip "$d"/Braving-Installer-*.exe; do
       [[ -f "$f" ]] && PACKAGES_FOUND+=("$f")
     done
   fi
