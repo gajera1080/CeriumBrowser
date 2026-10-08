@@ -147,17 +147,34 @@ if [[ ! -d "${BRAVE_DIR}" ]]; then
   exit 1
 fi
 
+
+CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
+if [[ ! -d "${SRC_DIR}/.git" ]]; then
+  if [[ ! -f "${CHROMIUM_ARCHIVE}" ]]; then
+    echo "ERROR: Base Chromium archive not found at ${CHROMIUM_ARCHIVE}." >&2
+    echo "Please ensure scripts/core/prepare-source.sh has been run and cached." >&2
+    exit 1
+  fi
+  echo ""
+  echo "Unpacking base Chromium source from ${CHROMIUM_ARCHIVE}..."
+  tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
+else
+  echo "Chromium source directory already exists, resetting to clean state..."
+  git -C "${SRC_DIR}" reset --hard HEAD
+  git -C "${SRC_DIR}" clean -ffd
+fi
+
 DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
 if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
   echo ""
   echo "Fetching depot_tools..."
   git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
+  echo "Bootstrapping depot_tools..."
+  "${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
+else
+  echo "Using pre-bootstrapped depot_tools from cache: ${DEPOT_TOOLS_DIR}"
 fi
 export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
-
-# Bootstrap depot_tools (creates python3_bin_reldir.txt, downloads cipd & gn)
-echo "Bootstrapping depot_tools..."
-"${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
 export DEPOT_TOOLS_UPDATE=0
 
 # Step 2a: Git compatibility shim for depot_tools when running on Git < 2.43.1

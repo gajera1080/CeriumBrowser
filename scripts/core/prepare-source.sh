@@ -16,7 +16,8 @@ echo " Braving Source Preparation (RELEASE MODE)"
 echo " Rule          : Exact brave-core -> Exact Chromium"
 echo "========================================================"
 
-# Step 0: Resolve upstream release versions & generate metadata
+# Step 0: Clean stale metadata and resolve upstream release versions
+rm -f "${REPO_ROOT}/metadata/releases"/*.yaml "${REPO_ROOT}/metadata"/upstream-*.yaml "${REPO_ROOT}/build.env"
 python3 "${REPO_ROOT}/scripts/core/resolve-versions.py" "${BRAVE_VERSION}" --repo-root="${REPO_ROOT}"
 
 # Load resolved dynamic environment
@@ -98,4 +99,61 @@ if command -v pnpm >/dev/null 2>&1 && [[ -f "${BRAVE_DIR}/package.json" ]]; then
   (cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
 fi
 
+# Step 7: Bootstrap depot_tools in workspace for caching
+DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
+if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
+  echo ""
+  echo "Bootstrapping depot_tools in ${DEPOT_TOOLS_DIR}..."
+  git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
+  "${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
+fi
+export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
+export DEPOT_TOOLS_UPDATE=0
+
+# Step 8: Prepare versioned base Chromium archive
+CHROMIUM_VERSION="${DYNAMIC_CHROMIUM_VERSION}"
+CHROMIUM_COMMIT="${DYNAMIC_CHROMIUM_COMMIT}"
+CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
+
+# Purge older archives from different versions to preserve cache space
+find "${WORKSPACE_DIR}" -maxdepth 1 -name "chromium-src-*.tar.xz" ! -name "chromium-src-${CHROMIUM_VERSION}.tar.xz" -delete 2>/dev/null || true
+
+if [[ -f "${CHROMIUM_ARCHIVE}" ]]; then
+  echo ""
+  echo "Found existing base Chromium archive: ${CHROMIUM_ARCHIVE}"
+  echo "Skipping Chromium download and compression (cache hit)."
+else
+  echo ""
+  echo "Fetching clean base Chromium (${CHROMIUM_VERSION} @ ${CHROMIUM_COMMIT})..."
+  if [[ ! -d "${SRC_DIR}/.git" ]]; then
+    mkdir -p "${SRC_DIR}"
+    git init "${SRC_DIR}"
+    git -C "${SRC_DIR}" config advice.detachedHead false
+    git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git" 2>/dev/null || git -C "${SRC_DIR}" remote set-url origin "https://chromium.googlesource.com/chromium/src.git"
+    git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
+    git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
+    git -C "${SRC_DIR}" reset --hard FETCH_HEAD
+    git -C "${SRC_DIR}" clean -ffd
+  else
+    git -C "${SRC_DIR}" reset --hard HEAD
+    git -C "${SRC_DIR}" clean -ffd
+  fi
+
+  echo "Pre-syncing Linux host compiler toolchains..."
+  python3 "${SRC_DIR}/tools/clang/scripts/update.py"
+  python3 "${SRC_DIR}/tools/rust/update_rust.py"
+
+  # Pre-install GN binary into buildtools/linux64
+  mkdir -p "${SRC_DIR}/buildtools/linux64"
+  if command -v cipd >/dev/null 2>&1 && [[ ! -x "${SRC_DIR}/buildtools/linux64/gn" ]]; then
+    cipd install "gn/gn/linux-amd64" "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de" -root "${SRC_DIR}/buildtools/linux64" || true
+    chmod +x "${SRC_DIR}/buildtools/linux64/gn" 2>/dev/null || true
+  fi
+
+  echo "Compressing base Chromium and toolchains into ${CHROMIUM_ARCHIVE}..."
+  tar --exclude='src/brave' -cf - -C "${WORKSPACE_DIR}" src | xz -T0 -3 > "${CHROMIUM_ARCHIVE}"
+  echo "Chromium archive complete: $(du -h "${CHROMIUM_ARCHIVE}" | cut -f1)"
+fi
+
+echo ""
 echo "Phase 1: Source Preparation Complete."

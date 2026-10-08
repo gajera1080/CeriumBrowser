@@ -35,36 +35,17 @@ prepare_source:
   stage: prepare
   image: debian:bookworm-slim
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates xz-utils
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
-    - touch build.env
     - export BRAVE_VERSION="${BRAVE_VERSION:-$[[ inputs.brave_version ]]}"
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/core/verify-all.sh
-    - |
-      export DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep '\.yaml$' | sed 's/\.yaml$//' | head -n 1)
-      if ! DYNAMIC_CHROMIUM_VERSION="$(python3 -c "import sys, yaml; print(yaml.safe_load(open(f'metadata/releases/{sys.argv[1]}.yaml'))['chromium_version'])" "${DYNAMIC_BRAVE_VERSION}")"; then
-        echo "ERROR: Failed to read DYNAMIC_CHROMIUM_VERSION from the release manifest." >&2
-        exit 1
-      fi
-      if [ -z "${DYNAMIC_CHROMIUM_VERSION}" ]; then
-        echo "ERROR: DYNAMIC_CHROMIUM_VERSION is empty." >&2
-        exit 1
-      fi
-      export DYNAMIC_CHROMIUM_VERSION
-      echo "DYNAMIC_BRAVE_VERSION=${DYNAMIC_BRAVE_VERSION}" > build.env
-      echo "DYNAMIC_CHROMIUM_VERSION=${DYNAMIC_CHROMIUM_VERSION}" >> build.env
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-    policy: push
-    when: on_success
+    - ./scripts/core/upload-source-cache.sh
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:

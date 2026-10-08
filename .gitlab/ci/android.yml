@@ -28,11 +28,6 @@ prepare_android_cache:
     CACHE_PREP_ONLY: "true"
     BUILD_TARGET: "v8 third_party/blink/public:blink"
     TARGET_ARCH: "arm64"
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
     - export TARGET_ARCH="arm64"
@@ -47,6 +42,8 @@ prepare_android_cache:
           exit 0
         fi
       fi
+    - echo "Restoring source cache for ${DYNAMIC_BRAVE_VERSION}..."
+    - ./scripts/core/download-source-cache.sh
     - echo "Building isolated Android heavy targets (v8 & blink) for ${TARGET_ARCH} to generate warm cache..."
     - ./scripts/platforms/android/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - ./scripts/core/upload-cache.sh
@@ -79,15 +76,12 @@ build_android:
     ANDROID_KEYSTORE_FILE: "braving_android.jks"
     ANDROID_KEY_ALIAS: "braving"
     TARGET_ARCH: "arm64"
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
   script:
     - export TARGET_ARCH="arm64"
     - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
     - ./scripts/platforms/android/package.sh --preflight
+    - echo "Restoring source cache for ${DYNAMIC_BRAVE_VERSION}..."
+    - ./scripts/core/download-source-cache.sh
     - echo "Restoring warm cache for ${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}..."
     - ./scripts/core/download-cache.sh || true
     - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
