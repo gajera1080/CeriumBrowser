@@ -25,7 +25,7 @@ While Android (ARM64, ARM, x86_64) is currently the active reference target in G
   - Release manifests (`metadata/releases/*.yaml`) declare `target_os` and `target_cpu` dynamically.
   - GN build arguments (`args.gn`) debloat features across all platforms (`enable_ai_chat`, `enable_brave_wallet`, `enable_brave_vpn`, `enable_brave_rewards`, `enable_brave_news`, `enable_sparkle`, etc.).
   - Programmatic Python mutators target shared cross-platform C++ subsystems (`components/brave_origin`, `components/brave_shields`, `components/resources`).
-  - Desktop-specific scripts and build entry points reside in `scripts/desktop/` alongside `scripts/android/`.
+  - Modular platform build entry points reside in `scripts/platforms/{android,windows}/` alongside core scripts in `scripts/core/`.
 
 ---
 
@@ -33,7 +33,7 @@ While Android (ARM64, ARM, x86_64) is currently the active reference target in G
 
 ```mermaid
 flowchart TD
-    A[Upstream Brave Releases API] -->|Auto-resolve latest stable| B[scripts/android/prepare-source.sh]
+    A[Upstream Brave Releases API] -->|Auto-resolve latest stable| B[scripts/core/prepare-source.sh]
     B -->|Fast commit lookup via Gitiles & GitHub| C[Generate metadata/releases/VERSION.yaml]
     C -->|Shallow fetch --depth 1| D[build-workspace/src/brave]
     D -->|Execute Programmatic Mutators| E[Apply C++ / Python Mutators]
@@ -103,7 +103,7 @@ def replace_in_file(filepath, search, replacement):
 Do not reinvent browser engines. When implementing custom behavior, hook into the existing system's fallback/failure paths rather than constructing a parallel engine.
 
 ### Component Updates & Shields Protection
-Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/android/0002-custom-updater-endpoint.patch`:
+Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`:
 1. Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
 2. Batches component checks into a single request and appends `disable-pings`.
 3. Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
@@ -115,15 +115,15 @@ Braving routes component updates through our secure GitLab Pages static endpoint
 ### 1. De-Branding Suite
 - Master vector logo lives at `branding/logo.svg`.
 - 156 static raster PNG logos across all standard Android densities (`mipmap-mdpi` through `mipmap-xxxhdpi`) and 10 static SVGs reside in `branding/brave-core-static/`.
-- `scripts/android/apply-assets.sh` deploys all static assets into `brave-core` resource overlays with zero build-time dynamic rendering (no PIL or rsvg-convert).
+- `scripts/core/apply-assets.sh` deploys all static assets into `brave-core` resource overlays with zero build-time dynamic rendering (no PIL or rsvg-convert).
 - Dedicated vector icons for Braving Shields reside in `branding/android/shields_drawables/`.
-- `scripts/android/apply-branding.py` rebrands GRD/GRDP strings and remaps Grit 63-bit XTB translation fingerprints safely across all locales.
+- `scripts/core/apply-branding.py` rebrands GRD/GRDP strings and remaps Grit 63-bit XTB translation fingerprints safely across all locales.
 
 ### 2. Radical Debloating (Enterprise Policy Approach)
 Stripped subsystems: Brave Wallet, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards, BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle updater.
 - **Enforced via Native Enterprise Policies**:
-  To avoid constant upstream build breakages caused by GN dependency mismatches on Android, Braving compiles modules cleanly but locks them down unconditionally at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` via `patches/android/debloat/0004-enforce-enterprise-policies.patch`.
-- `apply-features.py` isolates Polymer and WebUI resources so Android builds do not transpile unused desktop-only frontend bundles.
+  To avoid constant upstream build breakages caused by GN dependency mismatches on Android, Braving compiles modules cleanly but locks them down unconditionally at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` via `patches/common/debloat/0004-enforce-enterprise-policies.patch`.
+- `scripts/core/apply-features.py` isolates Polymer and WebUI resources so Android builds do not transpile unused desktop-only frontend bundles.
 
 ---
 
@@ -183,9 +183,9 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 
 ### 3. Chromium Source & Build Runners Responsibilities
 - Chromium `src` is ephemeral, target-dependent, and heavy (25–30 GB). It is synced on compilation runners via `gclient sync` using target-specific `.gclient` configurations (`target_os = ["android"]` vs `target_os = ["win"]`).
-- Downstream build runners (`build-android.sh`, `build-windows.sh`) ONLY perform Chromium-specific operations after `gclient sync`:
+- Downstream build runners (`scripts/platforms/android/build.sh`, `scripts/platforms/windows/build.sh`) ONLY perform Chromium-specific operations after `gclient sync`:
   1. `(cd "${BRAVE_DIR}" && pnpm run apply_patches)`: Applies upstream Brave patches onto Chromium `src`.
-  2. `python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=...`: Applies Chromium-side mutators (e.g. User-Agent milestone resolution in `components/version_info/` and version display).
+  2. `python3 "${REPO_ROOT}/scripts/core/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=...`: Applies Chromium-side mutators (e.g. User-Agent milestone resolution in `components/version_info/` and version display).
 - **CRITICAL GUARD**: In `scripts/mutators/context.py`, `has_chromium_src()` verifies that Chromium `src` is populated before allowing any `in_src=True` file mutations. Never run Chromium mutations before `gclient sync`.
 
 ---
@@ -231,9 +231,9 @@ sequenceDiagram
 GitLab CI runner enforces a strict 4 MB (4,194,304 bytes) truncation limit on job console logs. Compiling Chromium produces >20 MB of stdout. Raw streaming causes GitLab to truncate output around step 3,000, hiding subsequent build steps, compiler errors, and failure summaries.
 
 ### The Solution: `filter-build-log.py`
-In `scripts/android/build-android.sh`, the build stream is piped through `filter-build-log.py`:
+In platform build scripts (`scripts/platforms/android/build.sh` and `scripts/platforms/windows/build.sh`), the build stream is piped through `filter-build-log.py`:
 ```bash
-autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${SCRIPT_DIR}/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
+autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/core/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
 BUILD_RES=${PIPESTATUS[0]}
 ```
 - **100% Raw Logging**: All lines are written unbuffered to `${WORKSPACE_DIR}/build.log` and uploaded as a CI artifact.
@@ -252,17 +252,17 @@ Agents must ALWAYS perform the two-step verification workflow:
 
 1. **Step 1: Fast Local Master Verification Suite (`verify-all.sh`)**
    ```bash
-   ./scripts/android/verify-all.sh
+   ./scripts/core/verify-all.sh
    ```
    Runs 6 master verification steps: manifest validation, mutator syntax & unit tests, CI automation script checks, patch retirement across trees, branding asset limits, and orchestration dry-run.
 
 2. **Step 2: ALWAYS Validate Using `prepare-source.sh`**
    ```bash
    # Dynamically auto-resolves latest upstream stable release (default):
-   ./scripts/android/prepare-source.sh
+   ./scripts/core/prepare-source.sh
 
    # Or validate against an explicit target release version:
-   ./scripts/android/prepare-source.sh "<version>"
+   ./scripts/core/prepare-source.sh "<version>"
    ```
    Why this is mandatory:
    `verify-all.sh` verifies syntax, unit tests, and dry-run execution, but `prepare-source.sh` executes the complete end-to-end source pipeline against real upstream trees:
@@ -277,17 +277,19 @@ Agents must ALWAYS perform the two-step verification workflow:
 ### 2. Testing Build Orchestration (Dry-Run / GN-Only)
 ```bash
 # Validate argument parsing and manifest loading:
-./scripts/android/build-android.sh --manifest="metadata/releases/<version>.yaml" --arch=arm64 --release --dry-run
+./scripts/platforms/android/build.sh --manifest="metadata/releases/<version>.yaml" --arch=arm64 --release --dry-run
+./scripts/platforms/windows/build.sh --manifest="metadata/releases/<version>.yaml" --arch=x64 --release --dry-run
 
 # Run up to gn gen (verifies args.gn syntax without starting compilation):
-./scripts/android/build-android.sh --manifest="metadata/releases/<version>.yaml" --arch=arm64 --release --gn-only
+./scripts/platforms/android/build.sh --manifest="metadata/releases/<version>.yaml" --arch=arm64 --release --gn-only
+./scripts/platforms/windows/build.sh --manifest="metadata/releases/<version>.yaml" --arch=x64 --release --gn-only
 ```
 
 ### 3. Adding a New Debloating Flag
 1. Check flag declaration in `brave-core` (search `declare_args()` in `buildflags.gni`).
 2. Add flag to `build_arguments` in `prepare-source.sh` release manifest generation.
-3. Add flag to `args.gn` template in `scripts/android/build-android.sh`.
-4. Run `./scripts/android/verify-all.sh` to confirm manifest validation passes.
+3. Add flag to `args.gn` template in platform build scripts.
+4. Run `./scripts/core/verify-all.sh` to confirm manifest validation passes.
 
 ---
 

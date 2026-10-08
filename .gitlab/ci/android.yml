@@ -48,8 +48,8 @@ prepare_android_cache:
         fi
       fi
     - echo "Building isolated Android heavy targets (v8 & blink) for ${TARGET_ARCH} to generate warm cache..."
-    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
-    - ./scripts/upload-cache.sh
+    - ./scripts/platforms/android/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - ./scripts/core/upload-cache.sh
   artifacts:
     name: "braving-cache-logs-${DYNAMIC_BRAVE_VERSION}"
     when: always
@@ -87,13 +87,13 @@ build_android:
   script:
     - export TARGET_ARCH="arm64"
     - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
-    - ./scripts/android/sign-apk.sh --preflight
+    - ./scripts/platforms/android/package.sh --preflight
     - echo "Restoring warm cache for ${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}..."
-    - ./scripts/download-cache.sh || true
+    - ./scripts/core/download-cache.sh || true
     - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
-    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - ./scripts/platforms/android/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - echo "Signing and verifying Android release APK..."
-    - ./scripts/android/sign-apk.sh
+    - ./scripts/platforms/android/package.sh
   artifacts:
     name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always

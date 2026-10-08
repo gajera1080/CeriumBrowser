@@ -7,7 +7,8 @@ import os
 import sys
 from scripts.mutators.context import MutatorContext
 from scripts.mutators.common import ALL_COMMON_MUTATORS
-from scripts.mutators.android import ALL_ANDROID_MUTATORS
+from scripts.mutators.platforms.android import ALL_ANDROID_MUTATORS
+from scripts.mutators.platforms.windows import ALL_WINDOWS_MUTATORS
 
 
 def run_mutators(args: list) -> int:
@@ -19,7 +20,7 @@ def run_mutators(args: list) -> int:
     strict = "--strict" in args or bool(os.environ.get("CI"))
 
     src_dir = None
-    target_os = "android"
+    target_os = "all"
     explicit_src_dir = False
 
     for arg in args[1:]:
@@ -55,8 +56,12 @@ def run_mutators(args: list) -> int:
         mutator.apply(ctx)
 
     # 2. Run target-specific mutators
-    if target_os == "android":
+    if target_os in ("all", "android"):
         for mutator in ALL_ANDROID_MUTATORS:
+            mutator.apply(ctx)
+
+    if target_os in ("all", "win", "windows"):
+        for mutator in ALL_WINDOWS_MUTATORS:
             mutator.apply(ctx)
 
     print("Successfully applied GN build fixes!")

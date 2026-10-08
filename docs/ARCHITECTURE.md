@@ -79,39 +79,37 @@ Braving Repository Structure
 - `apply-features.py` isolates Polymer and WebUI resources so Android builds do not transpile unused desktop-only frontend bundles.
 
 ### Module 3: Component Updater & Privacy
-- `patches/android/0002-custom-updater-endpoint.patch` points component updates to `https://braving.gitlab.io/braving-updater/components`.
+- `patches/common/0002-custom-updater-endpoint.patch` points component updates to `https://braving.gitlab.io/braving-updater/components`.
 - Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
 - Batches update checks and appends `disable-pings` to component updater invocations.
 
 ### Module 4: Release Build Orchestration
-- `scripts/android/build-android.sh` configures hermetic, reproducible release arguments:
+- Platform build scripts (`scripts/platforms/android/build.sh`, `scripts/platforms/windows/build.sh`) configure hermetic, reproducible release arguments:
   - `is_debug = false`, `is_official_build = true`, `is_java_debug = false`
   - `symbol_level = 0`, `blink_symbol_level = 0`, `v8_symbol_level = 0`
   - `dcheck_always_on = false`, `enable_java_asserts = false`
   - `exclude_unwind_tables = true`
   - `target_android_output_format = "apk"`
-- Build output streams through `filter-build-log.py`, which throttles progress lines (`[50/43210 (0.1%)]`) while immediately flushing 100% of compiler errors, warnings, and failure diagnostics to stdout, fully preventing GitLab CI's 4MB console log truncation limit.
+- Build output streams through `scripts/core/filter-build-log.py`, which throttles progress lines (`[50/43210 (0.1%)]`) while immediately flushing 100% of compiler errors, warnings, and failure diagnostics to stdout, fully preventing GitLab CI's 4MB console log truncation limit.
 
-### Module 5: Standalone APK Release Signing
-- `scripts/android/sign-apk.sh` operates as an independent module.
-- Strips any intermediate debug v1 signatures to guarantee a single release identity.
-- Zipaligns APKs to 4-byte boundaries.
-- Signs with Android APK Signature Schemes v1, v2, and v3.
-- Verifies cryptographically with `apksigner verify`.
+### Module 5: Standalone Release Packaging & Signing
+- Platform package scripts (`scripts/platforms/android/package.sh`, `scripts/platforms/windows/package.sh`) operate as independent modules.
+- For Android: Strips any intermediate debug v1 signatures, zipaligns APKs to 4-byte boundaries, signs with APK Signature Schemes v1/v2/v3, and verifies cryptographically with `apksigner verify`.
+- For Windows: Packages binary outputs into versioned release archives.
 
 ### Module 6: Distributed CI Caching (Siso-Aware)
 - Chromium compilation involves >43,000 steps. Braving splits compilation across CI stages and bridges them via GitLab Generic Package Registry.
-- `upload-cache.sh` splits the `out/Release` directory into 4.5 GB chunks with SHA256 checksums.
-- `download-cache.sh` streams and extracts the cache, removing `build.ninja.d` to prevent spurious manifest regeneration.
+- `scripts/core/upload-cache.sh` splits the `out/Release` directory into 4.5 GB chunks with SHA256 checksums.
+- `scripts/core/download-cache.sh` streams and extracts the cache, removing `build.ninja.d` to prevent spurious manifest regeneration.
 - Timestamp synchronization enforces:
   $$T_{\text{source}} \le T_{\text{manifest}} < T_{\text{output}}$$
   ensuring Siso's `inmtime.After(outmtime)` condition evaluates to false, preserving pre-built objects and command hashes.
 
 ### Module 7: Master Verification Suite
-- `scripts/android/verify-all.sh` orchestrates:
+- `scripts/core/verify-all.sh` orchestrates:
   1. Manifest & upstream metadata schema validation (`test_manifest.py`)
-  2. Python 3.11 syntax compatibility & mutator unit tests (`test_mutators.py`, `test_cache_scripts.py`)
+  2. Python 3.11+ syntax compatibility & mutator unit tests (`test_mutators.py`, `test_cache_scripts.py`)
   3. Patch application validation against `brave-core`
   4. Visual branding and AAPT2 asset verification (`verify-branding.sh`, `test_branding.py`)
-  5. Android build and APK signing orchestration dry-run
+  5. Multi-platform build and packaging orchestration dry-runs
 

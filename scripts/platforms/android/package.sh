@@ -4,13 +4,13 @@
 # signs with apksigner, and verifies with apksigner verify.
 #
 # Usage:
-#   ./scripts/android/sign-apk.sh [--preflight] [--dry-run] [--apk=<path>] [--keystore=<path>] [--alias=<alias>]
+#   ./scripts/platforms/android/package.sh [--preflight] [--dry-run] [--apk=<path>] [--keystore=<path>] [--alias=<alias>]
 
 set -euo pipefail
 set +x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 WORKSPACE_DIR="${WORKSPACE_DIR:-${REPO_ROOT}/build-workspace}"
 SRC_DIR="${WORKSPACE_DIR}/src"
@@ -24,12 +24,21 @@ KEY_ALIAS="${ANDROID_KEY_ALIAS:-braving}"
 
 PREFLIGHT=false
 DRY_RUN=false
+TARGET_ARCH="${TARGET_ARCH:-arm64}"
 declare -a TARGET_APKS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apk=*)
       TARGET_APKS+=("${1#*=}")
+      shift
+      ;;
+    --arch=*)
+      TARGET_ARCH="${1#*=}"
+      shift
+      ;;
+    --dest-dir=*|--dist-dir=*)
+      OUTPUT_APK_DIR="${1#*=}"
       shift
       ;;
     --keystore=*)

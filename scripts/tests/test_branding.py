@@ -342,7 +342,7 @@ class TestBrandingAssets(unittest.TestCase):
         import subprocess
         import tempfile
 
-        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        apply_script = os.path.join(REPO_ROOT, "scripts/core/apply-assets.sh")
         with open(apply_script, "r", encoding="utf-8") as f:
             script_content = f.read()
         self.assertNotIn("rsvg-convert", script_content, "apply-assets.sh must not use rsvg-convert")
@@ -376,7 +376,7 @@ class TestBrandingAssets(unittest.TestCase):
         import subprocess
         import tempfile
 
-        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        apply_script = os.path.join(REPO_ROOT, "scripts/core/apply-assets.sh")
         with tempfile.TemporaryDirectory() as tmpdir:
             android_dir = os.path.join(tmpdir, "android")
             os.makedirs(android_dir, exist_ok=True)
@@ -413,7 +413,7 @@ class TestBrandingAssets(unittest.TestCase):
         import subprocess
         import tempfile
 
-        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        apply_script = os.path.join(REPO_ROOT, "scripts/core/apply-assets.sh")
         densities = ["hdpi", "mdpi", "xhdpi", "xxhdpi", "xxxhdpi"]
         legacy_sources = []
         for d in densities:
@@ -441,7 +441,7 @@ class TestBrandingAssets(unittest.TestCase):
         import subprocess
         import tempfile
 
-        apply_script = os.path.join(REPO_ROOT, "scripts/android/apply-assets.sh")
+        apply_script = os.path.join(REPO_ROOT, "scripts/core/apply-assets.sh")
         with tempfile.TemporaryDirectory() as tmpdir:
             android_dir = os.path.join(tmpdir, "android")
             os.makedirs(android_dir, exist_ok=True)

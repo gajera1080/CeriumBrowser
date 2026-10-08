@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Braving — Windows Compilation Entry Point
-# Usage: ./scripts/desktop/build-windows.sh [--manifest=<path>] [--arch=x64|arm64] [--release] [--dry-run] [--gn-only]
+# Usage: ./scripts/platforms/windows/build.sh [--manifest=<path>] [--arch=x64|arm64] [--release] [--dry-run] [--gn-only]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 MANIFEST=""
 TARGET_ARCH="x64"
@@ -261,7 +261,7 @@ if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
     python3 "${BRAVE_DIR}/build/util/version.py" update --brave-version "${BRAVE_VERSION}" "${SRC_DIR}/chrome/VERSION"
   fi
   echo "Applying mutators to brave-core and Chromium src..."
-  python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=win
+  python3 "${REPO_ROOT}/scripts/core/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=win
 fi
 
 echo ""
@@ -357,10 +357,10 @@ cd "${SRC_DIR}"
 BUILD_RES=0
 
 if command -v autoninja &>/dev/null; then
-  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/android/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
+  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/core/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
   BUILD_RES=${PIPESTATUS[0]}
 else
-  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/android/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
+  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/core/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
   BUILD_RES=${PIPESTATUS[0]}
 fi
 
@@ -423,7 +423,7 @@ fi
 
 if [[ "${PACKAGE_OUTPUT:-false}" == "true" ]]; then
   echo "Packaging Windows distribution..."
-  "${SCRIPT_DIR}/package-windows.sh" --out-dir="${OUT_DIR}" --arch="${TARGET_ARCH}" --version="${DYNAMIC_BRAVE_VERSION}"
+  "${SCRIPT_DIR}/package.sh" --out-dir="${OUT_DIR}" --arch="${TARGET_ARCH}" --version="${DYNAMIC_BRAVE_VERSION}"
 fi
 
 echo "Windows build finished successfully."

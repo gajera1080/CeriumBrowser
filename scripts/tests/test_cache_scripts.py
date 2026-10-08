@@ -20,22 +20,32 @@ class TestCacheScriptsSyntax(unittest.TestCase):
     """Verify shell script syntax using bash -n."""
 
     def test_upload_cache_syntax(self):
-        script = REPO_ROOT / "scripts" / "upload-cache.sh"
+        script = REPO_ROOT / "scripts" / "core" / "upload-cache.sh"
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 
     def test_download_cache_syntax(self):
-        script = REPO_ROOT / "scripts" / "download-cache.sh"
+        script = REPO_ROOT / "scripts" / "core" / "download-cache.sh"
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 
     def test_build_android_syntax(self):
-        script = REPO_ROOT / "scripts" / "android" / "build-android.sh"
+        script = REPO_ROOT / "scripts" / "platforms" / "android" / "build.sh"
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 
-    def test_sign_apk_syntax(self):
-        script = REPO_ROOT / "scripts" / "android" / "sign-apk.sh"
+    def test_package_android_syntax(self):
+        script = REPO_ROOT / "scripts" / "platforms" / "android" / "package.sh"
+        res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
+
+    def test_build_windows_syntax(self):
+        script = REPO_ROOT / "scripts" / "platforms" / "windows" / "build.sh"
+        res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
+
+    def test_package_windows_syntax(self):
+        script = REPO_ROOT / "scripts" / "platforms" / "windows" / "package.sh"
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 

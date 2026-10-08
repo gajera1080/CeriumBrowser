@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Braving — Windows Packaging Script
-# Usage: ./scripts/desktop/package-windows.sh [--out-dir=<path>] [--dest-dir=<path>] [--arch=x64|arm64] [--version=<ver>] [--dry-run]
+# Usage: ./scripts/platforms/windows/package.sh [--out-dir=<path>] [--dest-dir=<path>] [--arch=x64|arm64] [--version=<ver>] [--dry-run]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 WORKSPACE_DIR="${WORKSPACE_DIR:-${REPO_ROOT}/build-workspace}"
 OUT_DIR="${WORKSPACE_DIR}/src/out/Release"
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
       OUT_DIR="${1#*=}"
       shift
       ;;
-    --dest-dir=*)
+    --dest-dir=*|--dist-dir=*)
       DEST_DIR="${1#*=}"
       shift
       ;;

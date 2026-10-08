@@ -43,8 +43,8 @@ prepare_source:
     - export BRAVE_VERSION="${BRAVE_VERSION:-$[[ inputs.brave_version ]]}"
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
-    - ./scripts/android/prepare-source.sh "${BRAVE_VERSION}"
-    - ./scripts/android/verify-all.sh
+    - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
+    - ./scripts/core/verify-all.sh
     - |
       export DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep '\.yaml$' | sed 's/\.yaml$//' | head -n 1)
       if ! DYNAMIC_CHROMIUM_VERSION="$(python3 -c "import sys, yaml; print(yaml.safe_load(open(f'metadata/releases/{sys.argv[1]}.yaml'))['chromium_version'])" "${DYNAMIC_BRAVE_VERSION}")"; then

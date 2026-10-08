@@ -198,25 +198,31 @@ class TestCIScriptSyntax(unittest.TestCase):
         self.assertIn("Release v1.96.61", res.stdout)
 
     def test_apply_patches_syntax(self):
-        self._check_bash_syntax('scripts/android/apply-patches.sh')
+        self._check_bash_syntax('scripts/core/apply-patches.sh')
 
     def test_prepare_source_syntax(self):
-        self._check_bash_syntax('scripts/android/prepare-source.sh')
+        self._check_bash_syntax('scripts/core/prepare-source.sh')
+
+    def test_build_android_syntax(self):
+        self._check_bash_syntax('scripts/platforms/android/build.sh')
+
+    def test_package_android_syntax(self):
+        self._check_bash_syntax('scripts/platforms/android/package.sh')
 
     def test_build_windows_syntax(self):
-        self._check_bash_syntax('scripts/desktop/build-windows.sh')
+        self._check_bash_syntax('scripts/platforms/windows/build.sh')
 
     def test_package_windows_syntax(self):
-        self._check_bash_syntax('scripts/desktop/package-windows.sh')
+        self._check_bash_syntax('scripts/platforms/windows/package.sh')
 
     def test_build_windows_dry_run(self):
-        """build-windows.sh --dry-run must exit 0 and parse manifests cleanly for x64, amd64, and arm64."""
+        """build.sh --dry-run must exit 0 and parse manifests cleanly for x64, amd64, and arm64."""
         manifest = os.path.join(self.REPO_ROOT, "metadata/releases/1.96.61.yaml")
         if not os.path.isfile(manifest):
             return
         for arch, expected_arch in [("x64", "x64"), ("amd64", "x64"), ("arm64", "arm64")]:
             res = subprocess.run(
-                ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/build-windows.sh"),
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/platforms/windows/build.sh"),
                  f"--manifest={manifest}", f"--arch={arch}", "--release", "--dry-run"],
                 capture_output=True, text=True
             )
@@ -226,10 +232,10 @@ class TestCIScriptSyntax(unittest.TestCase):
             self.assertIn("Dry-run mode requested. Validation complete.", res.stdout)
 
     def test_package_windows_dry_run(self):
-        """package-windows.sh --dry-run must exit 0 and validate for x64 and arm64."""
+        """package.sh --dry-run must exit 0 and validate for x64 and arm64."""
         for arch in ["x64", "arm64", "amd64"]:
             res = subprocess.run(
-                ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/package-windows.sh"),
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/platforms/windows/package.sh"),
                  f"--arch={arch}", "--dry-run"],
                 capture_output=True, text=True
             )
@@ -238,9 +244,9 @@ class TestCIScriptSyntax(unittest.TestCase):
             self.assertIn("Dry-run mode requested.", res.stdout)
 
     def test_package_windows_invalid_arch(self):
-        """package-windows.sh must reject invalid architecture with non-zero exit code."""
+        """package.sh must reject invalid architecture with non-zero exit code."""
         res = subprocess.run(
-            ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/package-windows.sh"),
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/platforms/windows/package.sh"),
              "--arch=invalid_arch"],
             capture_output=True, text=True
         )
@@ -248,9 +254,9 @@ class TestCIScriptSyntax(unittest.TestCase):
         self.assertIn("Invalid architecture", res.stderr)
 
     def test_build_windows_invalid_arch(self):
-        """build-windows.sh must reject invalid architecture with non-zero exit code."""
+        """build.sh must reject invalid architecture with non-zero exit code."""
         res = subprocess.run(
-            ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/build-windows.sh"),
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/platforms/windows/build.sh"),
              "--arch=invalid_arch"],
             capture_output=True, text=True
         )
@@ -309,7 +315,7 @@ class TestCIScriptSyntax(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             env_file = os.path.join(tmpdir, "test.env")
             res = subprocess.run(
-                [sys.executable, os.path.join(self.REPO_ROOT, "scripts/android/resolve-versions.py"),
+                [sys.executable, os.path.join(self.REPO_ROOT, "scripts/core/resolve-versions.py"),
                  "1.96.61", f"--repo-root={self.REPO_ROOT}", f"--env-file={env_file}"],
                 capture_output=True, text=True
             )
@@ -325,16 +331,25 @@ class TestCIScriptSyntax(unittest.TestCase):
         scripts = [
             'scripts/ci/check-release-needed.sh',
             'scripts/ci/publish-release-direct.sh',
-            'scripts/android/apply-patches.sh',
-            'scripts/android/prepare-source.sh',
-            'scripts/android/resolve-versions.py',
-            'scripts/desktop/build-windows.sh',
-            'scripts/desktop/package-windows.sh',
+            'scripts/core/apply-patches.sh',
+            'scripts/core/prepare-source.sh',
+            'scripts/core/resolve-versions.py',
+            'scripts/core/apply-assets.sh',
+            'scripts/core/apply-branding.py',
+            'scripts/core/apply-features.py',
+            'scripts/core/filter-build-log.py',
+            'scripts/core/upload-cache.sh',
+            'scripts/core/download-cache.sh',
+            'scripts/core/verify-all.sh',
+            'scripts/core/verify-branding.sh',
+            'scripts/platforms/android/build.sh',
+            'scripts/platforms/android/package.sh',
+            'scripts/platforms/windows/build.sh',
+            'scripts/platforms/windows/package.sh',
         ]
         for script in scripts:
             full_path = os.path.join(self.REPO_ROOT, script)
-            if not os.path.exists(full_path):
-                continue
+            self.assertTrue(os.path.exists(full_path), f"{script} does not exist")
             self.assertTrue(
                 os.access(full_path, os.X_OK),
                 f"{script} is not executable"
