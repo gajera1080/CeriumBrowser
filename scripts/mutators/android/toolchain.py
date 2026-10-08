@@ -10,7 +10,7 @@ from scripts.mutators.context import MutatorContext
 
 
 def apply(ctx: MutatorContext):
-    if ctx.explicit_src_dir or (ctx.src_dir and os.path.exists(os.path.join(ctx.src_dir, "build", "timestamp.gni"))):
+    if ctx.has_chromium_src():
         ctx.replace_in_src(
             "build/timestamp.gni",
             re.compile(

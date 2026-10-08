@@ -9,7 +9,7 @@ from scripts.mutators.context import MutatorContext
 
 
 def apply(ctx: MutatorContext):
-    if ctx.explicit_src_dir or (ctx.src_dir and os.path.exists(os.path.join(ctx.src_dir, "chrome", "version.gni"))):
+    if ctx.has_chromium_src():
         ctx.replace_in_src(
             "chrome/version.gni",
             re.compile(r"^[ \t]*chrome_version_name\s*=\s*chrome_version_full\b", re.MULTILINE),

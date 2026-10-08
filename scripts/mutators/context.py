@@ -17,10 +17,15 @@ class MutatorContext:
         self.target_os = target_os
         self.explicit_src_dir = explicit_src_dir
 
-    def replace_in_file(self, filepath: str, search, replacement: str, check_token: str = None, in_src: bool = False):
-        base = self.src_dir if in_src else self.brave_dir
-        if in_src and not self.src_dir:
+    def has_chromium_src(self) -> bool:
+        if not self.src_dir:
             return False
+        return os.path.isdir(os.path.join(self.src_dir, "components")) or os.path.isdir(os.path.join(self.src_dir, "chrome"))
+
+    def replace_in_file(self, filepath: str, search, replacement: str, check_token: str = None, in_src: bool = False):
+        if in_src and not self.has_chromium_src():
+            return False
+        base = self.src_dir if in_src else self.brave_dir
         path = os.path.join(base, filepath)
         if not os.path.exists(path):
             msg = f"{'MISSING SRC: ' if in_src else 'MISSING: '}{filepath}"
@@ -62,9 +67,9 @@ class MutatorContext:
         return self.replace_in_file(filepath, search, replacement, check_token=check_token, in_src=True)
 
     def mutate_file(self, filepath: str, mutator_fn, in_src: bool = False):
-        base = self.src_dir if in_src else self.brave_dir
-        if in_src and not self.src_dir:
+        if in_src and not self.has_chromium_src():
             return False
+        base = self.src_dir if in_src else self.brave_dir
         path = os.path.join(base, filepath)
         if not os.path.exists(path):
             msg = f"{'MISSING SRC: ' if in_src else 'MISSING: '}{filepath}"

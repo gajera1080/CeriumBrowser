@@ -32,6 +32,8 @@ prepare_source:
   image: debian:bookworm-slim
   before_script:
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
+    - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
+    - npm install -g pnpm@11.11.0
   script:
     - touch build.env
     - export BRAVE_VERSION="${BRAVE_VERSION:-$[[ inputs.brave_version ]]}"
@@ -54,9 +56,11 @@ prepare_source:
       echo "DYNAMIC_CHROMIUM_VERSION=${DYNAMIC_CHROMIUM_VERSION}" >> build.env
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
   cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
+    policy: push
+    when: on_success
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:

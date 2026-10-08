@@ -24,7 +24,7 @@ spec:
     CACHE_PREP_ONLY: "true"
     BUILD_TARGET: "v8 third_party/blink/public:blink"
   cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
     policy: pull
@@ -57,7 +57,7 @@ spec:
     - .linux_2xlarge
     - .build_environment_setup
   cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
     policy: pull

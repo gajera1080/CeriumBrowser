@@ -127,46 +127,100 @@ Stripped subsystems: Brave Wallet, AI Chat / Leo, Brave VPN, Brave News, Brave R
 
 ---
 
-## 6. Distributed CI/CD & Why We Use GitLab Generic Package Registry
+## 6. Distributed Multi-Platform CI/CD & Two-Tier Caching Architecture
 
-### The Problem with Single-Job Builds
-Compiling Chromium + Brave takes 40,000+ steps (~1.5 to 3.5 hours on 32-core runners). GitLab SaaS runners (`saas-linux-2xlarge-amd64`) enforce a strict job timeout (often 1 to 3 hours). Running a cold build from checkout to APK packaging in a single monolithic job risks timing out and losing all compilation progress.
+### 1. The 3-Hour SaaS Runner Limit & Pipeline Stages
+Chromium + Brave compilation is massive: over 43,000 compilation steps, requiring 1.5 to 3.5 hours on 32-core runners. GitLab CI SaaS runners (`saas-linux-2xlarge-amd64`) enforce a strict job timeout. Running a cold build from checkout to APK or Windows distribution in a single monolithic job risks timing out and losing all compilation progress.
 
-### Why GitLab CI Native `cache:` Fails for Large C++ Builds
-1. **Dotenv Variable Expansion Failure**:
-   In dynamic release mode, `DYNAMIC_BRAVE_VERSION` is generated at runtime in Stage 1 and exported via `build.env` (dotenv report). GitLab CI evaluates `cache:key` **prior to job execution**. Dotenv variables are NOT expanded in `cache:key`. A key like `braving-cache-${DYNAMIC_BRAVE_VERSION}` evaluates literally to `braving-cache-`, causing cross-version cache collisions.
-2. **Zip Compression Bottleneck & Size Limits**:
-   GitLab runner native caching compresses target directories into a single monolithic `.zip` archive on the runner and uploads it to object storage. For 5–10 GB compiler trees, zip compression and decompression take 15–20 minutes, frequently timeout, and saturate runner memory.
+To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation into a strictly structured 4-stage multi-platform pipeline:
+1. **Stage 1: `prepare_source`**: Lightweight runner. Resolves upstream versions dynamically, fetches exact `brave-core`, executes all patches/mutators/branding, pre-installs node modules, and pushes the **Tier 1 Source Cache**.
+2. **Stage 2: `cache_prep` (`prepare_android_cache` & `prepare_windows_cache`)**: Pulls the Tier 1 Source Cache, syncs Chromium for the target OS, compiles heavy common sub-targets (`v8` and `blink`), and uploads the **Tier 2 Compiler Cache** to the Generic Package Registry.
+3. **Stage 3: `build` (`build_android` & `build_windows`)**: Pulls the Tier 1 Source Cache, restores the Tier 2 warm compiler cache from the Package Registry, completes the remaining targets incrementally, and packages official distributions (APK/AAB/ZIP).
+4. **Stage 4: `publish` (`publish_release`)**: Collects all multi-platform binary packages and publishes an official GitLab Release with checksums.
 
-### The Solution: Distributed Generic Package Registry Caching
-We split compilation across stages and bridge them using the **GitLab Generic Package Registry**:
-- **Stage 1 (`prepare_source`)**: Lightweight runner. Resolves versions, shallow-fetches `brave-core`, applies mutators, downloads offline filter lists, generates branding icons.
-- **Stage 2 (`prepare_chromium_cache`)**: Heavy runner (`2xlarge`). Syncs Chromium dependencies, generates GN args, compiles heavy common sub-targets (`v8` and `blink`).
-  - Calls `scripts/upload-cache.sh`: compresses `out/Release` (excluding APKs and temporary ThinLTO files), splits into 4.5 GB chunks (`chunk.tar.gz.*`), generates SHA256 checksums (`checksums.sha256`), and uploads to the GitLab Generic Package Registry under `${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}` using the runner's ephemeral `CI_JOB_TOKEN`.
-- **Stage 3 (`build_android`)**: Heavy runner (`2xlarge`).
-  - Automatically invokes `scripts/download-cache.sh` right after `gn gen` and before `autoninja`.
-  - Verifies SHA256 checksums and streams `cat chunk.* | tar -xzf -` directly into `out/Release`.
-  - Siso/Ninja sees pre-compiled object files for `v8` and `blink` with timestamps newer than all source files and generated headers, skipping thousands of heavy steps and finishing target compilation and APK packaging well before runner timeouts.
+---
 
-#### Siso Cache State Files vs. Ninja (`.siso_deps` vs. `.ninja_deps`)
+### 2. The Two-Tier Caching Architecture
+
+| Cache Tier | Storage Layer | Scope & Contents | Key / Identifier | Policy |
+|---|---|---|---|---|
+| **Tier 1: Source Cache** | GitLab Runner `cache:` | Fully prepared, patched, branded `src/brave/` + `node_modules` (~387 MB) | `braving-source-${CI_COMMIT_REF_SLUG}` | Stage 1: `push`<br>Stages 2–3: `pull` |
+| **Tier 2: Compiler Cache** | GitLab Generic Package Registry | Compiled `out/Release/` object files (`v8`, `blink`, obj/, gen/, Siso state) | `${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}`<br>(or `-win-${TARGET_ARCH}`) | Stage 2: `upload-cache.sh`<br>Stage 3: `download-cache.sh` |
+
+#### Tier 1: Pre-Patched Source Cache (`src/brave/`) via GitLab CI `cache:`
+- **All `brave-core` modifications MUST happen exclusively in `prepare_source`**:
+  - Shallow checkout of exact `brave-core` release commit.
+  - Applying all git patches in `patches/`.
+  - Applying cross-platform GN mutators via `apply-features.py --strict`.
+  - Applying Braving branding overlay and vector assets via `apply-assets.sh`.
+  - Applying UI strings remapping via `apply-branding.py --strict`.
+  - Pre-installing node dependencies via `pnpm install --frozen-lockfile` so `node_modules` is cached, saving 2–3 minutes on every compilation runner.
+- **Cache Configuration**:
+  - `prepare_source` pushes the prepared `build-workspace/src/brave/` directory with:
+    ```yaml
+    cache:
+      key: "braving-source-${CI_COMMIT_REF_SLUG}"
+      paths:
+        - build-workspace/src/brave/
+      policy: push
+      when: on_success
+    ```
+  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) pull this cache with `policy: pull`.
+- **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
+
+#### Tier 2: Compiler Object Cache (`out/Release/`) via GitLab Generic Package Registry
+- **Why We Cannot Use GitLab Runner `cache:` for Compiler Output**:
+  - **Dotenv Variable Expansion Failure**: In dynamic release mode, `DYNAMIC_BRAVE_VERSION` is generated at runtime in Stage 1 and exported via `build.env` (dotenv report). GitLab CI evaluates `cache:key` **prior to job execution**. Dotenv variables are NOT expanded in `cache:key`. A key like `braving-cache-${DYNAMIC_BRAVE_VERSION}` evaluates literally to `braving-cache-`, causing cross-version cache poisoning!
+  - **Zip Compression Bottleneck & Size Limits**: GitLab runner native caching compresses target directories into a single monolithic `.zip` archive on the runner and uploads it to object storage. For 5–10 GB compiler trees, zip compression and decompression take 15–20 minutes, frequently timeout, and saturate runner memory.
+- **The Solution: Distributed Generic Package Registry (`upload-cache.sh` & `download-cache.sh`)**:
+  - Compresses the `out/Release` directory, splitting into 4.5 GB chunks (`chunk.tar.gz.*`) with SHA256 verification (`checksums.sha256`).
+  - Uses GitLab's official Package Registry API authenticated via `CI_JOB_TOKEN`:
+    `PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"`
+    where `CACHE_VERSION="${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}"` (or `${DYNAMIC_BRAVE_VERSION}-win-${TARGET_ARCH}`).
+  - If no package exists (e.g. local builds), it logs `Starting cold build` and exits 0 cleanly.
+
+---
+
+### 3. Chromium Source & Build Runners Responsibilities
+- Chromium `src` is ephemeral, target-dependent, and heavy (25–30 GB). It is synced on compilation runners via `gclient sync` using target-specific `.gclient` configurations (`target_os = ["android"]` vs `target_os = ["win"]`).
+- Downstream build runners (`build-android.sh`, `build-windows.sh`) ONLY perform Chromium-specific operations after `gclient sync`:
+  1. `(cd "${BRAVE_DIR}" && pnpm run apply_patches)`: Applies upstream Brave patches onto Chromium `src`.
+  2. `python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=...`: Applies Chromium-side mutators (e.g. User-Agent milestone resolution in `components/version_info/` and version display).
+- **CRITICAL GUARD**: In `scripts/mutators/context.py`, `has_chromium_src()` verifies that Chromium `src` is populated before allowing any `in_src=True` file mutations. Never run Chromium mutations before `gclient sync`.
+
+---
+
+### 4. Siso vs. Ninja Cache State Files (`.siso_deps` vs. `.ninja_deps`)
 - When `use_siso = true`, Siso tracks dependencies through `.siso_deps` and `.siso_fs_state` (and command history in `.ninja_log`).
 - **Siso never creates or updates `.ninja_deps`**. Never add checks, warnings, or scripts expecting `.ninja_deps`.
-- `download-cache.sh` automatically deletes `build.ninja.d` to prevent Siso from triggering an accidental `gn gen` due to source file checkout timestamps.
+- `download-cache.sh` automatically deletes `build.ninja.d` upon restore so Siso does not compare freshly checked-out source timestamps against `build.ninja` inputs, preserving the cached build graph and command hashes.
+
+---
+
+### 5. Multi-Platform Pipeline Flow
 
 ```mermaid
 sequenceDiagram
     participant S1 as Stage 1: prepare_source
-    participant S2 as Stage 2: prepare_chromium_cache
-    participant Reg as GitLab Generic Package Registry
-    participant S3 as Stage 3: build_android
+    participant GCache as GitLab Cache (Tier 1)
+    participant S2 as Stage 2: cache_prep (Android / Win)
+    participant Reg as Package Registry (Tier 2)
+    participant S3 as Stage 3: build (Android / Win)
+    participant S4 as Stage 4: publish_release
 
-    S1->>S2: Artifacts (build.env, metadata, branding)
-    Note over S2: Compiles v8 & blink
-    S2->>Reg: upload-cache.sh (split 4.5GB chunks + sha256)
-    S2->>S3: Pipeline trigger (same branch)
-    S3->>Reg: download-cache.sh (verifies sha256, extracts out/Release)
-    Note over S3: Fast incremental build: chrome_public_apk
-    S3->>S3: Packages Braving APK artifact
+    Note over S1: Resolves version & commits<br/>Applies all patches, mutators, branding<br/>Pre-installs pnpm node_modules
+    S1->>GCache: Push pre-patched src/brave/ (key: braving-source-slug)
+    
+    GCache->>S2: Pull pre-patched src/brave/
+    Note over S2: gclient sync (Chromium for target_os)<br/>pnpm run apply_patches<br/>Compiles heavy targets (v8 & blink)
+    S2->>Reg: upload-cache.sh (split 4.5GB chunks + SHA256)
+    
+    GCache->>S3: Pull pre-patched src/brave/
+    Reg->>S3: download-cache.sh (restores warm out/Release)
+    Note over S3: Fast incremental compile (chrome / brave)<br/>Packages APK, AAB, ZIP distributions
+    
+    S3->>S4: Artifacts (APK, AAB, ZIP, checksums)
+    Note over S4: publish-release-direct.sh<br/>Creates official GitLab Release
 ```
 
 ---

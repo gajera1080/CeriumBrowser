@@ -25,7 +25,7 @@ prepare_android_cache:
     BUILD_TARGET: "v8 third_party/blink/public:blink"
     TARGET_ARCH: "arm64"
   cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
     policy: pull
@@ -72,7 +72,7 @@ build_android:
     ANDROID_KEY_ALIAS: "braving"
     TARGET_ARCH: "arm64"
   cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
     policy: pull

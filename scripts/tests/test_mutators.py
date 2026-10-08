@@ -691,6 +691,16 @@ def test_apply_features():
         assert "Skipped chrome/android/BUILD.gn (already patched)" in res_src_idem.stdout
         assert "Skipped components/version_info/version_info_with_user_agent.cc (already patched)" in res_src_idem.stdout
 
+        # Verify that passing an unpopulated/empty src-dir does not cause MISSING SRC errors in --strict mode
+        with tempfile.TemporaryDirectory() as empty_src_tmpdir:
+            res_empty_src = subprocess.run(
+                [sys.executable, script, tmpdir, "--strict", f"--src-dir={empty_src_tmpdir}", "--target-os=win"],
+                capture_output=True,
+                text=True
+            )
+            assert res_empty_src.returncode == 0, f"apply-features with unpopulated src-dir failed: {res_empty_src.stderr}"
+            assert "ERROR: MISSING SRC" not in res_empty_src.stderr
+
         # Verify template("nala_icon_override") syntax mutator
         with open(nala_build_gn, "w") as f:
             f.write("""template("nala_icon_override") {

@@ -91,4 +91,11 @@ echo ""
 echo "Applying Braving UI string branding..."
 python3 "${REPO_ROOT}/scripts/android/apply-branding.py" "${BRAVE_DIR}" --strict
 
+# Step 6: Pre-install brave-core node dependencies so they are cached for downstream runners
+if command -v pnpm >/dev/null 2>&1 && [[ -f "${BRAVE_DIR}/package.json" ]]; then
+  echo ""
+  echo "Pre-installing brave-core node dependencies..."
+  (cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
+fi
+
 echo "Phase 1: Source Preparation Complete."

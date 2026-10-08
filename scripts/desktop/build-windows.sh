@@ -148,19 +148,130 @@ if [[ ! -d "${BRAVE_DIR}" ]]; then
 fi
 
 DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
-if [[ -d "${DEPOT_TOOLS_DIR}" ]]; then
-  export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
+if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
+  echo ""
+  echo "Fetching depot_tools..."
+  git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
+fi
+export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
+
+# Bootstrap depot_tools (creates python3_bin_reldir.txt, downloads cipd & gn)
+echo "Bootstrapping depot_tools..."
+"${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
+export DEPOT_TOOLS_UPDATE=0
+
+# Step 2a: Git compatibility shim for depot_tools when running on Git < 2.43.1
+REAL_GIT=$(command -v git)
+GIT_NEEDS_SHIM=$(python3 -c "
+import subprocess
+try:
+    ver_str = subprocess.check_output(['${REAL_GIT}', '--version'], text=True).split()[-1]
+    parts = [int(p) for p in ver_str.split('.')[:2] if p.isdigit()]
+    if len(parts) >= 2 and (parts[0] < 2 or (parts[0] == 2 and parts[1] < 43)):
+        print('true')
+    else:
+        print('false')
+except Exception:
+    print('true')
+" 2>/dev/null || echo "true")
+
+if [[ "${GIT_NEEDS_SHIM}" == "true" ]]; then
+  echo "Detected Git < 2.43.1 (${REAL_GIT}). Installing Git compatibility shim for depot_tools..."
+  GIT_COMPAT_DIR="${WORKSPACE_DIR}/git-compat"
+  mkdir -p "${GIT_COMPAT_DIR}"
+  cat <<WRAPPER > "${GIT_COMPAT_DIR}/git"
+#!/usr/bin/env bash
+REAL_GIT="${REAL_GIT}"
+is_subcmd=false
+for arg in "\$@"; do
+  if [[ "\$arg" == "checkout" || "\$arg" == "switch" || "\$arg" == "restore" ]]; then
+    is_subcmd=true
+    break
+  fi
+done
+
+if [[ "\$is_subcmd" == true ]]; then
+  filtered_args=()
+  for arg in "\$@"; do
+    if [[ "\$arg" != "--end-of-options" ]]; then
+      filtered_args+=("\$arg")
+    fi
+  done
+  exec "\$REAL_GIT" "\${filtered_args[@]}"
 fi
 
-# Apply cross-platform & Windows mutators to brave-core and Chromium src
-if [[ -d "${SRC_DIR}" && -d "${BRAVE_DIR}" ]]; then
+exec "\$REAL_GIT" "\$@"
+WRAPPER
+  chmod +x "${GIT_COMPAT_DIR}/git"
+  cp -f "${GIT_COMPAT_DIR}/git" "${DEPOT_TOOLS_DIR}/git"
+  export PATH="${GIT_COMPAT_DIR}:${PATH}"
+  echo "Git compatibility shim installed at ${GIT_COMPAT_DIR}/git and ${DEPOT_TOOLS_DIR}/git"
+fi
+
+# Step 2b: Generate .gclient configuration for Windows
+GCLIENT_CONFIG="${WORKSPACE_DIR}/.gclient"
+echo ""
+echo "Writing gclient configuration to ${GCLIENT_CONFIG}..."
+cat <<EOF > "${GCLIENT_CONFIG}"
+solutions = [
+  {
+    "name": "src",
+    "url": "https://chromium.googlesource.com/chromium/src.git",
+    "managed": False,
+    "custom_deps": {
+      "src/testing/libfuzzer/fuzzers/wasm_corpus": None,
+      "src/third_party/chromium-variations": None,
+    },
+    "custom_vars": {
+      "checkout_pgo_profiles": True,
+      "checkout_clang_coverage_tools": True,
+      "checkout_clangd": True,
+      "download_reclient": True,
+      "gn_version": "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de",
+    },
+  },
+  {
+    "name": "src/brave",
+    "url": "https://github.com/brave/brave-core.git",
+    "managed": False,
+  },
+]
+target_os = ["win"]
+target_cpu = ["${TARGET_ARCH}"]
+EOF
+
+# Step 2c: Sync Chromium DEPS dependencies via gclient
+echo ""
+export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONUNBUFFERED="1"
+
+echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
+(cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow --nohooks -j16)
+
+echo ""
+echo "2. Installing brave-core node dependencies and applying upstream Brave patches to Chromium..."
+(cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
+(cd "${BRAVE_DIR}" && pnpm run apply_patches)
+
+# Prepare Chromium VERSION and apply mutators
+if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
+  echo ""
+  echo "3. Preparing Chromium VERSION and VERSION.chromium sidecar (Brave ${BRAVE_VERSION})..."
+  if [[ -f "${BRAVE_DIR}/build/util/version.py" && -n "${BRAVE_VERSION}" ]]; then
+    python3 "${BRAVE_DIR}/build/util/version.py" update --brave-version "${BRAVE_VERSION}" "${SRC_DIR}/chrome/VERSION"
+  fi
   echo "Applying mutators to brave-core and Chromium src..."
   python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=win
 fi
 
+echo ""
+echo "4. Running gclient hooks on patched Chromium..."
+(cd "${WORKSPACE_DIR}" && gclient runhooks)
+
 # Propagate branding from brave-core/app/theme/brave_origin
 if command -v pnpm >/dev/null 2>&1 && [[ -f "${BRAVE_DIR}/package.json" ]]; then
-  echo "Propagating branding from brave-core/app/theme/brave_origin..."
+  echo ""
+  echo "5. Propagating branding from brave-core/app/theme/brave_origin..."
   (cd "${BRAVE_DIR}" && pnpm run build Release --prepare_only --target_os=win --target_arch="${TARGET_ARCH}" --channel=release)
 fi
 
@@ -169,6 +280,22 @@ if [[ -f "${BRAVE_DIR}/build/util/version.py" && -f "${SRC_DIR}/chrome/VERSION" 
   echo "Generating brave/build/version.gni..."
   python3 "${BRAVE_DIR}/build/util/version.py" gen "${SRC_DIR}/chrome/VERSION"
 fi
+
+# Ensure hermetic GN binary is present in buildtools/linux64
+mkdir -p "${SRC_DIR}/buildtools/linux64"
+if [[ ! -x "${SRC_DIR}/buildtools/linux64/gn" ]]; then
+  echo ""
+  echo "Installing hermetic GN binary via CIPD..."
+  HOST_ARCH=$(uname -m)
+  CIPD_ARCH="amd64"
+  if [[ "${HOST_ARCH}" == "aarch64" ]]; then
+    CIPD_ARCH="arm64"
+  fi
+  cipd install "gn/gn/linux-${CIPD_ARCH}" "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de" -root "${SRC_DIR}/buildtools/linux64" || \
+  cipd install "gn/gn/linux-${CIPD_ARCH}" "latest" -root "${SRC_DIR}/buildtools/linux64"
+  chmod +x "${SRC_DIR}/buildtools/linux64/gn" 2>/dev/null || true
+fi
+export PATH="${SRC_DIR}/buildtools/linux64:${PATH}"
 
 mkdir -p "${OUT_DIR}"
 
@@ -209,10 +336,11 @@ echo ""
 echo "Windows GN arguments configured:"
 cat "${GN_ARGS_FILE}"
 
+echo ""
+echo "Running gn gen from source root..."
+cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
+
 if [[ "${GN_ONLY}" == "true" ]]; then
-  echo ""
-  echo "Running gn gen from source root..."
-  cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
   echo "========================================================"
   echo " [SUCCESS] Windows GN configuration passed (--gn-only)."
   echo "========================================================"
@@ -221,9 +349,77 @@ fi
 
 BUILD_TARGET="${BUILD_TARGET:-brave}"
 echo "Building Windows target: ${BUILD_TARGET}..."
+echo "Logging full build output to ${WORKSPACE_DIR}/build.log..."
+set +e
+set +o pipefail
+
 cd "${SRC_DIR}"
-read -r -a BUILD_TARGETS <<< "${BUILD_TARGET}"
-autoninja -C "${OUT_DIR}" "${BUILD_TARGETS[@]}"
+BUILD_RES=0
+
+if command -v autoninja &>/dev/null; then
+  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/android/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
+  BUILD_RES=${PIPESTATUS[0]}
+else
+  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/android/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
+  BUILD_RES=${PIPESTATUS[0]}
+fi
+
+# Package build logs, Siso traces, and configs into .tar.xz artifact
+archive_build_artifacts() {
+  local archive_path="${WORKSPACE_DIR}/build-artifacts.tar.xz"
+  echo "Compressing build logs and diagnostic artifacts to ${archive_path}..."
+  local entries=()
+  if [[ -f "${WORKSPACE_DIR}/build.log" ]]; then
+    entries+=(-C "${WORKSPACE_DIR}" "build.log")
+  fi
+  if [[ -d "${OUT_DIR}" ]]; then
+    if [[ -f "${OUT_DIR}/args.gn" ]]; then
+      entries+=(-C "${OUT_DIR}" "args.gn")
+    fi
+    if [[ -f "${OUT_DIR}/.ninja_log" ]]; then
+      entries+=(-C "${OUT_DIR}" ".ninja_log")
+    fi
+    for s_file in "${OUT_DIR}"/siso*; do
+      if [[ -e "${s_file}" ]]; then
+        entries+=(-C "${OUT_DIR}" "$(basename "${s_file}")")
+      fi
+    done
+  fi
+
+  if [[ ${#entries[@]} -gt 0 ]]; then
+    XZ_OPT="-T0 -6" tar -cJf "${archive_path}" "${entries[@]}" 2>/dev/null || \
+      tar -czf "${WORKSPACE_DIR}/build-artifacts.tar.gz" "${entries[@]}" 2>/dev/null || true
+    if [[ -f "${archive_path}" ]]; then
+      echo " [OK] Packed build artifacts: ${archive_path} ($(du -h "${archive_path}" | cut -f1))"
+    fi
+  fi
+}
+archive_build_artifacts
+
+if [[ ${BUILD_RES} -ne 0 ]]; then
+  echo "========================================================"
+  echo " BUILD FAILED! Exit code: ${BUILD_RES}."
+  echo "========================================================"
+  if [[ -f "${OUT_DIR}/siso_output" ]]; then
+    echo "--- siso_output ---"
+    cat "${OUT_DIR}/siso_output"
+  fi
+  if [[ -f "${OUT_DIR}/siso_failed_commands.sh" ]]; then
+    echo "--- siso_failed_commands.sh ---"
+    cat "${OUT_DIR}/siso_failed_commands.sh"
+  fi
+  echo "--- Tail of build.log ---"
+  tail -n 150 "${WORKSPACE_DIR}/build.log"
+  exit 1
+fi
+
+set -e
+set -o pipefail
+
+if [[ "${CACHE_PREP_ONLY:-false}" == "true" ]]; then
+  echo "CACHE_PREP_ONLY=true: Skipping Windows packaging."
+  exit 0
+fi
 
 if [[ "${PACKAGE_OUTPUT:-false}" == "true" ]]; then
   echo "Packaging Windows distribution..."
