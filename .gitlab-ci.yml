@@ -1,20 +1,5 @@
 spec:
   inputs:
-    target_platform:
-      type: string
-      default: "android"
-      options:
-        - "android"
-        - "windows"
-      description: "Target operating system to build and test"
-    target_arch:
-      type: string
-      default: "arm64"
-      options:
-        - "arm64"
-        - "x64"
-        - "arm"
-      description: "Target architecture (Android: arm64/arm/x64; Windows: x64/arm64)"
     brave_version:
       type: string
       default: ""
@@ -25,9 +10,8 @@ spec:
       description: "Force cold build and rebuild cache package in registry"
 ---
 # GitLab CI Pipeline for Braving Multi-Platform Distribution
-# Modular architecture supporting Android and Windows targets
-# - Release branch (push/merge): compiles all architectures and publishes unified release
-# - Other branches: manual Web UI trigger only to test single selected architecture
+# Unified architecture building Android (arm64), Windows (x64), and Windows (arm64)
+# - Release branch & Web UI triggers automatically build all target architectures
 
 stages:
   - prepare
@@ -37,19 +21,6 @@ stages:
 
 variables:
   GIT_DEPTH: 1
-  TARGET_PLATFORM:
-    value: "$[[ inputs.target_platform ]]"
-    options:
-      - "android"
-      - "windows"
-    description: "Target operating system to build and test"
-  TARGET_ARCH:
-    value: "$[[ inputs.target_arch ]]"
-    options:
-      - "arm64"
-      - "x64"
-      - "arm"
-    description: "Target architecture (Android: arm64/arm/x64; Windows: x64/arm64)"
   BRAVE_VERSION:
     value: "$[[ inputs.brave_version ]]"
     description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
@@ -62,7 +33,7 @@ variables:
 
 # Pipeline execution rules:
 # - release branch triggers on any push/merge to build all architectures and publish official release
-# - other branches run only on manual Web UI execution to test selected platform/architecture
+# - manual Web UI execution triggers full multi-architecture release pipeline
 workflow:
   rules:
     - if: '$CI_COMMIT_BRANCH == "release"'
@@ -75,19 +46,13 @@ workflow:
 include:
   - local: ".gitlab/ci/common.yml"
     inputs:
-      target_platform: "$[[ inputs.target_platform ]]"
-      target_arch: "$[[ inputs.target_arch ]]"
       brave_version: "$[[ inputs.brave_version ]]"
       force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
   - local: ".gitlab/ci/android.yml"
     inputs:
-      target_platform: "$[[ inputs.target_platform ]]"
-      target_arch: "$[[ inputs.target_arch ]]"
       brave_version: "$[[ inputs.brave_version ]]"
       force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
   - local: ".gitlab/ci/windows.yml"
     inputs:
-      target_platform: "$[[ inputs.target_platform ]]"
-      target_arch: "$[[ inputs.target_arch ]]"
       brave_version: "$[[ inputs.brave_version ]]"
       force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]

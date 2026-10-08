@@ -266,16 +266,16 @@ class TestCIScriptSyntax(unittest.TestCase):
         for d in docs:
             combined.update(d)
         inputs = combined.get('spec', {}).get('inputs', {})
-        self.assertIn('target_platform', inputs)
-        self.assertIn('target_arch', inputs)
-        self.assertIn('options', inputs['target_platform'])
-        self.assertIn('options', inputs['target_arch'])
+        self.assertIn('brave_version', inputs)
+        self.assertIn('force_cache_rebuild', inputs)
+        self.assertNotIn('target_platform', inputs)
+        self.assertNotIn('target_arch', inputs)
 
         variables = combined.get('variables', {})
-        self.assertIn('TARGET_PLATFORM', variables)
-        self.assertIn('TARGET_ARCH', variables)
-        self.assertIn('options', variables['TARGET_PLATFORM'])
-        self.assertIn('options', variables['TARGET_ARCH'])
+        self.assertIn('BRAVE_VERSION', variables)
+        self.assertIn('FORCE_CACHE_REBUILD', variables)
+        self.assertNotIn('TARGET_PLATFORM', variables)
+        self.assertNotIn('TARGET_ARCH', variables)
 
     def test_resolve_versions_execution(self):
         """resolve-versions.py must generate deterministic manifest and env files."""

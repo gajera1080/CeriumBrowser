@@ -53,8 +53,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 DYNAMIC_BRAVE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION:-}}"
 TARGET_ARCH="${TARGET_ARCH:-arm64}"
 TARGET_PLATFORM="${TARGET_PLATFORM:-android}"
-DYNAMIC_CHROMIUM_VERSION="${DYNAMIC_CHROMIUM_VERSION:-${CHROMIUM_VERSION:-}}"
-RELEASE_TAG="v${DYNAMIC_BRAVE_VERSION}-${TARGET_PLATFORM}"
+if [[ "${CI_COMMIT_REF_NAME:-}" == "release" || "${CI_COMMIT_BRANCH:-}" == "release" || -z "${TARGET_PLATFORM:-}" || "${TARGET_PLATFORM}" == "all" ]]; then
+  RELEASE_TAG="v${DYNAMIC_BRAVE_VERSION}"
+else
+  RELEASE_TAG="v${DYNAMIC_BRAVE_VERSION}-${TARGET_PLATFORM}"
+fi
 
 if [[ -z "${DYNAMIC_CHROMIUM_VERSION}" && -f "${REPO_ROOT}/metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" ]]; then
   DYNAMIC_CHROMIUM_VERSION="$(grep -E '^chromium_version:' "${REPO_ROOT}/metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'" || true)"

@@ -1,20 +1,5 @@
 spec:
   inputs:
-    target_platform:
-      type: string
-      default: "android"
-      options:
-        - "android"
-        - "windows"
-      description: "Target operating system to build and test"
-    target_arch:
-      type: string
-      default: "arm64"
-      options:
-        - "arm64"
-        - "x64"
-        - "arm"
-      description: "Target architecture (Android: arm64/arm/x64; Windows: x64/arm64)"
     brave_version:
       type: string
       default: ""
@@ -38,6 +23,7 @@ prepare_android_cache:
   variables:
     CACHE_PREP_ONLY: "true"
     BUILD_TARGET: "v8 third_party/blink/public:blink"
+    TARGET_ARCH: "arm64"
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
     paths:
@@ -45,7 +31,7 @@ prepare_android_cache:
     policy: pull
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
-    - export TARGET_ARCH="${TARGET_ARCH:-$[[ inputs.target_arch ]]}"
+    - export TARGET_ARCH="arm64"
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
     - |
       if [ "${FORCE_CACHE_REBUILD}" == "true" ]; then
@@ -69,10 +55,7 @@ prepare_android_cache:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
-      variables:
-        TARGET_ARCH: "arm64"
-    - if: '$CI_PIPELINE_SOURCE == "web" && $TARGET_PLATFORM == "android"'
+    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
 
 build_android:
   stage: build
@@ -87,13 +70,14 @@ build_android:
   variables:
     ANDROID_KEYSTORE_FILE: "braving_android.jks"
     ANDROID_KEY_ALIAS: "braving"
+    TARGET_ARCH: "arm64"
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
     paths:
       - build-workspace/src/brave/
     policy: pull
   script:
-    - export TARGET_ARCH="${TARGET_ARCH:-$[[ inputs.target_arch ]]}"
+    - export TARGET_ARCH="arm64"
     - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
     - ./scripts/android/sign-apk.sh --preflight
     - echo "Restoring warm cache for ${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}..."
@@ -114,7 +98,4 @@ build_android:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
-      variables:
-        TARGET_ARCH: "arm64"
-    - if: '$CI_PIPELINE_SOURCE == "web" && $TARGET_PLATFORM == "android"'
+    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'

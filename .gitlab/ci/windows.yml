@@ -1,19 +1,5 @@
 spec:
   inputs:
-    target_platform:
-      type: string
-      default: "windows"
-      options:
-        - "android"
-        - "windows"
-      description: "Target operating system to build and test"
-    target_arch:
-      type: string
-      default: "x64"
-      options:
-        - "x64"
-        - "arm64"
-      description: "Target architecture (Android: arm64/arm/x64; Windows: x64/arm64)"
     brave_version:
       type: string
       default: ""
@@ -92,9 +78,9 @@ spec:
     expire_in: 30 days
 
 # ------------------------------------------------------------------------------
-# Release Branch: Compile both x64 and arm64 architectures in parallel
+# Windows Cache & Build: Compile both x64 and arm64 in parallel
 # ------------------------------------------------------------------------------
-prepare_windows_cache_release:
+prepare_windows_cache:
   extends: .prepare_windows_cache_base
   parallel:
     matrix:
@@ -102,12 +88,12 @@ prepare_windows_cache_release:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
+    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
 
-build_windows_release:
+build_windows:
   extends: .build_windows_base
   needs:
-    - job: prepare_windows_cache_release
+    - job: prepare_windows_cache
       artifacts: true
     - job: prepare_source
       artifacts: true
@@ -117,30 +103,4 @@ build_windows_release:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
-
-# ------------------------------------------------------------------------------
-# Manual Web UI Testing: Compile only the single selected architecture
-# ------------------------------------------------------------------------------
-prepare_windows_cache_test:
-  extends: .prepare_windows_cache_base
-  rules:
-    - if: '$SKIP_BUILD == "true"'
-      when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
-      when: never
-    - if: '$CI_PIPELINE_SOURCE == "web" && $TARGET_PLATFORM == "windows"'
-
-build_windows_test:
-  extends: .build_windows_base
-  needs:
-    - job: prepare_windows_cache_test
-      artifacts: true
-    - job: prepare_source
-      artifacts: true
-  rules:
-    - if: '$SKIP_BUILD == "true"'
-      when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
-      when: never
-    - if: '$CI_PIPELINE_SOURCE == "web" && $TARGET_PLATFORM == "windows"'
+    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
