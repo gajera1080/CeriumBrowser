@@ -1,0 +1,120 @@
+spec:
+  inputs:
+    target_platform:
+      type: string
+      default: "android"
+      options:
+        - "android"
+        - "windows"
+      description: "Target operating system to build and test"
+    target_arch:
+      type: string
+      default: "arm64"
+      options:
+        - "arm64"
+        - "x64"
+        - "arm"
+      description: "Target architecture (Android: arm64/arm/x64; Windows: x64/arm64)"
+    brave_version:
+      type: string
+      default: ""
+      description: "Brave release version. Leave empty to auto-fetch latest stable from GitHub."
+    force_cache_rebuild:
+      type: boolean
+      default: false
+      description: "Force cold build and rebuild cache package in registry"
+---
+# Android Pipeline Jobs
+# Included by .gitlab-ci.yml
+
+prepare_android_cache:
+  stage: cache_prep
+  extends:
+    - .linux_2xlarge
+    - .build_environment_setup
+  needs:
+    - job: prepare_source
+      artifacts: true
+  variables:
+    CACHE_PREP_ONLY: "true"
+    BUILD_TARGET: "v8 third_party/blink/public:blink"
+  cache:
+    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    paths:
+      - build-workspace/src/brave/
+    policy: pull
+  script:
+    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
+    - export TARGET_ARCH="${TARGET_ARCH:-$[[ inputs.target_arch ]]}"
+    - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
+    - |
+      if [ "${FORCE_CACHE_REBUILD}" == "true" ]; then
+        echo "FORCE_CACHE_REBUILD is true. Forcing a cold build."
+      else
+        echo "Checking if cache ${CACHE_VERSION} exists in the Packages API..."
+        if curl -s --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages?package_type=generic&package_name=braving-cache" | grep -q "\"version\":\"${CACHE_VERSION}\""; then
+          echo "Cache ${CACHE_VERSION} already exists in registry! Skipping Stage 2."
+          exit 0
+        fi
+      fi
+    - echo "Building isolated Android heavy targets (v8 & blink) for ${TARGET_ARCH} to generate warm cache..."
+    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - ./scripts/upload-cache.sh
+  artifacts:
+    name: "braving-cache-logs-${DYNAMIC_BRAVE_VERSION}"
+    when: always
+    paths:
+      - build-workspace/build-artifacts.tar.xz
+    expire_in: 2 days
+  rules:
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      variables:
+        TARGET_ARCH: "arm64"
+    - if: '$CI_PIPELINE_SOURCE == "web" && $TARGET_PLATFORM == "android"'
+
+build_android:
+  stage: build
+  extends:
+    - .linux_2xlarge
+    - .build_environment_setup
+  needs:
+    - job: prepare_android_cache
+      artifacts: true
+    - job: prepare_source
+      artifacts: true
+  variables:
+    ANDROID_KEYSTORE_FILE: "braving_android.jks"
+    ANDROID_KEY_ALIAS: "braving"
+  cache:
+    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    paths:
+      - build-workspace/src/brave/
+    policy: pull
+  script:
+    - export TARGET_ARCH="${TARGET_ARCH:-$[[ inputs.target_arch ]]}"
+    - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
+    - ./scripts/android/sign-apk.sh --preflight
+    - echo "Restoring warm cache for ${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}..."
+    - ./scripts/download-cache.sh || true
+    - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
+    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - echo "Signing and verifying Android release APK..."
+    - ./scripts/android/sign-apk.sh
+  artifacts:
+    name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
+    when: always
+    paths:
+      - out/apks/
+      - build-workspace/build-artifacts.tar.xz
+      - metadata/releases/*.yaml
+      - metadata/upstream-*.yaml
+    expire_in: 30 days
+  rules:
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      variables:
+        TARGET_ARCH: "arm64"
+    - if: '$CI_PIPELINE_SOURCE == "web" && $TARGET_PLATFORM == "android"'

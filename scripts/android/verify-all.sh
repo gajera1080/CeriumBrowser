@@ -88,18 +88,7 @@ if [[ ${PATCH_COUNT} -gt 0 ]]; then
   for target_dir in "${CHECK_BRAVE_DIRS[@]}"; do
     upstream_ver=$(git -C "${target_dir}" describe --tags 2>/dev/null || git -C "${target_dir}" log -1 --format="%h (%s)" 2>/dev/null || echo "unknown")
     echo " Validating patch set against brave-core (${target_dir} @ ${upstream_ver})..."
-    while IFS= read -r -d $'\0' p; do
-      rel_p="${p#${PATCH_DIR}/}"
-      if git -C "${target_dir}" apply --check "$p" 2>/dev/null || \
-         git -C "${target_dir}" apply --check --reverse "$p" 2>/dev/null || \
-         git -C "${target_dir}" apply -C1 --check "$p" 2>/dev/null || \
-         git -C "${target_dir}" apply -C1 --check --reverse "$p" 2>/dev/null; then
-        echo "      [PASS] ${rel_p} applies cleanly"
-      else
-        echo "      [FAIL] ${rel_p} failed to apply to ${target_dir}" >&2
-        exit 1
-      fi
-    done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
+    "${REPO_ROOT}/scripts/android/apply-patches.sh" "${target_dir}" --check
   done
 else
   echo " [OK] No .patch files found in ${PATCH_DIR}/ (all modifications handled via mutators)."
@@ -110,7 +99,7 @@ echo "=== Step 5/6: Branding & Asset Verification ==="
 "${REPO_ROOT}/scripts/android/verify-branding.sh"
 
 echo ""
-echo "=== Step 6/6: Android Build Orchestration Dry-Run ==="
+echo "=== Step 6/6: Build Orchestration & Dry-Run Validation ==="
 MANIFEST_FILE="${REPO_ROOT}/metadata/releases/${TARGET_VERSION}.yaml"
 if [[ ! -f "${MANIFEST_FILE}" ]]; then
   MANIFEST_FILE=$(ls -t "${REPO_ROOT}/metadata/releases"/*.yaml 2>/dev/null | head -n 1 || true)
@@ -118,6 +107,14 @@ fi
 
 if [[ -n "${MANIFEST_FILE}" && -f "${MANIFEST_FILE}" ]]; then
   "${REPO_ROOT}/scripts/android/build-android.sh" --manifest="${MANIFEST_FILE}" --arch="${TARGET_ARCH:-arm64}" --release --dry-run
+  if [[ -f "${REPO_ROOT}/scripts/desktop/build-windows.sh" ]]; then
+    "${REPO_ROOT}/scripts/desktop/build-windows.sh" --manifest="${MANIFEST_FILE}" --arch="x64" --release --dry-run
+    "${REPO_ROOT}/scripts/desktop/build-windows.sh" --manifest="${MANIFEST_FILE}" --arch="arm64" --release --dry-run
+  fi
+  if [[ -f "${REPO_ROOT}/scripts/desktop/package-windows.sh" ]]; then
+    "${REPO_ROOT}/scripts/desktop/package-windows.sh" --arch="x64" --dry-run
+    "${REPO_ROOT}/scripts/desktop/package-windows.sh" --arch="arm64" --dry-run
+  fi
 else
   echo " [SKIP] No release manifest found for dry-run validation."
 fi

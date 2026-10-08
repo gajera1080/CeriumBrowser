@@ -389,7 +389,6 @@ skip_secondary_abi_for_cq = true
 dcheck_always_on = false
 enable_java_asserts = false
 exclude_unwind_tables = true
-strip_debug_info = true
 use_siso = true
 disable_android_lint = true
 
@@ -606,23 +605,14 @@ if [[ -n "${BUILT_AAB}" ]]; then
     rm -f "${RAW_UNIVERSAL}"
     unzip -q -o "${APKS_ARCHIVE}" "universal.apk" -d "${OUT_DIR}/apks/"
 
-    # Step 11b: Optimize APK size (Ultra-Slim locale pruning)
-    SLIM_UNIVERSAL="${OUT_DIR}/apks/universal_slim.apk"
-    if [[ -f "${SCRIPT_DIR}/slim_apk.py" ]]; then
-      echo "Applying Ultra-Slim locale optimization..."
-      python3 "${SCRIPT_DIR}/slim_apk.py" "${RAW_UNIVERSAL}" "${SLIM_UNIVERSAL}"
-    else
-      cp -f "${RAW_UNIVERSAL}" "${SLIM_UNIVERSAL}"
-    fi
-
-    # Step 11c: 4-byte alignment via zipalign
+    # Step 11b: 4-byte alignment via zipalign
     ZIPALIGN_BIN=$(find "${SRC_DIR}/third_party/android_sdk" -name "zipalign" -type f -perm /111 2>/dev/null | head -n 1 || command -v zipalign || true)
     FINAL_UNSIGNED="${OUT_DIR}/apks/${OUTPUT_NAME}.unsigned"
     if [[ -n "${ZIPALIGN_BIN}" && -x "${ZIPALIGN_BIN}" ]]; then
       echo "Aligning package with zipalign..."
-      "${ZIPALIGN_BIN}" -p -f 4 "${SLIM_UNIVERSAL}" "${FINAL_UNSIGNED}"
+      "${ZIPALIGN_BIN}" -p -f 4 "${RAW_UNIVERSAL}" "${FINAL_UNSIGNED}"
     else
-      cp -f "${SLIM_UNIVERSAL}" "${FINAL_UNSIGNED}"
+      cp -f "${RAW_UNIVERSAL}" "${FINAL_UNSIGNED}"
     fi
 
     BUILT_APK="${FINAL_UNSIGNED}"

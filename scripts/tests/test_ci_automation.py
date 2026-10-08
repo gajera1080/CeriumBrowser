@@ -181,11 +181,129 @@ class TestCIScriptSyntax(unittest.TestCase):
     def test_publish_release_syntax(self):
         self._check_bash_syntax('scripts/ci/publish-release-direct.sh')
 
+    def test_apply_patches_syntax(self):
+        self._check_bash_syntax('scripts/android/apply-patches.sh')
+
+    def test_prepare_source_syntax(self):
+        self._check_bash_syntax('scripts/android/prepare-source.sh')
+
+    def test_build_windows_syntax(self):
+        self._check_bash_syntax('scripts/desktop/build-windows.sh')
+
+    def test_package_windows_syntax(self):
+        self._check_bash_syntax('scripts/desktop/package-windows.sh')
+
+    def test_build_windows_dry_run(self):
+        """build-windows.sh --dry-run must exit 0 and parse manifests cleanly for x64, amd64, and arm64."""
+        manifest = os.path.join(self.REPO_ROOT, "metadata/releases/1.96.61.yaml")
+        if not os.path.isfile(manifest):
+            return
+        for arch, expected_arch in [("x64", "x64"), ("amd64", "x64"), ("arm64", "arm64")]:
+            res = subprocess.run(
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/build-windows.sh"),
+                 f"--manifest={manifest}", f"--arch={arch}", "--release", "--dry-run"],
+                capture_output=True, text=True
+            )
+            self.assertEqual(res.returncode, 0, f"build-windows dry-run failed for {arch}: {res.stderr}")
+            self.assertIn("Braving Windows Build", res.stdout)
+            self.assertIn(f"Architecture: {expected_arch}", res.stdout)
+            self.assertIn("Dry-run mode requested. Validation complete.", res.stdout)
+
+    def test_package_windows_dry_run(self):
+        """package-windows.sh --dry-run must exit 0 and validate for x64 and arm64."""
+        for arch in ["x64", "arm64", "amd64"]:
+            res = subprocess.run(
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/package-windows.sh"),
+                 f"--arch={arch}", "--dry-run"],
+                capture_output=True, text=True
+            )
+            self.assertEqual(res.returncode, 0, f"package-windows dry-run failed for {arch}: {res.stderr}")
+            self.assertIn("Braving Windows Package", res.stdout)
+            self.assertIn("Dry-run mode requested.", res.stdout)
+
+    def test_package_windows_invalid_arch(self):
+        """package-windows.sh must reject invalid architecture with non-zero exit code."""
+        res = subprocess.run(
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/package-windows.sh"),
+             "--arch=invalid_arch"],
+            capture_output=True, text=True
+        )
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("Invalid architecture", res.stderr)
+
+    def test_build_windows_invalid_arch(self):
+        """build-windows.sh must reject invalid architecture with non-zero exit code."""
+        res = subprocess.run(
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/desktop/build-windows.sh"),
+             "--arch=invalid_arch"],
+            capture_output=True, text=True
+        )
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("Invalid architecture", res.stderr)
+
+    def test_gitlab_ci_yaml_structure(self):
+        """Validate root .gitlab-ci.yml and modular includes in .gitlab/ci/."""
+        import yaml
+        ci_files = [
+            '.gitlab-ci.yml',
+            '.gitlab/ci/common.yml',
+            '.gitlab/ci/android.yml',
+            '.gitlab/ci/windows.yml',
+        ]
+        for rel_path in ci_files:
+            full_path = os.path.join(self.REPO_ROOT, rel_path)
+            self.assertTrue(os.path.isfile(full_path), f"Missing CI file: {rel_path}")
+            with open(full_path, 'r', encoding='utf-8') as f:
+                docs = [d for d in yaml.safe_load_all(f) if d]
+            self.assertTrue(len(docs) >= 1, f"Empty YAML file: {rel_path}")
+            spec = docs[0].get('spec', {})
+            self.assertIn('inputs', spec, f"Missing spec:inputs in {rel_path}")
+
+        # Check root configuration spec:inputs and runtime variables
+        with open(os.path.join(self.REPO_ROOT, '.gitlab-ci.yml'), 'r', encoding='utf-8') as f:
+            docs = [d for d in yaml.safe_load_all(f) if d]
+        combined = {}
+        for d in docs:
+            combined.update(d)
+        inputs = combined.get('spec', {}).get('inputs', {})
+        self.assertIn('target_platform', inputs)
+        self.assertIn('target_arch', inputs)
+        self.assertIn('options', inputs['target_platform'])
+        self.assertIn('options', inputs['target_arch'])
+
+        variables = combined.get('variables', {})
+        self.assertIn('TARGET_PLATFORM', variables)
+        self.assertIn('TARGET_ARCH', variables)
+        self.assertIn('options', variables['TARGET_PLATFORM'])
+        self.assertIn('options', variables['TARGET_ARCH'])
+
+    def test_resolve_versions_execution(self):
+        """resolve-versions.py must generate deterministic manifest and env files."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env_file = os.path.join(tmpdir, "test.env")
+            res = subprocess.run(
+                [sys.executable, os.path.join(self.REPO_ROOT, "scripts/android/resolve-versions.py"),
+                 "1.96.61", f"--repo-root={self.REPO_ROOT}", f"--env-file={env_file}"],
+                capture_output=True, text=True
+            )
+            self.assertEqual(res.returncode, 0, f"resolve-versions failed: {res.stderr}")
+            self.assertTrue(os.path.isfile(env_file))
+            with open(env_file, "r") as f:
+                c = f.read()
+            self.assertIn("DYNAMIC_BRAVE_VERSION=1.96.61", c)
+            self.assertIn("DYNAMIC_CHROMIUM_VERSION=154.0.8037.98", c)
+
     def test_scripts_are_executable(self):
-        """CI scripts must have execute permission."""
+        """CI and core scripts must have execute permission."""
         scripts = [
             'scripts/ci/check-release-needed.sh',
             'scripts/ci/publish-release-direct.sh',
+            'scripts/android/apply-patches.sh',
+            'scripts/android/prepare-source.sh',
+            'scripts/android/resolve-versions.py',
+            'scripts/desktop/build-windows.sh',
+            'scripts/desktop/package-windows.sh',
         ]
         for script in scripts:
             full_path = os.path.join(self.REPO_ROOT, script)

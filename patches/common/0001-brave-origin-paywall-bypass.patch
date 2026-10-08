@@ -1,0 +1,30 @@
+diff --git a/browser/ui/views/brave_origin/brave_origin_startup_view.cc b/browser/ui/views/brave_origin/brave_origin_startup_view.cc
+--- a/browser/ui/views/brave_origin/brave_origin_startup_view.cc
++++ b/browser/ui/views/brave_origin/brave_origin_startup_view.cc
+@@ -87,25 +87,3 @@
+ bool BraveOriginStartupView::ShouldShowDialog(PrefService* local_state) {
+-  if (g_should_show_dialog_override.has_value()) {
+-    return *g_should_show_dialog_override;
+-  }
+-
+-  // Skip the dialog when running under test infrastructure.
+-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kTestType)) {
+-    return false;
+-  }
+-
+-#if BUILDFLAG(IS_LINUX)
+-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+-          brave_origin::switches::kSkipOriginStartupDialog)) {
+-    // Persist acceptance so future launches without the switch also skip
+-    // the dialog.
+-    local_state->SetBoolean(brave_origin::kOriginFreeTierAccepted, true);
+-  }
+-  if (local_state->GetBoolean(brave_origin::kOriginFreeTierAccepted)) {
+-    return false;
+-  }
+-#endif
+-
+-  return !local_state->GetBoolean(brave_origin::kOriginPurchaseValidated) ||
+-         !HasOriginSkuCredentials(local_state);
++  return false;
+ }

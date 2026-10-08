@@ -104,6 +104,7 @@ fi
 
 PNG_COUNT=0
 SVG_COUNT=0
+ICO_COUNT=0
 while IFS= read -r -d '' src_file; do
   rel_path="${src_file#${STATIC_DIR}/}"
   # For resources destined for android/java/brave-res/, dynamically verify against
@@ -125,14 +126,16 @@ while IFS= read -r -d '' src_file; do
     PNG_COUNT=$((PNG_COUNT + 1))
   elif [[ "${rel_path}" == *.svg ]]; then
     SVG_COUNT=$((SVG_COUNT + 1))
+  elif [[ "${rel_path}" == *.ico ]]; then
+    ICO_COUNT=$((ICO_COUNT + 1))
   fi
-done < <(find "${STATIC_DIR}" -type f \( -name "*.png" -o -name "*.svg" \) -print0 | sort -z)
+done < <(find "${STATIC_DIR}" -type f \( -name "*.png" -o -name "*.svg" -o -name "*.ico" \) -print0 | sort -z)
 
-if [[ ${PNG_COUNT} -lt 146 || ${PNG_COUNT} -gt 156 || ${SVG_COUNT} -ne 10 ]]; then
-  echo "ERROR: Expected between 146 and 156 static PNGs and 10 static SVGs in ${STATIC_DIR}, but copied ${PNG_COUNT} PNGs and ${SVG_COUNT} SVGs." >&2
+if [[ ${PNG_COUNT} -lt 146 || ${PNG_COUNT} -gt 156 || ${SVG_COUNT} -ne 10 || ${ICO_COUNT} -ne 26 ]]; then
+  echo "ERROR: Expected between 146 and 156 static PNGs, 10 static SVGs, and 26 static ICOs in ${STATIC_DIR}, but copied ${PNG_COUNT} PNGs, ${SVG_COUNT} SVGs, and ${ICO_COUNT} ICOs." >&2
   exit 1
 fi
-echo " [OK] Copied ${PNG_COUNT} static raster PNG logos and ${SVG_COUNT} static SVG logos into brave-core."
+echo " [OK] Copied ${PNG_COUNT} static raster PNG logos, ${SVG_COUNT} static SVG logos, and ${ICO_COUNT} static Windows ICO logos into brave-core."
 
 # 5. Prevent java_resources failure by removing any misplaced branding folders in brave-res
 rm -rf "${BRAVE_DIR}/android/java/brave-res/mipmap-"* \

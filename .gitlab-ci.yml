@@ -1,9 +1,33 @@
-# GitLab CI Pipeline for Braving Android
-# RELEASE MODE: BRAVE_VERSION -> exact matching brave-core release -> exact pinned Chromium
-# Builds minimal Chromium + Brave Shields with custom Braving branding
-#
-# Schedule: 15-day automated releases on `release` branch (cron: 0 0 1,16 * *)
-# Release Gating: Skips build if v<version> tag already exists
+spec:
+  inputs:
+    target_platform:
+      type: string
+      default: "android"
+      options:
+        - "android"
+        - "windows"
+      description: "Target operating system to build and test"
+    target_arch:
+      type: string
+      default: "arm64"
+      options:
+        - "arm64"
+        - "x64"
+        - "arm"
+      description: "Target architecture (Android: arm64/arm/x64; Windows: x64/arm64)"
+    brave_version:
+      type: string
+      default: ""
+      description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
+    force_cache_rebuild:
+      type: boolean
+      default: false
+      description: "Force cold build and rebuild cache package in registry"
+---
+# GitLab CI Pipeline for Braving Multi-Platform Distribution
+# Modular architecture supporting Android and Windows targets
+# - Release branch (push/merge): compiles all architectures and publishes unified release
+# - Other branches: manual Web UI trigger only to test single selected architecture
 
 stages:
   - prepare
@@ -13,172 +37,57 @@ stages:
 
 variables:
   GIT_DEPTH: 1
-  BRAVE_VERSION:
-    value: ""
-    description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
+  TARGET_PLATFORM:
+    value: "$[[ inputs.target_platform ]]"
+    options:
+      - "android"
+      - "windows"
+    description: "Target operating system to build and test"
   TARGET_ARCH:
-    value: "arm64"
-    description: "Target Android architecture: arm64, arm, x86_64"
+    value: "$[[ inputs.target_arch ]]"
+    options:
+      - "arm64"
+      - "x64"
+      - "arm"
+    description: "Target architecture (Android: arm64/arm/x64; Windows: x64/arm64)"
+  BRAVE_VERSION:
+    value: "$[[ inputs.brave_version ]]"
+    description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
+  FORCE_CACHE_REBUILD:
+    value: "$[[ inputs.force_cache_rebuild ]]"
+    options:
+      - "false"
+      - "true"
+    description: "Force cold build and rebuild cache package in registry"
 
-# ----------------------------------------------------
-# Stage 1: Source Preparation (Phase 1)
-# ----------------------------------------------------
-prepare_source:
-  stage: prepare
-  image: debian:bookworm-slim
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
-  script:
-    - touch build.env
-    - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
-    - ./scripts/android/prepare-source.sh "${BRAVE_VERSION}"
-    - ./scripts/android/verify-all.sh
-    - |
-      export DYNAMIC_BRAVE_VERSION=$(ls metadata/releases/ | grep '\.yaml$' | sed 's/\.yaml$//' | head -n 1)
-      export DYNAMIC_CHROMIUM_VERSION=$(python3 -c "import sys, yaml; print(yaml.safe_load(open(f'metadata/releases/{sys.argv[1]}.yaml'))['chromium_version'])" "${DYNAMIC_BRAVE_VERSION}")
-      echo "DYNAMIC_BRAVE_VERSION=${DYNAMIC_BRAVE_VERSION}" > build.env
-      echo "DYNAMIC_CHROMIUM_VERSION=${DYNAMIC_CHROMIUM_VERSION}" >> build.env
-    - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
-    paths:
-      - build-workspace/src/brave/
-  artifacts:
-    name: "braving-prepared-${BRAVE_VERSION}"
-    paths:
-      - metadata/releases/*.yaml
-      - metadata/upstream-*.yaml
-      - branding/
-    reports:
-      dotenv: build.env
-    expire_in: 2 days
-
-# ----------------------------------------------------
-# Stage 2: Cache Preparation (Build Heavy Sub-targets)
-# ----------------------------------------------------
-prepare_chromium_cache:
-  stage: cache_prep
-  image: debian:bookworm
-  tags:
-    - saas-linux-2xlarge-amd64
-  needs:
-    - job: prepare_source
-      artifacts: true
-  variables:
-    GIT_STRATEGY: fetch
-    WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
-    CACHE_PREP_ONLY: "true"
-    BUILD_TARGET: "v8 third_party/blink/public:blink"
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
-  before_script:
-    - 'if [ -z "${DYNAMIC_BRAVE_VERSION:-}" ]; then echo "ERROR: DYNAMIC_BRAVE_VERSION is missing from build.env."; exit 1; fi'
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config
-    - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
-    - npm install -g pnpm@11.11.0
-  script:
-    - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
-    - |
-      if [ "${FORCE_CACHE_REBUILD:-false}" == "true" ]; then
-        echo "FORCE_CACHE_REBUILD is true. Forcing a cold build."
-      else
-        echo "Checking if cache ${CACHE_VERSION} exists in the Packages API..."
-        if curl -s --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages?package_type=generic&package_name=braving-cache" | grep -q "\"version\":\"${CACHE_VERSION}\""; then
-          echo "Cache ${CACHE_VERSION} already exists in registry! Skipping Stage 2."
-          exit 0
-        fi
-      fi
-    - echo "Building isolated heavy targets (v8 & blink) to generate warm cache..."
-    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
-    - ./scripts/upload-cache.sh
-  artifacts:
-    name: "braving-cache-logs-${DYNAMIC_BRAVE_VERSION}"
-    when: always
-    paths:
-      - build-workspace/build-artifacts.tar.xz
-    expire_in: 2 days
+# Pipeline execution rules:
+# - release branch triggers on any push/merge to build all architectures and publish official release
+# - other branches run only on manual Web UI execution to test selected platform/architecture
+workflow:
   rules:
-    - if: '$SKIP_BUILD == "true"'
-      when: never
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
-
-# ----------------------------------------------------
-# Stage 3: Android Build (Phase 2 on Large Runner)
-# ----------------------------------------------------
-build_android:
-  stage: build
-  image: debian:bookworm
-  tags:
-    - saas-linux-2xlarge-amd64
-  needs:
-    - job: prepare_chromium_cache
-      artifacts: true
-    - job: prepare_source
-      artifacts: true
-  variables:
-    GIT_STRATEGY: fetch
-    WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
-    ANDROID_KEYSTORE_FILE: "braving_android.jks"
-    ANDROID_KEY_ALIAS: "braving"
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
-  before_script:
-    - 'if [ -z "${DYNAMIC_BRAVE_VERSION:-}" ]; then echo "ERROR: DYNAMIC_BRAVE_VERSION is missing from build.env."; exit 1; fi'
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config
-    - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
-    - npm install -g pnpm@11.11.0
-  script:
-    - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
-    - ./scripts/android/sign-apk.sh --preflight
-    - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
-    - ./scripts/android/build-android.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
-    - echo "Signing and verifying Android release APK..."
-    - ./scripts/android/sign-apk.sh
-  artifacts:
-    name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
-    when: always
-    paths:
-      - out/apks/
-      - build-workspace/build-artifacts.tar.xz
-      - metadata/releases/*.yaml
-      - metadata/upstream-*.yaml
-    expire_in: 30 days
-  rules:
-    - if: '$SKIP_BUILD == "true"'
-      when: never
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
-
-# ----------------------------------------------------
-# Stage 4: Production Release — Direct APK Upload & Auto-Tag
-# ----------------------------------------------------
-publish_release:
-  stage: publish
-  image: debian:bookworm-slim
-  needs:
-    - job: build_android
-      artifacts: true
-    - job: prepare_source
-      artifacts: true
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq curl python3 ca-certificates
-  rules:
-    - if: '$SKIP_BUILD == "true"'
-      when: never
     - if: '$CI_COMMIT_BRANCH == "release"'
-  script:
-    - echo "Publishing official release v${DYNAMIC_BRAVE_VERSION} on release branch..."
-    - ./scripts/ci/publish-release-direct.sh
-  artifacts:
-    name: "braving-release-${DYNAMIC_BRAVE_VERSION}"
-    when: on_success
-    paths:
-      - out/apks/
-      - metadata/releases/*.yaml
-      - metadata/upstream-*.yaml
-    expire_in: 90 days
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: always
+    - when: never
+
+# Modular includes with inputs propagation
+include:
+  - local: ".gitlab/ci/common.yml"
+    inputs:
+      target_platform: "$[[ inputs.target_platform ]]"
+      target_arch: "$[[ inputs.target_arch ]]"
+      brave_version: "$[[ inputs.brave_version ]]"
+      force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
+  - local: ".gitlab/ci/android.yml"
+    inputs:
+      target_platform: "$[[ inputs.target_platform ]]"
+      target_arch: "$[[ inputs.target_arch ]]"
+      brave_version: "$[[ inputs.brave_version ]]"
+      force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
+  - local: ".gitlab/ci/windows.yml"
+    inputs:
+      target_platform: "$[[ inputs.target_platform ]]"
+      target_arch: "$[[ inputs.target_arch ]]"
+      brave_version: "$[[ inputs.brave_version ]]"
+      force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]

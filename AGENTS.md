@@ -57,6 +57,12 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
   - For C++ strings, replace specific constants or definitions rather than the word itself.
   - Rely on `apply-assets.sh` for logo and image asset de-branding.
 
+### CRITICAL SUB-RULE: Minimalist & Essential Code (Zero Bloat & Anti-Overengineering)
+- **Strict Minimalism**: Agents must ALWAYS introduce the absolute minimum code necessary to solve the issue or implement the requirement.
+- **No Speculative or Superfluous Checks**: Never add defensive checks, boilerplate layers, speculative fallbacks, hypothetical error handlers, or unrequested features that are not strictly demanded by the task.
+- **Why**: Agents frequently add excessive checks and boilerplate that the codebase does not need. In a downstream distribution tracking fast-moving upstream releases, superfluous code adds maintenance debt, pollutes the repository, and creates unnecessary breakages across upstream version bumps (such as Chromium Clang `-Werror` unused variable/parameter failures).
+- **Surgical & Structured**: Focus directly on the root cause. Every line added must serve a verified, essential purpose. Keep code as minimalist, cleanly structured, and maintainable as possible.
+
 ---
 
 ## 4. Architectural Reuse: No Parallel Engines
@@ -161,7 +167,8 @@ Before submitting changes or proposing pull requests:
      This executes the complete end-to-end source preparation pipeline against real upstream sources: resolving commit hashes, fetching/resetting `brave-core`, applying all git patches in `patches/`, and running all programmatic mutators (`apply-features.py --strict`, `apply-assets.sh`, and `apply-branding.py --strict`). Both verification steps must exit 0 before changes can be accepted or committed.
 7. **Never write secrets into files**: API keys, tokens, or keystore passwords must be passed via environment variables.
 8. **Branch Model (`release` vs `main`)**: The `release` branch is the production release branch (official releases, signed APK artifacts, and release tags). The `main` branch is for active testing, integration, and community merges. All merge requests and development topic branches must target `main`.
+9. **Enforce strict minimalism**: Keep all edits minimal, surgical, and structured. Do not introduce speculative checks, unnecessary wrapper boilerplate, or dead code. Every edit must be strictly essential.
 
 ---
 **Summary for Agents:**
-Think dynamically. Don't write static patches; write resilient mutators. Don't pin versions; support the flow. Reuse Brave's architecture. Support multi-platform. Test against clean environments.
+Think dynamically. Don't write static patches; write resilient mutators. Don't pin versions; support the flow. Reuse Brave's architecture. Support multi-platform. Keep code strictly minimalist and structured. Test against clean environments.

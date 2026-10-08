@@ -249,3 +249,4 @@ Agents must ALWAYS perform the two-step verification workflow:
 8. **Always verify idempotence** on all programmatic mutators.
 9. **Always respect user instructions regarding Git operations** (e.g. "dont commit and push" or "commit but do not push").
 10. **Branch Model (`release` vs `main`)**: `release` is the production release branch (official signed releases and release tags); `main` is for active development, automated testing, and community merges. All merge requests must target `main`.
+11. **Keep modifications strictly minimalist and essential**: Never add speculative checks, defensive clutter, or unnecessary code that wasn't requested. Keep all patches and mutators lean, structured, and focused solely on the required behavior to prevent fragility across upstream version bumps.

@@ -158,7 +158,7 @@ class TestBrandingAssets(unittest.TestCase):
             for f in files:
                 if f.endswith(".svg"):
                     svg_files.append(os.path.join(root, f))
-        self.assertEqual(len(svg_files), 15, f"Expected 15 SVG files in branding/, found {len(svg_files)}")
+        self.assertEqual(len(svg_files), 11, f"Expected 11 SVG files in branding/, found {len(svg_files)}")
         for p in svg_files:
             try:
                 ET.parse(p)
@@ -300,12 +300,41 @@ class TestBrandingAssets(unittest.TestCase):
             self.assertEqual(root.attrib.get("height"), exp_h, f"{rel_svg} height mismatch")
             self.assertEqual(root.attrib.get("viewBox"), "0 0 1254 1254", f"{rel_svg} viewBox mismatch")
 
+        ico_names = [
+            "app_list.ico",
+            "app_list_sxs.ico",
+            "brave.ico",
+            "brave_beta.ico",
+            "brave_canary.ico",
+            "brave_dev.ico",
+            "brave_development.ico",
+            "brave_file.ico",
+            "brave_file_beta.ico",
+            "brave_file_dev.ico",
+            "brave_file_nightly.ico",
+            "incognito.ico",
+            "placeholder.ico",
+        ]
+        expected_icos = set()
+        for prefix in ("app/theme/brave/win", "app/theme/brave_origin/win"):
+            for name in ico_names:
+                expected_icos.add(f"{prefix}/{name}")
+
+        self.assertEqual(len(expected_icos), 26)
+        for rel_ico in expected_icos:
+            full_ico = os.path.join(static_dir, rel_ico)
+            self.assertTrue(os.path.isfile(full_ico), f"Missing static ICO: {rel_ico}")
+            self.assertGreater(os.path.getsize(full_ico), 32, f"Truncated ICO: {rel_ico}")
+            with open(full_ico, "rb") as fp:
+                ico_hdr = fp.read(4)
+            self.assertEqual(ico_hdr, b"\x00\x00\x01\x00", f"Invalid ICO header in {rel_ico}")
+
         # Verify no extra/stray files exist in branding/brave-core-static/
         actual_files = set()
         for root_dir, _, files in os.walk(static_dir):
             for f in files:
                 actual_files.add(os.path.relpath(os.path.join(root_dir, f), static_dir).replace("\\", "/"))
-        expected_all = set(expected_pngs.keys()) | set(expected_svgs.keys())
+        expected_all = set(expected_pngs.keys()) | set(expected_svgs.keys()) | expected_icos
         self.assertEqual(actual_files, expected_all, f"Stray or missing files in brave-core-static: {actual_files ^ expected_all}")
 
     def test_apply_assets_copies_static_files_without_dynamic_generation(self):

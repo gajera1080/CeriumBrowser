@@ -89,7 +89,6 @@ skip_secondary_abi_for_cq = true
 dcheck_always_on = false
 enable_java_asserts = false
 exclude_unwind_tables = true
-strip_debug_info = true
 use_siso = true
 disable_android_lint = true
 ```

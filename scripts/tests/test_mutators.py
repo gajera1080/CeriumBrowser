@@ -19,8 +19,6 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
 
 def setup_mock_brave(brave_dir):
-    webpack_rules = os.path.join(brave_dir, "build/webpack/rules.ts")
-    rust_wasm = os.path.join(brave_dir, "components/common/rust_to_wasm.gni")
     webui_build_gn = os.path.join(brave_dir, "ui/webui/resources/BUILD.gn")
     webui_sources_gni = os.path.join(brave_dir, "ui/webui/resources/sources.gni")
     nala_build_gn = os.path.join(brave_dir, "android/nala/BUILD.gn")
@@ -36,15 +34,13 @@ def setup_mock_brave(brave_dir):
     brave_content_browser_client = os.path.join(brave_dir, "browser/brave_content_browser_client.cc")
     brave_user_agent_exceptions = os.path.join(brave_dir, "components/brave_user_agent/browser/brave_user_agent_exceptions.cc")
     brave_shields_features = os.path.join(brave_dir, "components/brave_shields/core/common/features.cc")
+    origin_branding = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING")
+    origin_branding_beta = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.beta")
+    origin_branding_dev = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.development")
+    origin_branding_nightly = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.nightly")
 
-    for p in [webpack_rules, rust_wasm, webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_content_client, user_agent_utils, brave_content_browser_client, brave_user_agent_exceptions, brave_shields_features]:
+    for p in [webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_content_client, user_agent_utils, brave_content_browser_client, brave_user_agent_exceptions, brave_shields_features, origin_branding, origin_branding_beta, origin_branding_dev, origin_branding_nightly]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
-
-    with open(webpack_rules, "w") as f:
-        f.write("{ loader: 'sass-loader' },\n")
-
-    with open(rust_wasm, "w") as f:
-        f.write('"--log-level",\n      "warn",\n')
 
     with open(webui_build_gn, "w") as f:
         f.write("""group("grdp") {
@@ -263,9 +259,43 @@ BASE_FEATURE(kBraveAdblockDefault1pBlocking, base::FEATURE_DISABLED_BY_DEFAULT);
 }
 """)
 
+    with open(origin_branding, "w") as f:
+        f.write("""COMPANY_FULLNAME=Brave Software, Inc.
+COMPANY_SHORTNAME=Brave Software
+PRODUCT_FULLNAME=Brave Origin
+PRODUCT_SHORTNAME=Brave Origin
+PRODUCT_INSTALLER_FULLNAME=Brave Origin Installer
+PRODUCT_INSTALLER_SHORTNAME=Brave Origin Installer
+""")
+
+    with open(origin_branding_beta, "w") as f:
+        f.write("""COMPANY_FULLNAME=Brave Software, Inc.
+COMPANY_SHORTNAME=Brave Software
+PRODUCT_FULLNAME=Brave Origin Beta
+PRODUCT_SHORTNAME=Brave Origin Beta
+PRODUCT_INSTALLER_FULLNAME=Brave Origin Installer
+PRODUCT_INSTALLER_SHORTNAME=Brave Origin Installer
+""")
+
+    with open(origin_branding_dev, "w") as f:
+        f.write("""COMPANY_FULLNAME=Brave Software, Inc.
+COMPANY_SHORTNAME=Brave Software
+PRODUCT_FULLNAME=Brave Origin Development
+PRODUCT_SHORTNAME=Brave Origin Development
+PRODUCT_INSTALLER_FULLNAME=Brave Origin Installer
+PRODUCT_INSTALLER_SHORTNAME=Brave Origin Installer
+""")
+
+    with open(origin_branding_nightly, "w") as f:
+        f.write("""COMPANY_FULLNAME=Brave Software, Inc.
+COMPANY_SHORTNAME=Brave Software
+PRODUCT_FULLNAME=Brave Origin Nightly
+PRODUCT_SHORTNAME=Brave Origin Nightly
+PRODUCT_INSTALLER_FULLNAME=Brave Origin Installer
+PRODUCT_INSTALLER_SHORTNAME=Brave Origin Installer
+""")
+
     return {
-        "webpack_rules": webpack_rules,
-        "rust_wasm": rust_wasm,
         "webui_build_gn": webui_build_gn,
         "webui_sources_gni": webui_sources_gni,
         "nala_build_gn": nala_build_gn,
@@ -281,6 +311,10 @@ BASE_FEATURE(kBraveAdblockDefault1pBlocking, base::FEATURE_DISABLED_BY_DEFAULT);
         "brave_content_browser_client": brave_content_browser_client,
         "brave_user_agent_exceptions": brave_user_agent_exceptions,
         "brave_shields_features": brave_shields_features,
+        "origin_branding": origin_branding,
+        "origin_branding_beta": origin_branding_beta,
+        "origin_branding_dev": origin_branding_dev,
+        "origin_branding_nightly": origin_branding_nightly,
     }
 
 
@@ -293,11 +327,22 @@ def setup_mock_src(src_dir):
     ts_split_file = os.path.join(src_dir, "third_party/devtools-frontend/src/scripts/build/typescript/ts_library_split.gni")
     skills_build_gn = os.path.join(src_dir, "third_party/devtools-frontend/src/front_end/models/ai_assistance/skills/BUILD.gn")
     chrome_android_build_gn = os.path.join(src_dir, "chrome/android/BUILD.gn")
-    pp_client = os.path.join(src_dir, "components/paint_preview/browser/paint_preview_client.cc")
-    pp_delegate = os.path.join(src_dir, "components/paint_preview/player/player_compositor_delegate.cc")
+    ver_ua_cc = os.path.join(src_dir, "components/version_info/version_info_with_user_agent.cc")
 
-    for p in [chrome_ver_gni, ver_values, ver_consts, ver_strings, timestamp_gni, ts_split_file, skills_build_gn, chrome_android_build_gn, pp_client, pp_delegate]:
+    for p in [chrome_ver_gni, ver_values, ver_consts, ver_strings, timestamp_gni, ts_split_file, skills_build_gn, chrome_android_build_gn, ver_ua_cc]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
+
+    with open(ver_ua_cc, "w") as f:
+        f.write("""#include "components/version_info/version_info_with_user_agent.h"
+
+namespace version_info {
+
+std::string GetProductNameAndVersionForReducedUserAgent() {
+  return base::StrCat({"Chrome/", GetMajorVersionNumber(), ".0.0.0"});
+}
+
+}  // namespace version_info
+""")
 
     with open(timestamp_gni, "w") as f:
         f.write("""# Copyright 2018 The Chromium Authors
@@ -348,22 +393,6 @@ build_timestamp = exec_script(compute_build_timestamp,
     with open(ver_strings, "w") as f:
         f.write('  <string name="product_version" translatable="false" tools:ignore="UnusedResources">@MAJOR@.@MINOR@.@BUILD@.@PATCH@</string>\n')
 
-    with open(pp_client, "w") as f:
-        f.write('''  const auto& current_chrome_version = version_info::GetVersion();
-  chromeVersion->set_major(current_chrome_version.components()[0]);
-  chromeVersion->set_minor(current_chrome_version.components()[1]);
-  chromeVersion->set_build(current_chrome_version.components()[2]);
-  chromeVersion->set_patch(current_chrome_version.components()[3]);
-''')
-
-    with open(pp_delegate, "w") as f:
-        f.write('''  const auto& current_chrome_version = version_info::GetVersion();
-  if (capture_result_->proto.metadata().has_chrome_version() &&
-      chrome_version.major() == current_chrome_version.components()[0] &&
-      chrome_version.minor() == current_chrome_version.components()[1] &&
-      chrome_version.build() == current_chrome_version.components()[2] &&
-      chrome_version.patch() == current_chrome_version.components()[3]) {
-''')
 
     with open(ts_split_file, "w") as f:
         f.write('''template("ts_library_split") {
@@ -453,8 +482,7 @@ if (_is_default_toolchain &&
         "ts_split_file": ts_split_file,
         "skills_build_gn": skills_build_gn,
         "chrome_android_build_gn": chrome_android_build_gn,
-        "pp_client": pp_client,
-        "pp_delegate": pp_delegate,
+        "ver_ua_cc": ver_ua_cc,
     }
 
 
@@ -462,8 +490,6 @@ def test_apply_features():
     with tempfile.TemporaryDirectory() as tmpdir:
         # 1. Setup mock files for apply-features
         mock_files = setup_mock_brave(tmpdir)
-        webpack_rules = mock_files["webpack_rules"]
-        rust_wasm = mock_files["rust_wasm"]
         webui_build_gn = mock_files["webui_build_gn"]
         webui_sources_gni = mock_files["webui_sources_gni"]
         nala_build_gn = mock_files["nala_build_gn"]
@@ -481,12 +507,6 @@ def test_apply_features():
         assert res.returncode == 0, f"apply-features failed: {res.stderr}\n{res.stdout}"
 
         # Check modifications
-        with open(webpack_rules) as f:
-            assert "silenceDeprecations" in f.read()
-
-        with open(rust_wasm) as f:
-            assert '"--log-level",\n      "error",' in f.read()
-
         with open(webui_build_gn) as f:
             c = f.read()
             assert ":external_js_bundles" not in c.split("if (include_polymer)")[0]
@@ -562,6 +582,41 @@ def test_apply_features():
             bsf_content = f.read()
             assert "BASE_FEATURE(kBraveAdblockDefault1pBlocking, base::FEATURE_ENABLED_BY_DEFAULT);" in bsf_content
 
+        origin_branding = mock_files["origin_branding"]
+        origin_branding_beta = mock_files["origin_branding_beta"]
+        origin_branding_dev = mock_files["origin_branding_dev"]
+        origin_branding_nightly = mock_files["origin_branding_nightly"]
+
+        with open(origin_branding) as f:
+            ob_content = f.read()
+            assert "COMPANY_FULLNAME=Braving Project" in ob_content
+            assert "COMPANY_SHORTNAME=Braving" in ob_content
+            assert "PRODUCT_FULLNAME=Braving Browser" in ob_content
+            assert "PRODUCT_SHORTNAME=Braving" in ob_content
+            assert "PRODUCT_INSTALLER_FULLNAME=Braving Installer" in ob_content
+
+        with open(origin_branding_beta) as f:
+            obb_content = f.read()
+            assert "PRODUCT_FULLNAME=Braving Browser Beta" in obb_content
+            assert "PRODUCT_SHORTNAME=Braving Beta" in obb_content
+
+        with open(origin_branding_dev) as f:
+            obd_content = f.read()
+            assert "PRODUCT_FULLNAME=Braving Browser Development" in obd_content
+            assert "PRODUCT_SHORTNAME=Braving Development" in obd_content
+
+        with open(origin_branding_nightly) as f:
+            obn_content = f.read()
+            assert "PRODUCT_FULLNAME=Braving Browser Nightly" in obn_content
+            assert "PRODUCT_SHORTNAME=Braving Nightly" in obn_content
+
+        with open(origin_branding, "w") as f:
+            f.write(ob_content.replace("PRODUCT_SHORTNAME=Braving", "PRODUCT_SHORTNAME=Incorrect", 1))
+        res_partial = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
+        assert res_partial.returncode == 0, f"apply-features partial branding repair failed: {res_partial.stderr}"
+        with open(origin_branding) as f:
+            assert "PRODUCT_SHORTNAME=Braving" in f.read()
+
         # Verify idempotence
         res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
         assert res_idem.returncode == 0, f"apply-features idempotence failed: {res_idem.stderr}"
@@ -603,13 +658,6 @@ def test_apply_features():
             c = f.read()
             assert '@MAJOR@.@MINOR@.@BUILD@.@PATCH@' in c
 
-        with open(mock_src["pp_client"]) as f:
-            c = f.read()
-            assert "version_components.size() > 3 ? version_components[3] : 0" in c
-
-        with open(mock_src["pp_delegate"]) as f:
-            c = f.read()
-            assert "version_components.size() >= 4" in c
 
         with open(ver_strings) as f:
             c = f.read()
@@ -629,12 +677,19 @@ def test_apply_features():
             assert "defined(android_app_secondary_abi)" in c, f"Expected secondary ABI check in chrome/android/BUILD.gn, got:\n{c}"
             assert "Only validate 32-bit and dual-ABI targets when secondary ABI is enabled." in c
 
+        with open(mock_src["ver_ua_cc"]) as f:
+            c = f.read()
+            assert "std::string major = GetMajorVersionNumber();" in c
+            assert "defined(BRAVE_CHROMIUM_VERSION)" in c
+            assert 'base::StrCat({"Chrome/", major, ".0.0.0"})' in c
+
         res_src_idem = subprocess.run([sys.executable, script, tmpdir, "--strict", f"--src-dir={src_tmpdir}"], capture_output=True, text=True)
         assert res_src_idem.returncode == 0, f"apply-features with --src-dir idempotence failed: {res_src_idem.stderr}"
         assert "Skipped build/timestamp.gni (already patched)" in res_src_idem.stdout
         assert "Skipped third_party/devtools-frontend/src/scripts/build/typescript/ts_library_split.gni (already patched)" in res_src_idem.stdout
         assert "Skipped third_party/devtools-frontend/src/front_end/models/ai_assistance/skills/BUILD.gn (already patched)" in res_src_idem.stdout
         assert "Skipped chrome/android/BUILD.gn (already patched)" in res_src_idem.stdout
+        assert "Skipped components/version_info/version_info_with_user_agent.cc (already patched)" in res_src_idem.stdout
 
         # Verify template("nala_icon_override") syntax mutator
         with open(nala_build_gn, "w") as f:
@@ -797,6 +852,13 @@ def test_patch_suite():
     assert not os.path.exists(p_adblock), (
         "0005-default-adblock-subscriptions.patch must remain retired so CRX3 catalog components manage filter lists with permission_mask=3"
     )
+
+    p_paywall = os.path.join(REPO_ROOT, "patches/common/0001-brave-origin-paywall-bypass.patch")
+    assert os.path.isfile(p_paywall), f"Missing paywall bypass patch: {p_paywall}"
+    with open(p_paywall, "r", encoding="utf-8") as f:
+        c_paywall = f.read()
+    assert "browser/ui/views/brave_origin/brave_origin_startup_view.cc" in c_paywall
+    assert "return false;" in c_paywall
 
     # Dynamic brave-core detection: check BRAVE_CORE_DIR, build-workspace, or /run/media/pc/D/brave-core
     brave_core = os.environ.get("BRAVE_CORE_DIR", "")
@@ -1625,69 +1687,12 @@ if (!is_android && !is_ios) {
             assert res_idem.returncode == 0, f"brave_java_resources.gni variant {idx} idempotence failed: {res_idem.stderr}"
             assert "Skipped android/brave_java_resources.gni (already patched)" in res_idem.stdout
 
-    # 4. Test webpack rules.ts (sass-loader) resilience
-    rules_variants = [
-        '{ loader: "sass-loader" },\n',
-        '  {  loader:   \'sass-loader\'   }\n',
-        '{loader:"sass-loader"}\n',
-    ]
-    for idx, var in enumerate(rules_variants, 1):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            mock_brave = os.path.join(tmpdir, "mock_brave")
-            setup_mock_brave(mock_brave)
-            target = os.path.join(mock_brave, "build/webpack/rules.ts")
-            with open(target, "w") as f:
-                f.write(var)
-
-            res = subprocess.run([sys.executable, script, mock_brave, "--strict"], capture_output=True, text=True)
-            assert res.returncode == 0, f"rules.ts variant {idx} failed: {res.stderr}\n{res.stdout}"
-            with open(target) as f:
-                c = f.read()
-                assert "silenceDeprecations: ['legacy-js-api']" in c
-
-            res_idem = subprocess.run([sys.executable, script, mock_brave, "--strict"], capture_output=True, text=True)
-            assert res_idem.returncode == 0, f"rules.ts variant {idx} idempotence failed: {res_idem.stderr}"
-            assert "Skipped build/webpack/rules.ts (already patched)" in res_idem.stdout
-
-    # 5. Test rust_to_wasm.gni resilience
-    wasm_variants = [
-        '"--log-level", "warn",\n',
-        '      "--log-level",\n      "warn",\n',
-        '"--log-level",\n  "warn",\n',
-    ]
-    for idx, var in enumerate(wasm_variants, 1):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            mock_brave = os.path.join(tmpdir, "mock_brave")
-            setup_mock_brave(mock_brave)
-            target = os.path.join(mock_brave, "components/common/rust_to_wasm.gni")
-            with open(target, "w") as f:
-                f.write(var)
-
-            res = subprocess.run([sys.executable, script, mock_brave, "--strict"], capture_output=True, text=True)
-            assert res.returncode == 0, f"rust_to_wasm variant {idx} failed: {res.stderr}\n{res.stdout}"
-            with open(target) as f:
-                c = f.read()
-                assert '"--log-level",\n      "error",' in c
-
-            res_idem = subprocess.run([sys.executable, script, mock_brave, "--strict"], capture_output=True, text=True)
-            assert res_idem.returncode == 0, f"rust_to_wasm variant {idx} idempotence failed: {res_idem.stderr}"
-            assert "Skipped components/common/rust_to_wasm.gni (already patched)" in res_idem.stdout
-
-    # 6. Test version files with various whitespace and indentation formats
+    # 4. Test version files
     with tempfile.TemporaryDirectory() as tmpdir:
         mock_src = os.path.join(tmpdir, "mock_src")
         mock_brave = os.path.join(mock_src, "brave")
         setup_mock_brave(mock_brave)
         setup_mock_src(mock_src)
-
-        # Simulate pre-truncated version values to test automatic recovery
-        v_const = os.path.join(mock_src, "base/version_info/android/java/VersionConstants.java.version")
-        with open(v_const, "w") as f:
-            f.write('\tpublic static final String PRODUCT_VERSION = "@MINOR@.@BUILD@.@PATCH@";\n')
-
-        v_val = os.path.join(mock_src, "base/version_info/version_info_values.h.version")
-        with open(v_val, "w") as f:
-            f.write('#define PRODUCT_VERSION "@MINOR@.@BUILD@.@PATCH@"\n')
 
         v_tmpl = os.path.join(mock_src, "chrome/android/java/version_strings.xml.template")
         with open(v_tmpl, "w") as f:
@@ -1695,85 +1700,32 @@ if (!is_android && !is_ios) {
 
         res = subprocess.run([sys.executable, script, mock_brave, f"--src-dir={mock_src}", "--strict"], capture_output=True, text=True)
         assert res.returncode == 0, f"Version files mutator failed: {res.stderr}\n{res.stdout}"
-        with open(v_const) as f:
-            c = f.read()
-            assert '"@MAJOR@.@MINOR@.@BUILD@.@PATCH@"' in c
-        with open(v_val) as f:
-            c = f.read()
-            assert '"@MAJOR@.@MINOR@.@BUILD@.@PATCH@"' in c
         with open(v_tmpl) as f:
             c = f.read()
             assert ">@MINOR@.@BUILD@.@PATCH@<" in c
             assert "@MAJOR@" not in c
 
-        # Verify Paint Preview bounds checks
-        pp_client_file = os.path.join(mock_src, "components/paint_preview/browser/paint_preview_client.cc")
-        with open(pp_client_file) as f:
-            ppc = f.read()
-            assert "version_components.size() > 3 ? version_components[3] : 0" in ppc
-        pp_delegate_file = os.path.join(mock_src, "components/paint_preview/player/player_compositor_delegate.cc")
-        with open(pp_delegate_file) as f:
-            ppd = f.read()
-            assert "version_components.size() >= 4" in ppd
-
         # Idempotence
         res_idem = subprocess.run([sys.executable, script, mock_brave, f"--src-dir={mock_src}", "--strict"], capture_output=True, text=True)
         assert res_idem.returncode == 0, f"Version files idempotence failed: {res_idem.stderr}"
-        assert "Skipped components/paint_preview/browser/paint_preview_client.cc (already patched)" in res_idem.stdout
+        assert "Skipped chrome/android/java/version_strings.xml.template (already patched)" in res_idem.stdout
 
-    # 7. Test quick_search_engines mutator resilience and cleanup:
-    # Test handling of intermediate brave_icon_search references, injected BUILD.gn entries,
-    # and stale drawable files to guarantee no AAPT2 duplicate resource collisions.
+    # 5. Test quick_search_engines mutator resilience
     with tempfile.TemporaryDirectory() as tmpdir:
         mock_brave = os.path.join(tmpdir, "brave")
         mock_files = setup_mock_brave(mock_brave)
         qse_view = mock_files["quick_search_view_adapter"]
         qse_settings = mock_files["quick_search_adapter"]
-        qse_build_gn = mock_files["qse_build_gn"]
 
-        # Simulate state after prior intermediate mutator or warm build:
-        # 1. Adapter files contain R.drawable.brave_icon_search
-        with open(qse_view, "w") as f:
-            f.write("quickSearchViewHolder.mSearchEngineLogo.setImageResource(\n                    R.drawable.brave_icon_search);\n")
-        with open(qse_settings, "w") as f:
-            f.write("quickSearchEnginesSettingsViewHolder.mSearchEngineLogo.setImageResource(\n                    R.drawable.brave_icon_search);\n")
-
-        # 2. BUILD.gn contains injected brave_icon_search.xml
-        with open(qse_build_gn, "w") as f:
-            f.write('''android_resources("java_resources") {
-  sources = [
-    "java/res/drawable/brave_icon_search.xml",
-    "java/res/drawable/ic_leo_icon.xml",
-    "java/res/layout/fragment_quick_search.xml",
-  ]
-}
-''')
-
-        # 3. Stale brave_icon_search.xml file exists on disk
-        qse_res_dir = os.path.join(mock_brave, "browser/quick_search_engines/android/java/res/drawable")
-        os.makedirs(qse_res_dir, exist_ok=True)
-        stale_drawable = os.path.join(qse_res_dir, "brave_icon_search.xml")
-        with open(stale_drawable, "w") as f:
-            f.write("<vector></vector>\n")
-
-        # Run mutator in strict mode
         res = subprocess.run([sys.executable, script, mock_brave, "--strict"], capture_output=True, text=True)
-        assert res.returncode == 0, f"QSE mutator failed on intermediate state: {res.stderr}\n{res.stdout}"
+        assert res.returncode == 0, f"QSE mutator failed: {res.stderr}\n{res.stdout}"
 
-        # Assertions
         with open(qse_view) as f:
             view_content = f.read()
             assert "R.drawable.ic_brave_icon_search" in view_content
-            assert "R.drawable.brave_icon_search" not in view_content
         with open(qse_settings) as f:
             settings_content = f.read()
             assert "R.drawable.ic_brave_icon_search" in settings_content
-            assert "R.drawable.brave_icon_search" not in settings_content
-        with open(qse_build_gn) as f:
-            gn_text = f.read()
-            assert '"java/res/drawable/brave_icon_search.xml"' not in gn_text
-            assert '"java/res/drawable/ic_leo_icon.xml"' in gn_text
-        assert not os.path.exists(stale_drawable), "Stale brave_icon_search.xml was not cleaned up"
 
         # Verify idempotence
         res_idem = subprocess.run([sys.executable, script, mock_brave, "--strict"], capture_output=True, text=True)

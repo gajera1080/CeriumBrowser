@@ -110,6 +110,7 @@ if [[ ! -d "${STATIC_DIR}" ]]; then
 else
   STATIC_PNG_COUNT=$(find "${STATIC_DIR}" -type f -name "*.png" -size +0c | wc -l)
   STATIC_SVG_COUNT=$(find "${STATIC_DIR}" -type f -name "*.svg" -size +0c | wc -l)
+  STATIC_ICO_COUNT=$(find "${STATIC_DIR}" -type f -name "*.ico" -size +0c | wc -l)
   STATIC_TOTAL_COUNT=$(find "${STATIC_DIR}" -type f | wc -l)
   if [[ ${STATIC_PNG_COUNT} -ne 156 ]]; then
     echo "ERROR: Expected 156 non-empty static PNG logos in ${STATIC_DIR}, found ${STATIC_PNG_COUNT}" >&2
@@ -119,8 +120,12 @@ else
     echo "ERROR: Expected 10 non-empty static SVG logos in ${STATIC_DIR}, found ${STATIC_SVG_COUNT}" >&2
     FAILURES=$((FAILURES + 1))
   fi
-  if [[ ${STATIC_TOTAL_COUNT} -ne 166 ]]; then
-    echo "ERROR: Expected exactly 166 total static files in ${STATIC_DIR}, found ${STATIC_TOTAL_COUNT}" >&2
+  if [[ ${STATIC_ICO_COUNT} -ne 26 ]]; then
+    echo "ERROR: Expected 26 non-empty static ICO logos in ${STATIC_DIR}, found ${STATIC_ICO_COUNT}" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+  if [[ ${STATIC_TOTAL_COUNT} -ne 192 ]]; then
+    echo "ERROR: Expected exactly 192 total static files in ${STATIC_DIR}, found ${STATIC_TOTAL_COUNT}" >&2
     FAILURES=$((FAILURES + 1))
   fi
   STATIC_INTEGRITY_ERR=$(python3 - "${STATIC_DIR}" <<'PYEOF'
@@ -149,6 +154,11 @@ for root, _, files in os.walk(static_dir):
                     errs.append(f"Unexpected SVG viewBox in {rel}")
             except Exception as e:
                 errs.append(f"Invalid SVG XML in {rel}: {e}")
+        elif f.endswith(".ico"):
+            with open(p, "rb") as fp:
+                data = fp.read()
+            if len(data) < 6 or data[:4] != b"\x00\x00\x01\x00":
+                errs.append(f"Invalid ICO header: {rel}")
 if errs:
     print("\n".join(errs))
 PYEOF
@@ -157,8 +167,8 @@ PYEOF
     echo "ERROR: Static logo integrity errors in ${STATIC_DIR}:" >&2
     echo "${STATIC_INTEGRITY_ERR}" >&2
     FAILURES=$((FAILURES + 1))
-  elif [[ ${STATIC_PNG_COUNT} -eq 156 && ${STATIC_SVG_COUNT} -eq 10 && ${STATIC_TOTAL_COUNT} -eq 166 ]]; then
-    echo " [OK] Verified 156 static PNG logos and 10 static SVG logos in branding/brave-core-static/."
+  elif [[ ${STATIC_PNG_COUNT} -eq 156 && ${STATIC_SVG_COUNT} -eq 10 && ${STATIC_ICO_COUNT} -eq 26 && ${STATIC_TOTAL_COUNT} -eq 192 ]]; then
+    echo " [OK] Verified 156 static PNG logos, 10 static SVG logos, and 26 static Windows ICO logos in branding/brave-core-static/."
   fi
 fi
 

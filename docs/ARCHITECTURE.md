@@ -88,7 +88,7 @@ Braving Repository Structure
   - `is_debug = false`, `is_official_build = true`, `is_java_debug = false`
   - `symbol_level = 0`, `blink_symbol_level = 0`, `v8_symbol_level = 0`
   - `dcheck_always_on = false`, `enable_java_asserts = false`
-  - `exclude_unwind_tables = true`, `strip_debug_info = true`
+  - `exclude_unwind_tables = true`
   - `target_android_output_format = "apk"`
 - Build output streams through `filter-build-log.py`, which throttles progress lines (`[50/43210 (0.1%)]`) while immediately flushing 100% of compiler errors, warnings, and failure diagnostics to stdout, fully preventing GitLab CI's 4MB console log truncation limit.
 
