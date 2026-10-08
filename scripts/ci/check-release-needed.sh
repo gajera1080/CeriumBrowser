@@ -27,16 +27,19 @@
 
 set -euo pipefail
 
-# ------------------------------------------------------------------------------
-# 1. Validate Required Environment Variables
-# ------------------------------------------------------------------------------
+# Dotenv file path destination (default to build.env if unset)
+BUILD_ENV_FILE="${BUILD_ENV_FILE:-build.env}"
+
+# If unset in environment, attempt to read from dotenv file
+if [[ -z "${DYNAMIC_BRAVE_VERSION:-}" && -f "${BUILD_ENV_FILE}" ]]; then
+  DYNAMIC_BRAVE_VERSION=$(grep -E '^DYNAMIC_BRAVE_VERSION=' "${BUILD_ENV_FILE}" | cut -d'=' -f2- | tr -d ' "\r\n')
+fi
+
 if [[ -z "${DYNAMIC_BRAVE_VERSION:-}" ]]; then
   echo "ERROR: DYNAMIC_BRAVE_VERSION environment variable is unset or empty." >&2
   exit 1
 fi
 
-# Dotenv file path destination (default to build.env if unset)
-BUILD_ENV_FILE="${BUILD_ENV_FILE:-build.env}"
 TAG_NAME="v${DYNAMIC_BRAVE_VERSION}"
 
 echo "============================================================"

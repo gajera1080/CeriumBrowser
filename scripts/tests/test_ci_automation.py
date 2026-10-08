@@ -13,6 +13,8 @@ import subprocess
 import sys
 import unittest
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 
 class TestReleaseCheckLogic(unittest.TestCase):
     """Tests the tag existence check logic from check-release-needed.sh."""
@@ -43,6 +45,23 @@ class TestReleaseCheckLogic(unittest.TestCase):
         self.assertRegex(dotenv_line, r'^SKIP_BUILD=(true|false)$')
         self.assertNotIn('"', dotenv_line)
         self.assertNotIn("'", dotenv_line)
+
+    def test_reads_dynamic_brave_version_from_dotenv_file(self):
+        """check-release-needed.sh must read DYNAMIC_BRAVE_VERSION from BUILD_ENV_FILE if unset in environment."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env_file = os.path.join(tmpdir, "test.env")
+            with open(env_file, "w") as f:
+                f.write("DYNAMIC_BRAVE_VERSION=1.97.56\n")
+            res = subprocess.run(
+                ["bash", os.path.join(REPO_ROOT, "scripts/ci/check-release-needed.sh")],
+                env={"PATH": os.environ.get("PATH", ""), "BUILD_ENV_FILE": env_file},
+                capture_output=True, text=True
+            )
+            self.assertEqual(res.returncode, 0, f"check-release-needed failed: {res.stderr}")
+            with open(env_file, "r") as f:
+                content = f.read()
+            self.assertIn("SKIP_BUILD=false", content)
 
 
 class TestPublishReleasePayload(unittest.TestCase):

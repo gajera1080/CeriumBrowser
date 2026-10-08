@@ -44,7 +44,6 @@ prepare_source:
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/core/verify-all.sh
-    - source build.env
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
