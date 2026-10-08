@@ -52,8 +52,6 @@ prepare_source:
       export DYNAMIC_CHROMIUM_VERSION
       echo "DYNAMIC_BRAVE_VERSION=${DYNAMIC_BRAVE_VERSION}" > build.env
       echo "DYNAMIC_CHROMIUM_VERSION=${DYNAMIC_CHROMIUM_VERSION}" >> build.env
-      echo "TARGET_PLATFORM=all" >> build.env
-      echo "TARGET_ARCH=all" >> build.env
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"

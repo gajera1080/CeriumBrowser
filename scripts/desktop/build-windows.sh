@@ -21,6 +21,15 @@ while [[ $# -gt 0 ]]; do
     --arch=*)
       TARGET_ARCH="${1#*=}"
       case "${TARGET_ARCH}" in
+        all)
+          PASS_ARGS=()
+          for a in "$@"; do
+            [[ "$a" != --arch=* ]] && PASS_ARGS+=("$a")
+          done
+          "$0" "${PASS_ARGS[@]}" --arch=x64
+          "$0" "${PASS_ARGS[@]}" --arch=arm64
+          exit 0
+          ;;
         x64|arm64) ;;
         x86_64|amd64) TARGET_ARCH="x64" ;;
         aarch64) TARGET_ARCH="arm64" ;;
