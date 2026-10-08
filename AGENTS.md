@@ -204,7 +204,9 @@ Before submitting changes or proposing pull requests:
      ```
      This executes the complete end-to-end source preparation pipeline against real upstream sources: resolving commit hashes, fetching/resetting `brave-core`, applying all git patches in `patches/`, and running all programmatic mutators (`apply-features.py --strict`, `apply-assets.sh`, and `apply-branding.py --strict`). Both verification steps must exit 0 before changes can be accepted or committed.
 7. **Never write secrets into files**: API keys, tokens, or keystore passwords must be passed via environment variables.
-8. **Branch Model (`release` vs `main`)**: The `release` branch is the production release branch (official releases, signed APK artifacts, and release tags). The `main` branch is for active testing, integration, and community merges. All merge requests and development topic branches must target `main`.
+8. **Branch Model (`release` vs `main`)**:
+   - The `release` branch is the production release branch (official releases, signed APK artifacts, and release tags). It compiles all target architectures (`COMPILE_TARGET="all"`) and publishes official releases. Its GitLab Web UI prompt only requests `brave_version` and `force_cache_rebuild`.
+   - The `main` branch (and other topic branches) is for active testing, integration, and development. When triggered manually in the GitLab Web UI, it provides an interactive `compile_target` input dropdown (`all`, `android`, `windows`, `windows_x64`, `windows_arm64`, no default) allowing developers to choose target compilation on demand without publishing official releases. All merge requests and development topic branches must target `main`.
 9. **Enforce strict minimalism**: Keep all edits minimal, surgical, and structured. Do not introduce speculative checks, unnecessary wrapper boilerplate, or dead code. Every edit must be strictly essential.
 
 ---

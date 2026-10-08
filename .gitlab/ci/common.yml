@@ -8,6 +8,10 @@ spec:
       type: boolean
       default: false
       description: "Force cold build and rebuild cache package in registry"
+    compile_target:
+      type: string
+      default: "all"
+      description: "Target platform to compile (all, android, windows, windows_x64, windows_arm64)"
 ---
 # Common Templates, Source Preparation, and Unified Release Stage
 # Included by .gitlab-ci.yml
@@ -77,8 +81,13 @@ publish_release:
   needs:
     - job: build_android
       artifacts: true
-    - job: build_windows
+      optional: true
+    - job: build_windows_x64
       artifacts: true
+      optional: true
+    - job: build_windows_arm64
+      artifacts: true
+      optional: true
     - job: prepare_source
       artifacts: true
   before_script:
@@ -98,4 +107,6 @@ publish_release:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - when: never

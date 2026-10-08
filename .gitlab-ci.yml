@@ -4,6 +4,15 @@ spec:
       type: string
       default: ""
       description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
+    compile_target:
+      type: string
+      options:
+        - "all"
+        - "android"
+        - "windows"
+        - "windows_x64"
+        - "windows_arm64"
+      description: "Select target to compile (all, android, windows, windows_x64, windows_arm64)"
     force_cache_rebuild:
       type: boolean
       default: false
@@ -11,7 +20,8 @@ spec:
 ---
 # GitLab CI Pipeline for Braving Multi-Platform Distribution
 # Unified architecture building Android (arm64), Windows (x64), and Windows (arm64)
-# - Release branch & Web UI triggers automatically build all target architectures
+# - Release branch builds all targets automatically and publishes official release
+# - Non-release branches provide interactive selection of compile target via GitLab inputs
 
 stages:
   - prepare
@@ -23,10 +33,11 @@ variables:
   GIT_DEPTH: 1
   BRAVE_VERSION: "$[[ inputs.brave_version ]]"
   FORCE_CACHE_REBUILD: "$[[ inputs.force_cache_rebuild ]]"
+  COMPILE_TARGET: "$[[ inputs.compile_target ]]"
 
 # Pipeline execution rules:
 # - release branch triggers on any push/merge to build all architectures and publish official release
-# - manual Web UI execution triggers full multi-architecture release pipeline
+# - manual Web UI execution triggers configurable target compilation
 workflow:
   rules:
     - if: '$CI_COMMIT_BRANCH == "release"'
@@ -41,11 +52,14 @@ include:
     inputs:
       brave_version: "$[[ inputs.brave_version ]]"
       force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
+      compile_target: "$[[ inputs.compile_target ]]"
   - local: ".gitlab/ci/android.yml"
     inputs:
       brave_version: "$[[ inputs.brave_version ]]"
       force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
+      compile_target: "$[[ inputs.compile_target ]]"
   - local: ".gitlab/ci/windows.yml"
     inputs:
       brave_version: "$[[ inputs.brave_version ]]"
       force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
+      compile_target: "$[[ inputs.compile_target ]]"

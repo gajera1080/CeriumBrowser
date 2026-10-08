@@ -302,5 +302,7 @@ Agents must ALWAYS perform the two-step verification workflow:
 7. **Always preserve `set -euo pipefail`** in all shell scripts.
 8. **Always verify idempotence** on all programmatic mutators.
 9. **Always respect user instructions regarding Git operations** (e.g. "dont commit and push" or "commit but do not push").
-10. **Branch Model (`release` vs `main`)**: `release` is the production release branch (official signed releases and release tags); `main` is for active development, automated testing, and community merges. All merge requests must target `main`.
+10. **Branch Model (`release` vs `main`)**:
+    - `release` is the production release branch (official signed releases and release tags). It compiles all target architectures (`COMPILE_TARGET="all"`) and publishes official releases. Its GitLab Web UI prompt only requests `brave_version` and `force_cache_rebuild`.
+    - `main` is for active development, automated testing, and community merges. When triggered manually in the GitLab Web UI, it provides an interactive `compile_target` input dropdown (`all`, `android`, `windows`, `windows_x64`, `windows_arm64`, no default) allowing developers to choose target compilation on demand without publishing official releases. All merge requests must target `main`.
 11. **Keep modifications strictly minimalist and essential**: Never add speculative checks, defensive clutter, or unnecessary code that wasn't requested. Keep all patches and mutators lean, structured, and focused solely on the required behavior to prevent fragility across upstream version bumps.

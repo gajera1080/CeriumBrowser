@@ -8,6 +8,10 @@ spec:
       type: boolean
       default: false
       description: "Force cold build and rebuild cache package in registry"
+    compile_target:
+      type: string
+      default: "all"
+      description: "Target platform to compile (all, android, windows, windows_x64, windows_arm64)"
 ---
 # Android Pipeline Jobs
 # Included by .gitlab-ci.yml
@@ -55,7 +59,11 @@ prepare_android_cache:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "android")'
+      when: on_success
+    - when: never
 
 build_android:
   stage: build
@@ -98,4 +106,8 @@ build_android:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "android")'
+      when: on_success
+    - when: never

@@ -8,6 +8,10 @@ spec:
       type: boolean
       default: false
       description: "Force cold build and rebuild cache package in registry"
+    compile_target:
+      type: string
+      default: "all"
+      description: "Target platform to compile (all, android, windows, windows_x64, windows_arm64)"
 ---
 # Windows Pipeline Jobs
 # Included by .gitlab-ci.yml
@@ -78,29 +82,68 @@ spec:
     expire_in: 30 days
 
 # ------------------------------------------------------------------------------
-# Windows Cache & Build: Compile both x64 and arm64 in parallel
+# Windows Cache & Build Jobs: x64 and arm64 targets
 # ------------------------------------------------------------------------------
-prepare_windows_cache:
+prepare_windows_cache_x64:
   extends: .prepare_windows_cache_base
-  parallel:
-    matrix:
-      - TARGET_ARCH: ["x64", "arm64"]
+  variables:
+    TARGET_ARCH: "x64"
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_x64")'
+      when: on_success
+    - when: never
 
-build_windows:
+prepare_windows_cache_arm64:
+  extends: .prepare_windows_cache_base
+  variables:
+    TARGET_ARCH: "arm64"
+  rules:
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_arm64")'
+      when: on_success
+    - when: never
+
+build_windows_x64:
   extends: .build_windows_base
+  variables:
+    TARGET_ARCH: "x64"
   needs:
-    - job: prepare_windows_cache
+    - job: prepare_windows_cache_x64
       artifacts: true
+      optional: true
     - job: prepare_source
       artifacts: true
-  parallel:
-    matrix:
-      - TARGET_ARCH: ["x64", "arm64"]
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_x64")'
+      when: on_success
+    - when: never
+
+build_windows_arm64:
+  extends: .build_windows_base
+  variables:
+    TARGET_ARCH: "arm64"
+  needs:
+    - job: prepare_windows_cache_arm64
+      artifacts: true
+      optional: true
+    - job: prepare_source
+      artifacts: true
+  rules:
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_arm64")'
+      when: on_success
+    - when: never

@@ -284,16 +284,24 @@ class TestCIScriptSyntax(unittest.TestCase):
         inputs = combined.get('spec', {}).get('inputs', {})
         self.assertIn('brave_version', inputs)
         self.assertIn('force_cache_rebuild', inputs)
-        self.assertNotIn('target_platform', inputs)
-        self.assertNotIn('target_arch', inputs)
 
         variables = combined.get('variables', {})
         self.assertIn('BRAVE_VERSION', variables)
         self.assertIn('FORCE_CACHE_REBUILD', variables)
         self.assertIsInstance(variables['BRAVE_VERSION'], str)
         self.assertIsInstance(variables['FORCE_CACHE_REBUILD'], str)
-        self.assertNotIn('TARGET_PLATFORM', variables)
-        self.assertNotIn('TARGET_ARCH', variables)
+
+        if 'compile_target' in inputs:
+            # Non-release branches require interactive developer selection in Web UI
+            self.assertEqual(
+                inputs['compile_target'].get('options'),
+                ['all', 'android', 'windows', 'windows_x64', 'windows_arm64']
+            )
+            self.assertNotIn('default', inputs['compile_target'])
+            self.assertIn('COMPILE_TARGET', variables)
+        else:
+            # Release branch builds all targets automatically without arch input prompt
+            self.assertEqual(variables.get('COMPILE_TARGET', 'all'), 'all')
 
     def test_resolve_versions_execution(self):
         """resolve-versions.py must generate deterministic manifest and env files."""
