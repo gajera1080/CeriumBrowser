@@ -361,6 +361,8 @@ class TestCIScriptSyntax(unittest.TestCase):
             'scripts/core/filter-build-log.py',
             'scripts/core/upload-cache.sh',
             'scripts/core/download-cache.sh',
+            'scripts/core/upload-source-cache.sh',
+            'scripts/core/download-source-cache.sh',
             'scripts/core/verify-all.sh',
             'scripts/core/verify-branding.sh',
             'scripts/platforms/android/build.sh',

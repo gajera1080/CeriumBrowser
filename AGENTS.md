@@ -114,7 +114,7 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 
 ### 2. The Two-Tier Caching Architecture
 
-#### Tier 1: Pre-Patched Source, depot_tools & Base Chromium Cache via GitLab CI `cache:`
+#### Tier 1: Version-Unique Pre-Patched Source & Toolchain Cache via GitLab Generic Package Registry
 - **All upstream source preparation & toolchain staging MUST happen exclusively in `prepare_source`**:
   - Shallow checkout of exact `brave-core` release commit.
   - Applying all git patches in `patches/`.
@@ -124,19 +124,10 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
   - Pre-installing node dependencies via `pnpm install --frozen-lockfile` so `node_modules` is cached, saving 2–3 minutes on every compilation runner.
   - Pre-bootstrapping `depot_tools` into `build-workspace/depot_tools/` to eliminate clone & bootstrap delays across compilation runners.
   - Fetching clean base Chromium at exact revision, pre-syncing host Clang (`llvm-build`), Rust toolchain (`rust-toolchain`), and GN binary, and compressing into `build-workspace/chromium-src-${CHROMIUM_VERSION}.tar.xz` (~1.4 GB, excluding `src/brave`).
-- **Cache Configuration**:
-  - `prepare_source` pushes the prepared workspace artifacts with:
-    ```yaml
-    cache:
-      key: "braving-source-${CI_COMMIT_REF_SLUG}"
-      paths:
-        - build-workspace/src/brave/
-        - build-workspace/depot_tools/
-        - build-workspace/chromium-src-*.tar.xz
-      policy: push
-      when: on_success
-    ```
-  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) pull this cache with `policy: pull` and unpack `chromium-src-${CHROMIUM_VERSION}.tar.xz` locally in ~25 seconds, avoiding external clone overhead.
+- **Why We Use GitLab Generic Package Registry for Source Cache**:
+  - **100% Unique to Brave Version**: Evaluated dynamically at runtime using `${DYNAMIC_BRAVE_VERSION}`, eliminating cache poisoning across branch slugs (`CI_COMMIT_REF_SLUG`).
+  - **Zero Runner Zip Overhead**: Bypasses the slow GitLab runner `.zip` archiver and uploads/downloads verified tarball archives (`brave-src-${DYNAMIC_BRAVE_VERSION}.tar.xz`, `depot-tools.tar.xz`, and `chromium-src-${CHROMIUM_VERSION}.tar.xz`) directly via `upload-source-cache.sh` and `download-source-cache.sh`.
+  - **Shared Globally**: Any runner across any branch targeting the same upstream release version can reuse the exact prepared sources and tools in ~25–30 seconds.
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
 
 #### Tier 2: Compiler Object Cache (`out/Release/`) via GitLab Generic Package Registry
