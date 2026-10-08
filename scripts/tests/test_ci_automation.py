@@ -274,6 +274,8 @@ class TestCIScriptSyntax(unittest.TestCase):
         variables = combined.get('variables', {})
         self.assertIn('BRAVE_VERSION', variables)
         self.assertIn('FORCE_CACHE_REBUILD', variables)
+        self.assertIsInstance(variables['BRAVE_VERSION'], str)
+        self.assertIsInstance(variables['FORCE_CACHE_REBUILD'], str)
         self.assertNotIn('TARGET_PLATFORM', variables)
         self.assertNotIn('TARGET_ARCH', variables)
 

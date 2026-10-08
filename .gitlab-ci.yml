@@ -21,15 +21,8 @@ stages:
 
 variables:
   GIT_DEPTH: 1
-  BRAVE_VERSION:
-    value: "$[[ inputs.brave_version ]]"
-    description: "Brave release version (e.g. <version>). Leave empty to auto-fetch latest stable from GitHub."
-  FORCE_CACHE_REBUILD:
-    value: "$[[ inputs.force_cache_rebuild ]]"
-    options:
-      - "false"
-      - "true"
-    description: "Force cold build and rebuild cache package in registry"
+  BRAVE_VERSION: "$[[ inputs.brave_version ]]"
+  FORCE_CACHE_REBUILD: "$[[ inputs.force_cache_rebuild ]]"
 
 # Pipeline execution rules:
 # - release branch triggers on any push/merge to build all architectures and publish official release
