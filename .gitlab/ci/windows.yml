@@ -27,6 +27,13 @@ spec:
   variables:
     CACHE_PREP_ONLY: "true"
     BUILD_TARGET: "v8 third_party/blink/public:blink"
+  cache:
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
+    policy: pull
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"
@@ -40,8 +47,6 @@ spec:
           exit 0
         fi
       fi
-    - echo "Restoring source cache for ${DYNAMIC_BRAVE_VERSION}..."
-    - ./scripts/core/download-source-cache.sh
     - echo "Building isolated Windows heavy targets (v8 & blink) for ${TARGET_ARCH} to generate warm cache..."
     - ./scripts/platforms/windows/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - CACHE_VERSION="${CACHE_VERSION}" ./scripts/core/upload-cache.sh
@@ -57,10 +62,15 @@ spec:
   extends:
     - .linux_2xlarge
     - .build_environment_setup
+  cache:
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
+    policy: pull
   script:
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"
-    - echo "Restoring source cache for ${DYNAMIC_BRAVE_VERSION}..."
-    - ./scripts/core/download-source-cache.sh
     - echo "Restoring warm Windows cache for ${CACHE_VERSION}..."
     - CACHE_VERSION="${CACHE_VERSION}" ./scripts/core/download-cache.sh || true
     - echo "Executing Windows compile and package for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"

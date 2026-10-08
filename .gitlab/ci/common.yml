@@ -45,7 +45,14 @@ prepare_source:
     - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/core/verify-all.sh
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
-    - ./scripts/core/upload-source-cache.sh
+  cache:
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
+    policy: push
+    when: on_success
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:
