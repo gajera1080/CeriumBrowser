@@ -148,30 +148,20 @@ if [[ ! -d "${BRAVE_DIR}" ]]; then
 fi
 
 
+CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
 if [[ ! -d "${SRC_DIR}/.git" ]]; then
-  echo ""
-  echo "Fetching clean Chromium at exact revision with NO history (${CHROMIUM_VERSION} @ ${CHROMIUM_COMMIT})..."
-  mkdir -p "${SRC_DIR}"
-  git init "${SRC_DIR}"
-  git -C "${SRC_DIR}" config advice.detachedHead false
-  git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git" 2>/dev/null || git -C "${SRC_DIR}" remote set-url origin "https://chromium.googlesource.com/chromium/src.git"
-  git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
-  git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
-  git -C "${SRC_DIR}" reset --hard FETCH_HEAD
-  git -C "${SRC_DIR}" clean -ffd
-else
-  echo "Chromium source directory already exists, verifying commit..."
-  CURRENT_COMMIT=$(git -C "${SRC_DIR}" rev-parse HEAD 2>/dev/null || echo "")
-  if [[ "${CURRENT_COMMIT}" != "${CHROMIUM_COMMIT}" ]]; then
-    echo "Existing source is at ${CURRENT_COMMIT}, fetching exact revision ${CHROMIUM_COMMIT}..."
-    git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
-    git -C "${SRC_DIR}" reset --hard FETCH_HEAD
-    git -C "${SRC_DIR}" clean -ffd
-  else
-    echo "Existing source is at ${CURRENT_COMMIT}, resetting to clean state..."
-    git -C "${SRC_DIR}" reset --hard HEAD
-    git -C "${SRC_DIR}" clean -ffd
+  if [[ ! -f "${CHROMIUM_ARCHIVE}" ]]; then
+    echo "ERROR: Base Chromium archive not found at ${CHROMIUM_ARCHIVE}." >&2
+    echo "Please ensure scripts/core/prepare-source.sh has been run and cached." >&2
+    exit 1
   fi
+  echo ""
+  echo "Unpacking base Chromium source from ${CHROMIUM_ARCHIVE}..."
+  tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
+else
+  echo "Chromium source directory already exists, resetting to clean state..."
+  git -C "${SRC_DIR}" reset --hard HEAD
+  git -C "${SRC_DIR}" clean -ffd
 fi
 
 DEPOT_TOOLS_DIR="${WORKSPACE_DIR}/depot_tools"
@@ -179,12 +169,12 @@ if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
   echo ""
   echo "Fetching depot_tools..."
   git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
+  echo "Bootstrapping depot_tools..."
+  "${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
+else
+  echo "Using pre-bootstrapped depot_tools from cache: ${DEPOT_TOOLS_DIR}"
 fi
 export PATH="${DEPOT_TOOLS_DIR}:${PATH}"
-
-# Bootstrap depot_tools (creates python3_bin_reldir.txt, downloads cipd & gn)
-echo "Bootstrapping depot_tools..."
-"${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
 export DEPOT_TOOLS_UPDATE=0
 
 # Step 2a: Git compatibility shim for depot_tools when running on Git < 2.43.1

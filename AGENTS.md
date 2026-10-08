@@ -114,25 +114,29 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 
 ### 2. The Two-Tier Caching Architecture
 
-#### Tier 1: Pre-Patched Source Cache (`src/brave/`) via GitLab CI `cache:`
-- **All `brave-core` modifications MUST happen exclusively in `prepare_source`**:
+#### Tier 1: Pre-Patched Source, depot_tools & Base Chromium Cache via GitLab CI `cache:`
+- **All upstream source preparation & toolchain staging MUST happen exclusively in `prepare_source`**:
   - Shallow checkout of exact `brave-core` release commit.
   - Applying all git patches in `patches/`.
   - Applying cross-platform GN mutators via `apply-features.py --strict`.
   - Applying Braving branding overlay and vector assets via `apply-assets.sh`.
   - Applying UI strings remapping via `apply-branding.py --strict`.
   - Pre-installing node dependencies via `pnpm install --frozen-lockfile` so `node_modules` is cached, saving 2–3 minutes on every compilation runner.
+  - Pre-bootstrapping `depot_tools` into `build-workspace/depot_tools/` to eliminate clone & bootstrap delays across compilation runners.
+  - Fetching clean base Chromium at exact revision, pre-syncing host Clang (`llvm-build`), Rust toolchain (`rust-toolchain`), and GN binary, and compressing into `build-workspace/chromium-src-${CHROMIUM_VERSION}.tar.xz` (~1.4 GB, excluding `src/brave`).
 - **Cache Configuration**:
-  - `prepare_source` pushes the prepared `build-workspace/src/brave/` directory with:
+  - `prepare_source` pushes the prepared workspace artifacts with:
     ```yaml
     cache:
       key: "braving-source-${CI_COMMIT_REF_SLUG}"
       paths:
         - build-workspace/src/brave/
+        - build-workspace/depot_tools/
+        - build-workspace/chromium-src-*.tar.xz
       policy: push
       when: on_success
     ```
-  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) pull this cache with `policy: pull`.
+  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) pull this cache with `policy: pull` and unpack `chromium-src-${CHROMIUM_VERSION}.tar.xz` locally in ~25 seconds, avoiding external clone overhead.
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
 
 #### Tier 2: Compiler Object Cache (`out/Release/`) via GitLab Generic Package Registry

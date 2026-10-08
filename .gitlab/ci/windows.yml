@@ -31,6 +31,8 @@ spec:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
     policy: pull
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
@@ -64,6 +66,8 @@ spec:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
     policy: pull
   script:
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"

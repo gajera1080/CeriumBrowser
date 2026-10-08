@@ -32,6 +32,8 @@ prepare_android_cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
     policy: pull
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
@@ -83,6 +85,8 @@ build_android:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
     policy: pull
   script:
     - export TARGET_ARCH="arm64"

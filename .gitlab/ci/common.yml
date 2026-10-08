@@ -35,7 +35,7 @@ prepare_source:
   stage: prepare
   image: debian:bookworm-slim
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates xz-utils
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
   script:
@@ -49,6 +49,8 @@ prepare_source:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
+      - build-workspace/depot_tools/
+      - build-workspace/chromium-src-*.tar.xz
     policy: push
     when: on_success
   artifacts:
