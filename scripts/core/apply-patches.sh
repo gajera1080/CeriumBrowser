@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Braving — Patch Application & Verification Engine
 # Applies or validates the Braving patch set against a target repository.
+# Applies cross-platform patches (patches/common) first, followed by platform patches.
 # Supports clean forward application, strict idempotency (reverse-check),
 # and -C1 fuzzy context fallback across upstream version bumps.
 
@@ -48,7 +49,17 @@ if [[ ! -d "${PATCH_DIR}" ]]; then
 fi
 
 PATCHES=()
+
+# 1. Common core patches first
+if [[ -d "${PATCH_DIR}/common" ]]; then
+  while IFS= read -r -d $'\0' file; do
+    PATCHES+=("$file")
+  done < <(find "${PATCH_DIR}/common" -name "*.patch" -print0 | sort -z)
+fi
+
+# 2. Platform-specific patches
 while IFS= read -r -d $'\0' file; do
+  [[ "$file" == "${PATCH_DIR}/common/"* ]] && continue
   PATCHES+=("$file")
 done < <(find "${PATCH_DIR}" -name "*.patch" -print0 | sort -z)
 

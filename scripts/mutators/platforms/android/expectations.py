@@ -97,6 +97,5 @@ def _patch_validate_expectations_in_gn(content):
 
 
 def apply(ctx: MutatorContext):
-    if ctx.explicit_src_dir or (ctx.src_dir and os.path.exists(os.path.join(ctx.src_dir, "chrome", "android", "BUILD.gn"))):
-        if ctx.src_dir:
-            ctx.mutate_file("chrome/android/BUILD.gn", _patch_validate_expectations_in_gn, in_src=True)
+    if ctx.has_chromium_src():
+        ctx.mutate_file("chrome/android/BUILD.gn", _patch_validate_expectations_in_gn, in_src=True)

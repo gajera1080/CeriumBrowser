@@ -77,26 +77,27 @@ Braving
     |-- metadata/            Release manifests and exact upstream commits
     |   `-- releases/        Generated release manifests (package_id, commits, arch)
     |-- patches/             Unified patches for branding, debloating, and updater
-    |   `-- android/
-    |       |-- 0001-braving-branding.patch
-    |       |-- 0002-custom-updater-endpoint.patch
-    |       `-- debloat/     Modular enterprise debloating patches
-    `-- scripts/             Modular build, mutator, signing, and verification suite
-        |-- android/         Android build orchestration and Python mutators
+    |   |-- common/          Cross-platform C++ patches (updater, policies, bypass)
+    |   `-- android/         Android-specific Java and XML layout patches
+    `-- scripts/             Modular multi-platform build and verification suite
+        |-- core/            Core source prep, mutator runner, cache, and verification
         |   |-- apply-assets.sh      Applies static raster and vector branding assets
         |   |-- apply-branding.py    GRD/GRDP string de-branding and XTB remapping
         |   |-- apply-features.py    GN build fixes and WebUI bundle decoupling
-        |   |-- build-android.sh     Phase 2: Compiles the release Braving APK
+        |   |-- apply-patches.sh     Unified patch applicator (common then platform)
+        |   |-- download-cache.sh    Distributed CI Siso warm cache restore
         |   |-- filter-build-log.py  Real-time CI stream filter preventing log truncation
-        |   |-- prepare-source.sh    Phase 1: Dynamic checkout, patches, & mutators
-        |   |-- sign-apk.sh          v1/v2/v3 APK release signing & verification
+        |   |-- prepare-source.sh    Stage 1: Dynamic checkout, patches, & mutators
+        |   |-- resolve-versions.py  Resolves upstream release tags and git commit hashes
+        |   |-- upload-cache.sh      Distributed CI Siso warm cache chunker and upload
         |   |-- verify-all.sh        Master 6-step verification suite
         |   `-- verify-branding.sh   Validates AAPT2 limits & complete de-branding
+        |-- platforms/       Modular platform build and packaging modules
+        |   |-- android/     build.sh (compile APK) & package.sh (signing & alignment)
+        |   `-- windows/     build.sh (compile Windows) & package.sh (ZIP packaging)
         |-- ci/              Automated CI/CD release gating and direct release publishing
         |   |-- check-release-needed.sh  Checks if release tag v<version> exists
         |   `-- publish-release-direct.sh Direct APK upload & GitLab Release publisher
-        |-- download-cache.sh Distributed CI Siso warm cache restore
-        |-- upload-cache.sh   Distributed CI Siso warm cache chunker and upload
         `-- tests/            Automated unit and integration test suite
 
 
@@ -121,14 +122,18 @@ Braving
     branding mutators, run the preparation script with the desired
     Brave version (or omit to auto-resolve latest stable):
 
-        ./scripts/android/prepare-source.sh [BRAVE_VERSION]
+        ./scripts/core/prepare-source.sh [BRAVE_VERSION]
 
 
-4.3. Build Braving APK
+4.3. Build Braving
 
-    Once the source is prepared, compile the release APK:
+    Once the source is prepared, compile for the target platform:
 
-        ./scripts/android/build-android.sh --arch=arm64 --release
+        # Android APK:
+        ./scripts/platforms/android/build.sh --arch=arm64 --release
+
+        # Windows distribution:
+        ./scripts/platforms/windows/build.sh --arch=x64 --release
 
 
 5. Special Thanks

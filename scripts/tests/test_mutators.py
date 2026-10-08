@@ -502,7 +502,7 @@ def test_apply_features():
         brave_flags_overrides = mock_files["brave_flags_overrides"]
         brave_shields_features = mock_files["brave_shields_features"]
 
-        script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
+        script = os.path.join(REPO_ROOT, "scripts/core/apply-features.py")
         res = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
         assert res.returncode == 0, f"apply-features failed: {res.stderr}\n{res.stdout}"
 
@@ -691,6 +691,16 @@ def test_apply_features():
         assert "Skipped chrome/android/BUILD.gn (already patched)" in res_src_idem.stdout
         assert "Skipped components/version_info/version_info_with_user_agent.cc (already patched)" in res_src_idem.stdout
 
+        # Verify that passing an unpopulated/empty src-dir does not cause MISSING SRC errors in --strict mode
+        with tempfile.TemporaryDirectory() as empty_src_tmpdir:
+            res_empty_src = subprocess.run(
+                [sys.executable, script, tmpdir, "--strict", f"--src-dir={empty_src_tmpdir}", "--target-os=win"],
+                capture_output=True,
+                text=True
+            )
+            assert res_empty_src.returncode == 0, f"apply-features with unpopulated src-dir failed: {res_empty_src.stderr}"
+            assert "ERROR: MISSING SRC" not in res_empty_src.stderr
+
         # Verify template("nala_icon_override") syntax mutator
         with open(nala_build_gn, "w") as f:
             f.write("""template("nala_icon_override") {
@@ -782,8 +792,8 @@ def test_patch_suite():
         msg_backticked = f"The resource `{res_name}` appears to be unused"
         assert re.search(pattern, msg_backticked), f"Pattern '{pattern}' failed to match backticked warning: '{msg_backticked}'"
 
-    # Verify 0002 custom updater endpoint patch (release-only)
-    patch_0002 = os.path.join(REPO_ROOT, "patches/android/0002-custom-updater-endpoint.patch")
+    # Verify 0002 custom updater endpoint patch (release-only, common)
+    patch_0002 = os.path.join(REPO_ROOT, "patches/common/0002-custom-updater-endpoint.patch")
     assert os.path.isfile(patch_0002), f"Missing patch file: {patch_0002}"
     with open(patch_0002, "r", encoding="utf-8") as f:
         c0002 = f.read()
@@ -796,16 +806,18 @@ def test_patch_suite():
     assert 'adjusted.status = "noupdate"' in c0002
     assert 'ad_block_service();' not in c0002, "Eager startup ad_block_service causes premature profile crash on Android"
 
-    # Verify modular debloat patches in patches/android/debloat/
-    debloat_dir = os.path.join(REPO_ROOT, "patches/android/debloat")
-    assert os.path.isdir(debloat_dir), f"Missing debloat patch directory: {debloat_dir}"
+    # Verify modular debloat patches in patches/common/debloat and patches/android/debloat/
+    common_debloat_dir = os.path.join(REPO_ROOT, "patches/common/debloat")
+    android_debloat_dir = os.path.join(REPO_ROOT, "patches/android/debloat")
+    assert os.path.isdir(common_debloat_dir), f"Missing common debloat patch directory: {common_debloat_dir}"
+    assert os.path.isdir(android_debloat_dir), f"Missing android debloat patch directory: {android_debloat_dir}"
 
-    p_flag = os.path.join(debloat_dir, "0001-hide-brave-origin-flag.patch")
+    p_flag = os.path.join(common_debloat_dir, "0001-hide-brave-origin-flag.patch")
     with open(p_flag, "r", encoding="utf-8") as f:
         c_flag = f.read()
     assert "BASE_FEATURE(kBraveOrigin, base::FEATURE_DISABLED_BY_DEFAULT);" in c_flag
 
-    p_backend = os.path.join(debloat_dir, "0002-unlock-brave-origin-backend.patch")
+    p_backend = os.path.join(common_debloat_dir, "0002-unlock-brave-origin-backend.patch")
     with open(p_backend, "r", encoding="utf-8") as f:
         c_backend = f.read()
     assert "brave_origin_policy_manager.cc" in c_backend
@@ -813,13 +825,13 @@ def test_patch_suite():
     assert "brave_origin_utils.cc" in c_backend
     assert "return manager->IsInitialized();" in c_backend
 
-    p_android_origin = os.path.join(debloat_dir, "0003-unlock-brave-origin-android-prefs.patch")
+    p_android_origin = os.path.join(android_debloat_dir, "0003-unlock-brave-origin-android-prefs.patch")
     with open(p_android_origin, "r", encoding="utf-8") as f:
         c_android_origin = f.read()
     assert "BraveOriginSubscriptionPrefs.java" in c_android_origin
     assert "getIsCredentialSummaryActiveCached" in c_android_origin
 
-    p_policies = os.path.join(debloat_dir, "0004-enforce-enterprise-policies.patch")
+    p_policies = os.path.join(common_debloat_dir, "0004-enforce-enterprise-policies.patch")
     with open(p_policies, "r", encoding="utf-8") as f:
         c_policies = f.read()
     assert "RefreshPolicies(policy::PolicyFetchReason::kBrowserStart);" in c_policies
@@ -830,7 +842,7 @@ def test_patch_suite():
     assert 'enforce("BraveVPNDisabled", true);' in c_policies
     assert 'enforce("BraveAIChatEnabled", false);' in c_policies
 
-    p_rate_brave = os.path.join(debloat_dir, "0005-remove-rate-brave.patch")
+    p_rate_brave = os.path.join(android_debloat_dir, "0005-remove-rate-brave.patch")
     assert os.path.isfile(p_rate_brave), f"Missing debloat patch: {p_rate_brave}"
     with open(p_rate_brave, "r", encoding="utf-8") as f:
         c_rate_brave = f.read()
@@ -839,7 +851,7 @@ def test_patch_suite():
     assert "shouldShowRateDialog" in c_rate_brave
     assert "sendRateFeedback" in c_rate_brave
 
-    p_play_update = os.path.join(debloat_dir, "0006-disable-play-in-app-update.patch")
+    p_play_update = os.path.join(android_debloat_dir, "0006-disable-play-in-app-update.patch")
     assert os.path.isfile(p_play_update), f"Missing debloat patch: {p_play_update}"
     with open(p_play_update, "r", encoding="utf-8") as f:
         c_play_update = f.read()
@@ -848,7 +860,7 @@ def test_patch_suite():
     assert "showOriginSettingsForRestart" in c_play_update
     assert "launchReviewFlow" in c_rate_brave
 
-    p_adblock = os.path.join(debloat_dir, "0005-default-adblock-subscriptions.patch")
+    p_adblock = os.path.join(android_debloat_dir, "0005-default-adblock-subscriptions.patch")
     assert not os.path.exists(p_adblock), (
         "0005-default-adblock-subscriptions.patch must remain retired so CRX3 catalog components manage filter lists with permission_mask=3"
     )
@@ -890,7 +902,7 @@ def test_patch_suite():
 
 def test_apply_branding():
     import importlib.util
-    script_path = os.path.join(REPO_ROOT, "scripts/android/apply-branding.py")
+    script_path = os.path.join(REPO_ROOT, "scripts/core/apply-branding.py")
     spec = importlib.util.spec_from_file_location("apply_branding", script_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -1125,7 +1137,7 @@ group("webview_target") {
         assert "Trying to run compute_build_timestamp.py in toolchain:" in (res_fail.stdout + res_fail.stderr)
 
         # Apply mutator via apply-features.py
-        script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
+        script = os.path.join(REPO_ROOT, "scripts/core/apply-features.py")
         mock_brave = os.path.join(tmpdir, "brave")
         setup_mock_brave(mock_brave)
         res_mut = subprocess.run([sys.executable, script, mock_brave, "--strict", f"--src-dir={tmpdir}"], capture_output=True, text=True)
@@ -1144,7 +1156,7 @@ def test_timestamp_gni_resilience_and_formatting():
     formatting styles (single-line assertion, extra spaces, custom error string)
     and remains strictly idempotent.
     """
-    script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
+    script = os.path.join(REPO_ROOT, "scripts/core/apply-features.py")
     variants = [
         # 1. Standard multi-line upstream
         """if (is_android) {
@@ -1296,7 +1308,7 @@ group("trichrome_library_64_apk_validate_android_manifest") {}
         assert res_fail.stdout.count("needs //") == 24, f"Expected 24 unresolved dependencies, got:\n{res_fail.stdout}"
 
         # Apply mutator via apply-features.py
-        script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
+        script = os.path.join(REPO_ROOT, "scripts/core/apply-features.py")
         mock_brave = os.path.join(tmpdir, "brave")
         setup_mock_brave(mock_brave)
         res_mut = subprocess.run([sys.executable, script, mock_brave, "--strict", f"--src-dir={tmpdir}"], capture_output=True, text=True)
@@ -1361,7 +1373,7 @@ group("trichrome_library_64_32_apk_validate_android_manifest") {}
 def test_validate_expectations_resilience_and_formatting():
     """Verify that apply-features.py mutates validate_expectations across different formatting variants,
     is strictly idempotent, and fails cleanly in strict mode when pattern cannot be matched."""
-    script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
+    script = os.path.join(REPO_ROOT, "scripts/core/apply-features.py")
 
     variants = [
         # Variant 1: Extra whitespace and newlines
@@ -1491,7 +1503,7 @@ def test_validate_expectations_resilience_and_formatting():
 def test_webui_and_feature_mutators_resilience_and_formatting():
     """Verify resilience of WebUI, resource GNI, webpack, and rust_to_wasm mutators
     across various upstream formatting variations, dependency orderings, and verify idempotence."""
-    script = os.path.join(REPO_ROOT, "scripts/android/apply-features.py")
+    script = os.path.join(REPO_ROOT, "scripts/core/apply-features.py")
 
     # 1. Test WebUI BUILD.gn resilience
     webui_variants = [

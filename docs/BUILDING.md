@@ -44,16 +44,16 @@ Select the target Brave version or omit to resolve latest upstream stable automa
 
 ```bash
 cd "${BRAVING_DIR}"
-./scripts/android/prepare-source.sh
+./scripts/core/prepare-source.sh
 # Or specify a target version:
-# ./scripts/android/prepare-source.sh <version>
+# ./scripts/core/prepare-source.sh <version>
 ```
 
 What `prepare-source.sh` performs:
 1. Dynamically resolves latest stable Brave version from GitHub API and Google Gitiles.
 2. Generates `metadata/upstream-<version>.yaml` and release manifest at `metadata/releases/<version>.yaml`.
 3. Fetches `brave-core` at exact release commit (`--depth 1`).
-4. Applies Braving unified patches (`patches/android/`).
+4. Applies Braving unified patches (`patches/common/` and platform patches).
 5. Executes programmatic Python mutators (`apply-features.py`, `apply-assets.sh`, `apply-branding.py`).
 
 ---
@@ -64,7 +64,7 @@ Once the source is prepared, trigger the Android build:
 
 ```bash
 cd "${BRAVING_DIR}"
-./scripts/android/build-android.sh --arch=arm64 --release
+./scripts/platforms/android/build.sh --arch=arm64 --release
 ```
 
 ### Build Arguments Configured by Braving:
@@ -102,9 +102,9 @@ ${BRAVING_DIR}/out/apks/Braving-<version>-arm64.apk
 
 ## 5. Master Verification Suite
 
-Run all 5 verification tiers:
+Run all verification tiers:
 ```bash
-./scripts/android/verify-all.sh
+./scripts/core/verify-all.sh
 ```
 
 ---
@@ -113,7 +113,7 @@ Run all 5 verification tiers:
 
 To sign an existing or newly compiled APK using release credentials:
 ```bash
-./scripts/android/sign-apk.sh --apk="out/apks/Braving-<version>-arm64.apk"
+./scripts/platforms/android/package.sh --apk="out/apks/Braving-<version>-arm64.apk"
 ```
 
 ---

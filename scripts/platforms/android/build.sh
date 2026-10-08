@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Braving — Android Compilation Entry Point
-# Usage: ./scripts/android/build-android.sh [--manifest=<path>] [--arch=arm64|arm|x86_64] [--release]
+# Usage: ./scripts/platforms/android/build.sh [--manifest=<path>] [--arch=arm64|arm|x86_64] [--release]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 MANIFEST=""
 TARGET_ARCH="arm64"
@@ -148,7 +148,7 @@ T_CHECKOUT_START=${T_START}
 # Phase 2: Verify brave-core
 if [[ ! -d "${BRAVE_DIR}" ]]; then
   echo "ERROR: Prepared brave-core not found in ${BRAVE_DIR}." >&2
-  echo "Please run scripts/android/prepare-source.sh (Phase 1) first." >&2
+  echo "Please run scripts/core/prepare-source.sh (Phase 1) first." >&2
   exit 1
 fi
 
@@ -317,7 +317,7 @@ if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
   # and C++/Java version strings display clean Brave version (e.g. <version>)
   # without prepending Chromium major milestone (e.g. <milestone>.)
   echo "Applying version display mutators to Chromium src..."
-  python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}"
+  python3 "${REPO_ROOT}/scripts/core/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=android
 fi
 
 echo ""
@@ -490,10 +490,10 @@ cd "${SRC_DIR}"
 BUILD_RES=0
 
 if command -v autoninja &>/dev/null; then
-  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${SCRIPT_DIR}/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
+  autoninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/core/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
   BUILD_RES=${PIPESTATUS[0]}
 else
-  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${SCRIPT_DIR}/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
+  ninja -C "${OUT_DIR}" ${BUILD_TARGET} 2>&1 | python3 -u "${REPO_ROOT}/scripts/core/filter-build-log.py" "${WORKSPACE_DIR}/build.log"
   BUILD_RES=${PIPESTATUS[0]}
 fi
 

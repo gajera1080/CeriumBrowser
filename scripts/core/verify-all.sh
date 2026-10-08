@@ -38,7 +38,7 @@ python3 "${REPO_ROOT}/scripts/tests/test_manifest.py"
 
 echo ""
 echo "=== Step 2/6: Mutator Script Syntax & Unit Tests Verification ==="
-python3 -m py_compile "${REPO_ROOT}/scripts/android"/*.py
+python3 -m py_compile "${REPO_ROOT}/scripts/core"/*.py "${REPO_ROOT}/scripts/mutators"/*.py "${REPO_ROOT}/scripts/mutators"/**/*.py
 python3 "${REPO_ROOT}/scripts/tests/test_mutators.py"
 python3 "${REPO_ROOT}/scripts/tests/test_cache_scripts.py"
 python3 "${REPO_ROOT}/scripts/tests/test_branding.py"
@@ -88,7 +88,7 @@ if [[ ${PATCH_COUNT} -gt 0 ]]; then
   for target_dir in "${CHECK_BRAVE_DIRS[@]}"; do
     upstream_ver=$(git -C "${target_dir}" describe --tags 2>/dev/null || git -C "${target_dir}" log -1 --format="%h (%s)" 2>/dev/null || echo "unknown")
     echo " Validating patch set against brave-core (${target_dir} @ ${upstream_ver})..."
-    "${REPO_ROOT}/scripts/android/apply-patches.sh" "${target_dir}" --check
+    "${REPO_ROOT}/scripts/core/apply-patches.sh" "${target_dir}" --check
   done
 else
   echo " [OK] No .patch files found in ${PATCH_DIR}/ (all modifications handled via mutators)."
@@ -96,7 +96,7 @@ fi
 
 echo ""
 echo "=== Step 5/6: Branding & Asset Verification ==="
-"${REPO_ROOT}/scripts/android/verify-branding.sh"
+"${REPO_ROOT}/scripts/core/verify-branding.sh"
 
 echo ""
 echo "=== Step 6/6: Build Orchestration & Dry-Run Validation ==="
@@ -106,19 +106,19 @@ if [[ ! -f "${MANIFEST_FILE}" ]]; then
 fi
 
 if [[ -n "${MANIFEST_FILE}" && -f "${MANIFEST_FILE}" ]]; then
-  "${REPO_ROOT}/scripts/android/build-android.sh" --manifest="${MANIFEST_FILE}" --arch="${TARGET_ARCH:-arm64}" --release --dry-run
-  if [[ -f "${REPO_ROOT}/scripts/desktop/build-windows.sh" ]]; then
-    "${REPO_ROOT}/scripts/desktop/build-windows.sh" --manifest="${MANIFEST_FILE}" --arch="x64" --release --dry-run
-    "${REPO_ROOT}/scripts/desktop/build-windows.sh" --manifest="${MANIFEST_FILE}" --arch="arm64" --release --dry-run
+  "${REPO_ROOT}/scripts/platforms/android/build.sh" --manifest="${MANIFEST_FILE}" --arch="${TARGET_ARCH:-arm64}" --release --dry-run
+  if [[ -f "${REPO_ROOT}/scripts/platforms/windows/build.sh" ]]; then
+    "${REPO_ROOT}/scripts/platforms/windows/build.sh" --manifest="${MANIFEST_FILE}" --arch="x64" --release --dry-run
+    "${REPO_ROOT}/scripts/platforms/windows/build.sh" --manifest="${MANIFEST_FILE}" --arch="arm64" --release --dry-run
   fi
-  if [[ -f "${REPO_ROOT}/scripts/desktop/package-windows.sh" ]]; then
-    "${REPO_ROOT}/scripts/desktop/package-windows.sh" --arch="x64" --dry-run
-    "${REPO_ROOT}/scripts/desktop/package-windows.sh" --arch="arm64" --dry-run
+  if [[ -f "${REPO_ROOT}/scripts/platforms/windows/package.sh" ]]; then
+    "${REPO_ROOT}/scripts/platforms/windows/package.sh" --arch="x64" --dry-run
+    "${REPO_ROOT}/scripts/platforms/windows/package.sh" --arch="arm64" --dry-run
   fi
 else
   echo " [SKIP] No release manifest found for dry-run validation."
 fi
-"${REPO_ROOT}/scripts/android/sign-apk.sh" --dry-run
+"${REPO_ROOT}/scripts/platforms/android/package.sh" --dry-run
 
 echo ""
 echo "========================================================"

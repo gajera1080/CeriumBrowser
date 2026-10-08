@@ -17,7 +17,7 @@ echo " Rule          : Exact brave-core -> Exact Chromium"
 echo "========================================================"
 
 # Step 0: Resolve upstream release versions & generate metadata
-python3 "${REPO_ROOT}/scripts/android/resolve-versions.py" "${BRAVE_VERSION}" --repo-root="${REPO_ROOT}"
+python3 "${REPO_ROOT}/scripts/core/resolve-versions.py" "${BRAVE_VERSION}" --repo-root="${REPO_ROOT}"
 
 # Load resolved dynamic environment
 # shellcheck source=/dev/null
@@ -75,20 +75,27 @@ fi
 # Step 2: Apply Braving git patches to brave-core
 echo ""
 echo "Applying Braving patches to brave-core..."
-bash "${REPO_ROOT}/scripts/android/apply-patches.sh" "${BRAVE_DIR}"
+bash "${REPO_ROOT}/scripts/core/apply-patches.sh" "${BRAVE_DIR}"
 
 # Step 3: Apply GN-only programmatic fixes
 echo ""
 echo "Applying GN build fixes..."
-python3 "${REPO_ROOT}/scripts/android/apply-features.py" "${BRAVE_DIR}" --strict
+python3 "${REPO_ROOT}/scripts/core/apply-features.py" "${BRAVE_DIR}" --strict
 
 # Step 4: Apply Braving branding overlay and vector assets to brave-core
 echo ""
-bash "${REPO_ROOT}/scripts/android/apply-assets.sh" "${BRAVE_DIR}"
+bash "${REPO_ROOT}/scripts/core/apply-assets.sh" "${BRAVE_DIR}"
 
 # Step 5: Apply Braving UI string branding across GRD/GRDP/XTB and Android XML resources
 echo ""
 echo "Applying Braving UI string branding..."
-python3 "${REPO_ROOT}/scripts/android/apply-branding.py" "${BRAVE_DIR}" --strict
+python3 "${REPO_ROOT}/scripts/core/apply-branding.py" "${BRAVE_DIR}" --strict
+
+# Step 6: Pre-install brave-core node dependencies so they are cached for downstream runners
+if command -v pnpm >/dev/null 2>&1 && [[ -f "${BRAVE_DIR}/package.json" ]]; then
+  echo ""
+  echo "Pre-installing brave-core node dependencies..."
+  (cd "${BRAVE_DIR}" && pnpm install --frozen-lockfile)
+fi
 
 echo "Phase 1: Source Preparation Complete."

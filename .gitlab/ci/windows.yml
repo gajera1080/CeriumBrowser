@@ -8,6 +8,10 @@ spec:
       type: boolean
       default: false
       description: "Force cold build and rebuild cache package in registry"
+    compile_target:
+      type: string
+      default: "all"
+      description: "Target platform to compile (all, android, windows, windows_x64, windows_arm64)"
 ---
 # Windows Pipeline Jobs
 # Included by .gitlab-ci.yml
@@ -24,7 +28,7 @@ spec:
     CACHE_PREP_ONLY: "true"
     BUILD_TARGET: "v8 third_party/blink/public:blink"
   cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
     policy: pull
@@ -42,8 +46,8 @@ spec:
         fi
       fi
     - echo "Building isolated Windows heavy targets (v8 & blink) for ${TARGET_ARCH} to generate warm cache..."
-    - ./scripts/desktop/build-windows.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
-    - CACHE_VERSION="${CACHE_VERSION}" ./scripts/upload-cache.sh
+    - ./scripts/platforms/windows/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
+    - CACHE_VERSION="${CACHE_VERSION}" ./scripts/core/upload-cache.sh
   artifacts:
     name: "braving-win-cache-logs-${DYNAMIC_BRAVE_VERSION}"
     when: always
@@ -57,16 +61,16 @@ spec:
     - .linux_2xlarge
     - .build_environment_setup
   cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}-${BRAVE_VERSION}"
+    key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
     policy: pull
   script:
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"
     - echo "Restoring warm Windows cache for ${CACHE_VERSION}..."
-    - CACHE_VERSION="${CACHE_VERSION}" ./scripts/download-cache.sh || true
+    - CACHE_VERSION="${CACHE_VERSION}" ./scripts/core/download-cache.sh || true
     - echo "Executing Windows compile and package for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
-    - ./scripts/desktop/build-windows.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release --package
+    - ./scripts/platforms/windows/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release --package
   artifacts:
     name: "braving-windows-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always
@@ -78,29 +82,68 @@ spec:
     expire_in: 30 days
 
 # ------------------------------------------------------------------------------
-# Windows Cache & Build: Compile both x64 and arm64 in parallel
+# Windows Cache & Build Jobs: x64 and arm64 targets
 # ------------------------------------------------------------------------------
-prepare_windows_cache:
+prepare_windows_cache_x64:
   extends: .prepare_windows_cache_base
-  parallel:
-    matrix:
-      - TARGET_ARCH: ["x64", "arm64"]
+  variables:
+    TARGET_ARCH: "x64"
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_x64")'
+      when: on_success
+    - when: never
 
-build_windows:
+prepare_windows_cache_arm64:
+  extends: .prepare_windows_cache_base
+  variables:
+    TARGET_ARCH: "arm64"
+  rules:
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_arm64")'
+      when: on_success
+    - when: never
+
+build_windows_x64:
   extends: .build_windows_base
+  variables:
+    TARGET_ARCH: "x64"
   needs:
-    - job: prepare_windows_cache
+    - job: prepare_windows_cache_x64
       artifacts: true
+      optional: true
     - job: prepare_source
       artifacts: true
-  parallel:
-    matrix:
-      - TARGET_ARCH: ["x64", "arm64"]
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release" || $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_x64")'
+      when: on_success
+    - when: never
+
+build_windows_arm64:
+  extends: .build_windows_base
+  variables:
+    TARGET_ARCH: "arm64"
+  needs:
+    - job: prepare_windows_cache_arm64
+      artifacts: true
+      optional: true
+    - job: prepare_source
+      artifacts: true
+  rules:
+    - if: '$SKIP_BUILD == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "windows" || $COMPILE_TARGET == "windows_arm64")'
+      when: on_success
+    - when: never
