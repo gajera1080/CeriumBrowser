@@ -152,7 +152,7 @@ CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
 if [[ ! -d "${SRC_DIR}/.git" ]]; then
   if [[ ! -f "${CHROMIUM_ARCHIVE}" ]]; then
     echo "ERROR: Base Chromium archive not found at ${CHROMIUM_ARCHIVE}." >&2
-    echo "Please ensure scripts/core/prepare-source.sh has been run and cached." >&2
+    echo "Please ensure scripts/core/sync-chromium-source.sh has been run." >&2
     exit 1
   fi
   echo ""

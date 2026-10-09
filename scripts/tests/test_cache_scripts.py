@@ -29,6 +29,11 @@ class TestCacheScriptsSyntax(unittest.TestCase):
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 
+    def test_sync_chromium_source_syntax(self):
+        script = REPO_ROOT / "scripts" / "core" / "sync-chromium-source.sh"
+        res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
+
     def test_build_android_syntax(self):
         script = REPO_ROOT / "scripts" / "platforms" / "android" / "build.sh"
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)

@@ -26,14 +26,12 @@ prepare_android_cache:
       artifacts: true
   variables:
     CACHE_PREP_ONLY: "true"
-    BUILD_TARGET: "v8 third_party/blink/public:blink"
+    BUILD_TARGET: "v8 third_party/blink/public:blink skia gpu third_party/angle third_party/webrtc"
     TARGET_ARCH: "arm64"
   cache:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
-      - build-workspace/depot_tools/
-      - build-workspace/chromium-src-*.tar.xz
     policy: pull
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
@@ -49,7 +47,9 @@ prepare_android_cache:
           exit 0
         fi
       fi
-    - echo "Building isolated Android heavy targets (v8 & blink) for ${TARGET_ARCH} to generate warm cache..."
+    - echo "Syncing base Chromium and depot_tools from registry..."
+    - ./scripts/core/sync-chromium-source.sh
+    - echo "Building isolated Android heavy targets (v8, blink, skia, gpu, angle, webrtc) for ${TARGET_ARCH} to generate warm cache..."
     - ./scripts/platforms/android/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - ./scripts/core/upload-cache.sh
   artifacts:
@@ -85,13 +85,13 @@ build_android:
     key: "braving-source-${CI_COMMIT_REF_SLUG}"
     paths:
       - build-workspace/src/brave/
-      - build-workspace/depot_tools/
-      - build-workspace/chromium-src-*.tar.xz
     policy: pull
   script:
     - export TARGET_ARCH="arm64"
     - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
     - ./scripts/platforms/android/package.sh --preflight
+    - echo "Restoring base Chromium and depot_tools from registry..."
+    - ./scripts/core/sync-chromium-source.sh --download-only
     - echo "Restoring warm cache for ${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}..."
     - ./scripts/core/download-cache.sh || true
     - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
