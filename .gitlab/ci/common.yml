@@ -4,10 +4,6 @@ spec:
       type: string
       default: ""
       description: "Brave release version. Leave empty to auto-fetch latest stable from GitHub."
-    force_cache_rebuild:
-      type: boolean
-      default: false
-      description: "Force cold build and rebuild cache package in registry"
     compile_target:
       type: string
       default: "all"
@@ -38,7 +34,7 @@ prepare_source:
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
   script:
     - export BRAVE_VERSION="${BRAVE_VERSION:-$[[ inputs.brave_version ]]}"
-    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
+    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
     - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/core/verify-all.sh

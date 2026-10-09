@@ -14,10 +14,6 @@ spec:
         - "windows_x64"
         - "windows_arm64"
       description: "Select target to compile (all, android, windows, windows_x64, windows_arm64)"
-    force_cache_rebuild:
-      type: boolean
-      default: false
-      description: "Force cold build and rebuild cache package in registry"
 ---
 # GitLab CI Pipeline for Braving Multi-Platform Distribution
 # Unified architecture building Android (arm64), Windows (x64), and Windows (arm64)
@@ -33,7 +29,7 @@ stages:
 variables:
   GIT_DEPTH: 1
   BRAVE_VERSION: "$[[ inputs.brave_version ]]"
-  FORCE_CACHE_REBUILD: "$[[ inputs.force_cache_rebuild ]]"
+  FORCE_CACHE_REBUILD: "${FORCE_CACHE_REBUILD:-false}"
   COMPILE_TARGET: "$[[ inputs.compile_target ]]"
 
 # Pipeline execution rules:
@@ -52,15 +48,12 @@ include:
   - local: ".gitlab/ci/common.yml"
     inputs:
       brave_version: "$[[ inputs.brave_version ]]"
-      force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
       compile_target: "$[[ inputs.compile_target ]]"
   - local: ".gitlab/ci/android.yml"
     inputs:
       brave_version: "$[[ inputs.brave_version ]]"
-      force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
       compile_target: "$[[ inputs.compile_target ]]"
   - local: ".gitlab/ci/windows.yml"
     inputs:
       brave_version: "$[[ inputs.brave_version ]]"
-      force_cache_rebuild: $[[ inputs.force_cache_rebuild ]]
       compile_target: "$[[ inputs.compile_target ]]"

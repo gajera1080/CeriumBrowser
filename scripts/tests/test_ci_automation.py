@@ -310,7 +310,7 @@ class TestCIScriptSyntax(unittest.TestCase):
             combined.update(d)
         inputs = combined.get('spec', {}).get('inputs', {})
         self.assertIn('brave_version', inputs)
-        self.assertIn('force_cache_rebuild', inputs)
+        self.assertNotIn('force_cache_rebuild', inputs)
 
         variables = combined.get('variables', {})
         self.assertIn('BRAVE_VERSION', variables)

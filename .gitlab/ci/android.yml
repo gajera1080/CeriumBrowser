@@ -4,10 +4,6 @@ spec:
       type: string
       default: ""
       description: "Brave release version. Leave empty to auto-fetch latest stable from GitHub."
-    force_cache_rebuild:
-      type: boolean
-      default: false
-      description: "Force cold build and rebuild cache package in registry"
     compile_target:
       type: string
       default: "all"
@@ -34,7 +30,7 @@ prepare_android_cache:
       - build-workspace/src/brave/
     policy: pull
   script:
-    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
+    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
     - export TARGET_ARCH="arm64"
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
     - |
