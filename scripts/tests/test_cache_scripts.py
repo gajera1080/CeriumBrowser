@@ -159,14 +159,46 @@ class TestSisoCachePipeline(unittest.TestCase):
                 "inmtime must NOT be after outmtime (otherwise Siso marks target dirty)",
             )
 
-    def test_sisorc_configuration_content(self):
-        """Verify .sisorc flags format and content."""
-        siso_cache_dir = "/tmp/fake_siso_cache"
-        content = f"ninja -fs_keep_tainted -local_cache_enable -cache_dir={siso_cache_dir}\n"
-        self.assertIn("-fs_keep_tainted", content)
-        self.assertIn("-local_cache_enable", content)
-        self.assertIn(f"-cache_dir={siso_cache_dir}", content)
+    def test_sync_chromium_source_cleans_up_archives(self):
+        """Verify sync-chromium-source.sh cleans up .tar.xz archives upon extraction."""
+        import tarfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "build-workspace"
+            workspace.mkdir(parents=True)
+            depot_tools = workspace / "depot_tools"
+            depot_tools.mkdir(parents=True)
+
+            # Create dummy src tree to archive
+            dummy_content_dir = Path(tmpdir) / "dummy"
+            (dummy_content_dir / "src").mkdir(parents=True)
+            (dummy_content_dir / "src" / ".git").mkdir(parents=True)
+            (dummy_content_dir / "src" / "chrome").mkdir(parents=True)
+            (dummy_content_dir / "src" / "chrome" / "VERSION").write_text("MAJOR=1\nMINOR=2\nBUILD=3\nPATCH=4\n")
+
+            archive_path = workspace / "chromium-src-1.2.3.4.tar.xz"
+            with tarfile.open(archive_path, "w:xz") as tar:
+                tar.add(dummy_content_dir / "src", arcname="src")
+
+            self.assertTrue(archive_path.exists())
+
+            # Run sync-chromium-source.sh --download-only
+            script = REPO_ROOT / "scripts" / "core" / "sync-chromium-source.sh"
+            env = dict(os.environ)
+            env["BUILD_ENV_FILE"] = str(Path(tmpdir) / "empty.env")
+            env["WORKSPACE_DIR"] = str(workspace)
+            env["DYNAMIC_CHROMIUM_VERSION"] = "1.2.3.4"
+
+            res = subprocess.run(
+                ["bash", str(script), "--download-only"],
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(res.returncode, 0, f"sync-chromium-source failed: {res.stderr}\n{res.stdout}")
+            self.assertTrue((workspace / "src" / ".git").exists(), "src/.git must be extracted")
+            self.assertFalse(archive_path.exists(), "archive must be deleted after extraction to free disk space")
 
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -168,6 +168,14 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
   - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) pull this cache with `policy: pull`.
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
 
+#### Tier 1.5: Base Chromium & Toolchain Cache via GitLab Generic Package Registry
+- **Managed via `scripts/core/sync-chromium-source.sh`**:
+  - Base Chromium (`chromium-src-${CHROMIUM_VERSION}.tar.xz`) and `depot_tools` (`depot-tools.tar.xz`) are cached under package `braving-chromium-source` and version `${CHROMIUM_VERSION}`.
+  - Shared across all platforms and branches on the same Chromium milestone.
+  - On hit: restored and unpacked in ~25–30 seconds.
+  - On miss: fetched, pre-synced with host Clang, Rust, and GN, packaged, and uploaded during Stage 2.
+  - Temporary `.tar.xz` archives are deleted immediately after upload/extraction to free disk space before compilation begins.
+
 #### Tier 2: Compiler Object Cache (`out/Release/`) via GitLab Generic Package Registry
 - **Why We Cannot Use GitLab Runner `cache:` for Compiler Output**:
   - **Dotenv Variable Expansion Failure**: In dynamic release mode, `DYNAMIC_BRAVE_VERSION` is generated at runtime in Stage 1 and exported via `build.env` (dotenv report). GitLab CI evaluates `cache:key` **prior to job execution**. Dotenv variables are NOT expanded in `cache:key`. A key like `braving-cache-${DYNAMIC_BRAVE_VERSION}` evaluates literally to `braving-cache-`, causing cross-version cache poisoning!

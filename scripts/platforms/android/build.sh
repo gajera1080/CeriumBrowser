@@ -155,14 +155,16 @@ fi
 
 CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
 if [[ ! -d "${SRC_DIR}/.git" ]]; then
-  if [[ ! -f "${CHROMIUM_ARCHIVE}" ]]; then
-    echo "ERROR: Base Chromium archive not found at ${CHROMIUM_ARCHIVE}." >&2
+  if [[ -f "${CHROMIUM_ARCHIVE}" ]]; then
+    echo ""
+    echo "Unpacking base Chromium source from ${CHROMIUM_ARCHIVE}..."
+    tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
+    rm -f "${CHROMIUM_ARCHIVE}"
+  else
+    echo "ERROR: Base Chromium source not found in ${SRC_DIR}." >&2
     echo "Please ensure scripts/core/sync-chromium-source.sh has been run." >&2
     exit 1
   fi
-  echo ""
-  echo "Unpacking base Chromium source from ${CHROMIUM_ARCHIVE}..."
-  tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
 else
   echo "Chromium source directory already exists, resetting to clean state..."
   git -C "${SRC_DIR}" reset --hard HEAD

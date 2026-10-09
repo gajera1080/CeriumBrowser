@@ -26,9 +26,10 @@ for arg in "$@"; do
   esac
 done
 
-if [[ -f "${REPO_ROOT}/build.env" ]]; then
+BUILD_ENV_FILE="${BUILD_ENV_FILE:-${REPO_ROOT}/build.env}"
+if [[ -f "${BUILD_ENV_FILE}" ]]; then
   # shellcheck source=/dev/null
-  source "${REPO_ROOT}/build.env"
+  source "${BUILD_ENV_FILE}"
 fi
 
 WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-${REPO_ROOT}}/build-workspace}"
@@ -89,14 +90,12 @@ if [[ "${IN_CI}" == true && "${FORCE_REBUILD}" != true ]]; then
     for file in $(awk '{print $2}' "${TMP_DIR}/checksums.sha256"); do
       case "${file}" in
         chromium-src-*.tar.xz)
-          cp -f "${TMP_DIR}/${file}" "${WORKSPACE_DIR}/${file}"
           if [[ ! -d "${SRC_DIR}/.git" ]]; then
             echo "Unpacking base Chromium to ${WORKSPACE_DIR}..."
             tar -xf "${TMP_DIR}/${file}" -C "${WORKSPACE_DIR}"
           fi
           ;;
         depot-tools.tar.xz)
-          cp -f "${TMP_DIR}/${file}" "${WORKSPACE_DIR}/${file}"
           if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
             echo "Unpacking depot_tools to ${WORKSPACE_DIR}..."
             tar -xf "${TMP_DIR}/${file}" -C "${WORKSPACE_DIR}"
@@ -104,6 +103,7 @@ if [[ "${IN_CI}" == true && "${FORCE_REBUILD}" != true ]]; then
           ;;
       esac
     done
+    rm -f "${WORKSPACE_DIR}"/chromium-src-*.tar.xz "${WORKSPACE_DIR}"/depot-tools.tar.xz
 
     echo "Base Chromium and depot_tools restored successfully from registry."
     exit 0
@@ -116,7 +116,12 @@ if [[ "${DOWNLOAD_ONLY}" == true ]]; then
     echo "Local archives found. Proceeding with existing local source."
     if [[ ! -d "${SRC_DIR}/.git" ]]; then
       tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
+      rm -f "${CHROMIUM_ARCHIVE}"
     fi
+    exit 0
+  fi
+  if [[ -d "${SRC_DIR}/.git" && -d "${DEPOT_TOOLS_DIR}" ]]; then
+    echo "Unpacked Chromium source and depot_tools found. Proceeding."
     exit 0
   fi
   echo "ERROR: --download-only requested but package was not found in registry." >&2
@@ -168,6 +173,7 @@ if [[ "${IN_CI}" == true ]]; then
   UPLOAD_CHECK=$(curl -sL -o /dev/null -w "%{http_code}" --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${PKG_URL}/checksums.sha256" || echo "000")
   if [[ "${UPLOAD_CHECK}" == "200" && "${FORCE_REBUILD}" != true ]]; then
     echo "Package already uploaded by concurrent runner. Skipping redundant upload."
+    rm -f "${CHROMIUM_ARCHIVE}" "${DEPOT_ARCHIVE}"
     exit 0
   fi
 
@@ -192,3 +198,6 @@ if [[ "${IN_CI}" == true ]]; then
 else
   echo "Not running in CI environment (no CI_JOB_TOKEN). Local preparation complete."
 fi
+
+echo "Cleaning up local source archives to free runner disk space..."
+rm -f "${CHROMIUM_ARCHIVE}" "${DEPOT_ARCHIVE}"

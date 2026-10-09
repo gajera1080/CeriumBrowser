@@ -130,6 +130,7 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
   - Shared across all platforms (Android, Windows, etc.) and branches targeting the same Chromium milestone.
   - On registry cache hit: restored in ~25–30 seconds.
   - On registry cache miss: fetched, pre-synced with host Clang, Rust, and GN, packaged, and idempotently uploaded during Stage 2 (`cache_prep`).
+  - Temporary `.tar.xz` archives are deleted immediately after upload/extraction to free disk space before Chromium compilation begins.
   - Stage 2 (`cache_prep`) pre-compiles heavy Chromium targets unchanged by Brave (`v8`, `third_party/blink/public:blink`, `skia`, `gpu`, `third_party/angle`, `third_party/webrtc`) into the Tier 2 warm compiler cache.
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
 
