@@ -105,7 +105,7 @@ Braving strips all unneeded promotional, cryptocurrency, and auxiliary subsystem
 Chromium + Brave compilation is massive: over 43,000 compilation steps, requiring 1.5 to 3.5 hours on 32-core runners. GitLab CI SaaS runners (`saas-linux-2xlarge-amd64`) enforce a strict job timeout. Running a cold build from checkout to APK/distribution in a single job frequently times out.
 
 To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation into a strictly structured 4-stage pipeline:
-1. **Stage 1: `prepare_source`**: Lightweight stage. Resolves upstream versions dynamically, fetches exact `brave-core`, executes all patches/mutators/branding, pre-installs node modules, and uploads the Tier 1 Source Cache.
+1. **Stage 1: `prepare_source`**: Lightweight stage. Resolves upstream versions dynamically, fetches exact `brave-core`, executes all patches/mutators/branding, and uploads the Tier 1 Source Cache.
 2. **Stage 2: `cache_prep` (`prepare_android_cache` & `prepare_windows_cache`)**: Pulls the pre-patched source cache, syncs Chromium for the target OS, compiles heavy common sub-targets (`v8` and `blink`), and uploads the Tier 2 Compiler Cache to the Package Registry.
 3. **Stage 3: `build` (`build_android` & `build_windows`)**: Pulls the pre-patched source cache, restores the Tier 2 warm compiler cache from the Package Registry, completes the remaining targets incrementally, and packages official distributions (APK/AAB/ZIP).
 4. **Stage 4: `publish` (`publish_release`)**: Gathers all multi-platform binary packages and publishes an official GitLab Release with checksums.
@@ -121,7 +121,6 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
   - Applying cross-platform GN mutators via `apply-features.py --strict`.
   - Applying Braving branding overlay and vector assets via `apply-assets.sh`.
   - Applying UI strings remapping via `apply-branding.py --strict`.
-  - Pre-installing node dependencies via `pnpm install --frozen-lockfile`.
   - Storing only `build-workspace/src/brave/` into GitLab CI runner `cache:` with `key: "braving-source-${CI_COMMIT_REF_SLUG}"`.
   - Kept lightweight (~1-2 min execution) and branch-scoped so developers can iterate rapidly on patches without registry overhead.
 
