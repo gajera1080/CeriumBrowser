@@ -26,6 +26,29 @@ spec:
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config zip
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
+    - |
+      WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-$PWD}/build-workspace}"
+      if [ ! -d "${WORKSPACE_DIR}/src/brave" ]; then
+        BRAVE_ARCHIVE=""
+        if [ -n "${DYNAMIC_BRAVE_VERSION:-}" ] && [ -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]; then
+          BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
+        else
+          BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
+        fi
+        if [ -n "${BRAVE_ARCHIVE}" ] && [ -f "${BRAVE_ARCHIVE}" ]; then
+          echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
+          mkdir -p "${WORKSPACE_DIR}/src"
+          tar -xzf "${BRAVE_ARCHIVE}" -C "${WORKSPACE_DIR}/src"
+          rm -f "${BRAVE_ARCHIVE}"
+          if [ ! -d "${WORKSPACE_DIR}/src/brave/.git" ]; then
+            git -C "${WORKSPACE_DIR}/src/brave" init -q
+            git -C "${WORKSPACE_DIR}/src/brave" config user.name "Braving"
+            git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@braving.org"
+            git -C "${WORKSPACE_DIR}/src/brave" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
+          fi
+          echo "brave-core unpacked successfully."
+        fi
+      fi
 
 prepare_source:
   stage: prepare
@@ -39,18 +62,13 @@ prepare_source:
     - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/core/verify-all.sh
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-    policy: push
-    when: on_success
   artifacts:
     name: "braving-prepared-${BRAVE_VERSION}"
     paths:
       - metadata/releases/*.yaml
       - metadata/upstream-*.yaml
       - branding/
+      - build-workspace/brave-src-*.tar.gz
     reports:
       dotenv: build.env
     expire_in: 2 days

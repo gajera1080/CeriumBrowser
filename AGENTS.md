@@ -114,15 +114,16 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 
 ### 2. The Two-Tier Caching Architecture
 
-#### Tier 1: Agile brave-core Source Cache via GitLab CI `cache:`
+#### Tier 1: Reliable brave-core Source Transport via Pipeline Job Artifacts
 - **Stage 1 (`prepare_source`) prepares ONLY `brave-core`**:
   - Shallow checkout of exact `brave-core` release commit.
   - Applying all git patches in `patches/`.
   - Applying cross-platform GN mutators via `apply-features.py --strict`.
   - Applying Braving branding overlay and vector assets via `apply-assets.sh`.
   - Applying UI strings remapping via `apply-branding.py --strict`.
-  - Storing only `build-workspace/src/brave/` into GitLab CI runner `cache:` with `key: "braving-source-${CI_COMMIT_REF_SLUG}"`.
-  - Kept lightweight (~1-2 min execution) and branch-scoped so developers can iterate rapidly on patches without registry overhead.
+  - Packaging prepared `brave-core` into a pipeline job artifact: `build-workspace/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz` (~380 MB compressed, well within GitLab SaaS 1 GB artifact limit).
+  - Eliminates reliance on best-effort, opportunistic GitLab Runner `cache:`, guaranteeing deterministic delivery to downstream stages (`cache_prep` and `build`).
+  - Automatically unpacked into `build-workspace/src/brave` in downstream jobs (`.build_environment_setup`) and verified with fallback unpacking in platform build scripts.
 
 #### Tier 1.5: Base Chromium & Toolchain Cache via GitLab Generic Package Registry
 - **Managed via `scripts/core/sync-chromium-source.sh`**:

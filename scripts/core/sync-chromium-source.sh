@@ -140,10 +140,10 @@ if [[ ! -d "${SRC_DIR}/.git" ]]; then
   git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
   git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
   git -C "${SRC_DIR}" reset --hard FETCH_HEAD
-  git -C "${SRC_DIR}" clean -ffd
+  git -C "${SRC_DIR}" clean -ffd -e brave -e out
 else
   git -C "${SRC_DIR}" reset --hard HEAD
-  git -C "${SRC_DIR}" clean -ffd
+  git -C "${SRC_DIR}" clean -ffd -e brave -e out
 fi
 
 echo "Pre-syncing Linux host compiler toolchains..."
@@ -159,14 +159,39 @@ fi
 echo "Setting up depot_tools..."
 if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
   git clone --depth 1 "https://chromium.googlesource.com/chromium/tools/depot_tools.git" "${DEPOT_TOOLS_DIR}"
-  "${DEPOT_TOOLS_DIR}/ensure_bootstrap" || "${DEPOT_TOOLS_DIR}/update_depot_tools"
 fi
+export PATH="${DEPOT_TOOLS_DIR}:${DEPOT_TOOLS_DIR}/.cipd_bin:${PATH}"
+export DEPOT_TOOLS_UPDATE=0
 
-echo "Compressing base Chromium to ${CHROMIUM_ARCHIVE}..."
-tar --exclude='src/brave' -cf - -C "${WORKSPACE_DIR}" src | xz -T0 -3 > "${CHROMIUM_ARCHIVE}"
+# Ensure CIPD packages (including luci-auth) are bootstrapped synchronously
+if [[ -f "${DEPOT_TOOLS_DIR}/cipd_bin_setup.sh" ]]; then
+  (
+    # shellcheck source=/dev/null
+    source "${DEPOT_TOOLS_DIR}/cipd_bin_setup.sh"
+    cipd_bin_setup >/dev/null 2>&1 || true
+  )
+fi
+"${DEPOT_TOOLS_DIR}/ensure_bootstrap" >/dev/null 2>&1 || "${DEPOT_TOOLS_DIR}/update_depot_tools" >/dev/null 2>&1 || true
 
-echo "Compressing depot_tools to ${DEPOT_ARCHIVE}..."
-tar -cf - -C "${WORKSPACE_DIR}" depot_tools | xz -T0 -3 > "${DEPOT_ARCHIVE}"
+rm -rf "${SRC_DIR}/.git/logs" "${SRC_DIR}/.git/hooks" 2>/dev/null || true
+
+XZ_COMPRESS_LEVEL="${XZ_COMPRESS_LEVEL:--7}"
+
+echo "Compressing base Chromium to ${CHROMIUM_ARCHIVE} (level ${XZ_COMPRESS_LEVEL})..."
+tar --exclude='src/brave' \
+    --exclude='src/out' \
+    --exclude='src/.git/logs' \
+    --exclude='src/.git/hooks' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    -cf - -C "${WORKSPACE_DIR}" src | xz -T0 "${XZ_COMPRESS_LEVEL}" --memlimit-compress=75% > "${CHROMIUM_ARCHIVE}"
+
+echo "Compressing depot_tools to ${DEPOT_ARCHIVE} (level ${XZ_COMPRESS_LEVEL})..."
+tar --exclude='depot_tools/.git/logs' \
+    --exclude='depot_tools/.git/hooks' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    -cf - -C "${WORKSPACE_DIR}" depot_tools | xz -T0 "${XZ_COMPRESS_LEVEL}" --memlimit-compress=75% > "${DEPOT_ARCHIVE}"
 
 if [[ "${IN_CI}" == true ]]; then
   echo "Checking registry before upload (idempotent guard)..."

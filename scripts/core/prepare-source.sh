@@ -95,3 +95,19 @@ python3 "${REPO_ROOT}/scripts/core/apply-branding.py" "${BRAVE_DIR}" --strict
 echo ""
 echo "Phase 1: brave-core Source Preparation Complete."
 
+# Step 6: Package prepared brave-core for guaranteed artifact transfer across pipeline stages
+IN_CI="${CI:-false}"
+if [[ -n "${GITLAB_CI:-}" || -n "${CI_JOB_ID:-}" ]]; then
+  IN_CI=true
+fi
+
+if [[ "${IN_CI}" == true || "${PACKAGE_BRAVE_ARCHIVE:-false}" == true ]]; then
+  rm -f "${WORKSPACE_DIR}"/brave-src-*.tar.gz
+  BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
+  echo ""
+  echo "Packaging prepared brave-core to ${BRAVE_ARCHIVE}..."
+  tar --exclude='.git' --exclude='node_modules' -czf "${BRAVE_ARCHIVE}" -C "${SRC_DIR}" brave
+  echo "brave-core packaged successfully ($(du -h "${BRAVE_ARCHIVE}" | cut -f1))."
+fi
+
+

@@ -133,9 +133,9 @@ Stripped subsystems: Brave Wallet, AI Chat / Leo, Brave VPN, Brave News, Brave R
 Chromium + Brave compilation is massive: over 43,000 compilation steps, requiring 1.5 to 3.5 hours on 32-core runners. GitLab CI SaaS runners (`saas-linux-2xlarge-amd64`) enforce a strict job timeout. Running a cold build from checkout to APK or Windows distribution in a single monolithic job risks timing out and losing all compilation progress.
 
 To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation into a strictly structured 4-stage multi-platform pipeline:
-1. **Stage 1: `prepare_source`**: Lightweight runner. Resolves upstream versions dynamically, fetches exact `brave-core`, executes all patches/mutators/branding, and pushes the **Tier 1 Source Cache**.
-2. **Stage 2: `cache_prep` (`prepare_android_cache` & `prepare_windows_cache`)**: Pulls the Tier 1 Source Cache, syncs Chromium for the target OS, compiles heavy common sub-targets (`v8`, `blink`, `skia`, `gpu`, `angle`, `webrtc`), and uploads the **Tier 2 Compiler Cache** to the Generic Package Registry.
-3. **Stage 3: `build` (`build_android` & `build_windows`)**: Pulls the Tier 1 Source Cache, restores the Tier 2 warm compiler cache from the Package Registry, completes the remaining targets incrementally, and packages official distributions (APK/AAB/ZIP).
+1. **Stage 1: `prepare_source`**: Lightweight runner. Resolves upstream versions dynamically, fetches exact `brave-core`, executes all patches/mutators/branding, and exports the **Tier 1 Source Artifact**.
+2. **Stage 2: `cache_prep` (`prepare_android_cache` & `prepare_windows_cache`)**: Unpacks the Tier 1 Source Artifact, syncs Chromium for the target OS, compiles heavy common sub-targets (`v8`, `blink`, `skia`, `gpu`, `angle`, `webrtc`), and uploads the **Tier 2 Compiler Cache** to the Generic Package Registry.
+3. **Stage 3: `build` (`build_android` & `build_windows`)**: Unpacks the Tier 1 Source Artifact, restores the Tier 2 warm compiler cache from the Package Registry, completes the remaining targets incrementally, and packages official distributions (APK/AAB/ZIP).
 4. **Stage 4: `publish` (`publish_release`)**: Collects all multi-platform binary packages and publishes an official GitLab Release with checksums.
 
 ---
@@ -144,28 +144,22 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 
 | Cache Tier | Storage Layer | Scope & Contents | Key / Identifier | Policy |
 |---|---|---|---|---|
-| **Tier 1: Source Cache** | GitLab Runner `cache:` | Fully prepared, patched, branded `src/brave/` (~180 MB) | `braving-source-${CI_COMMIT_REF_SLUG}` | Stage 1: `push`<br>Stages 2–3: `pull` |
+| **Tier 1: Source Transport** | GitLab Pipeline Job Artifacts | Fully prepared, patched, branded `src/brave/` (~380 MB compressed) | `build-workspace/brave-src-*.tar.gz` | Stage 1: upload<br>Stages 2–3: download & unpack |
 | **Tier 1.5: Chromium Source** | GitLab Generic Package Registry | Clean base Chromium + depot_tools + host compilers (~1.5 GB) | `braving-chromium-source/${CHROMIUM_VERSION}` | Stage 2: create/upload<br>Stages 2–3: download |
 | **Tier 2: Compiler Cache** | GitLab Generic Package Registry | Compiled `out/Release/` object files (`v8`, `blink`, obj/, gen/, Siso state) | `${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}`<br>(or `-win-${TARGET_ARCH}`) | Stage 2: `upload-cache.sh`<br>Stage 3: `download-cache.sh` |
 
-#### Tier 1: Pre-Patched Source Cache (`src/brave/`) via GitLab CI `cache:`
+#### Tier 1: Pre-Patched Source Transport (`src/brave/`) via Pipeline Job Artifacts
 - **All `brave-core` modifications MUST happen exclusively in `prepare_source`**:
   - Shallow checkout of exact `brave-core` release commit.
   - Applying all git patches in `patches/`.
   - Applying cross-platform GN mutators via `apply-features.py --strict`.
   - Applying Braving branding overlay and vector assets via `apply-assets.sh`.
   - Applying UI strings remapping via `apply-branding.py --strict`.
-- **Cache Configuration**:
-  - `prepare_source` pushes the prepared `build-workspace/src/brave/` directory with:
-    ```yaml
-    cache:
-      key: "braving-source-${CI_COMMIT_REF_SLUG}"
-      paths:
-        - build-workspace/src/brave/
-      policy: push
-      when: on_success
-    ```
-  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) pull this cache with `policy: pull`.
+  - Packaging prepared `brave-core` into `build-workspace/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz` (~380 MB compressed).
+- **Artifact Transport Configuration**:
+  - `prepare_source` exposes `build-workspace/brave-src-*.tar.gz` as a pipeline job artifact.
+  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) receive the artifact via `needs: [{job: prepare_source, artifacts: true}]`, and `.build_environment_setup` automatically unpacks it into `build-workspace/src/brave` before deleting the archive.
+  - Platform build scripts (`scripts/platforms/{android,windows}/build.sh`) provide fallback unpack logic if `src/brave` is not found, and protect `src/brave` and `src/out` during cleanups via `git clean -ffd -e brave -e out`.
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
 
 #### Tier 1.5: Base Chromium & Toolchain Cache via GitLab Generic Package Registry
@@ -210,25 +204,26 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 ```mermaid
 sequenceDiagram
     participant S1 as Stage 1: prepare_source
-    participant GCache as GitLab Cache (Tier 1)
+    participant Art as Pipeline Artifacts (Tier 1)
     participant S2 as Stage 2: cache_prep (Android / Win)
-    participant Reg as Package Registry (Tier 2)
+    participant Reg as Package Registry (Tier 1.5 & 2)
     participant S3 as Stage 3: build (Android / Win)
     participant S4 as Stage 4: publish_release
 
-    Note over S1: Resolves version & commits<br/>Applies all patches, mutators, branding<br/>Pre-installs pnpm node_modules
-    S1->>GCache: Push pre-patched src/brave/ (key: braving-source-slug)
+    Note over S1: Resolves version & commits<br/>Applies all patches, mutators, branding<br/>Packages brave-src-*.tar.gz
+    S1->>Art: Upload brave-src-*.tar.gz artifact
     
-    GCache->>S2: Pull pre-patched src/brave/
+    Art->>S2: Download & unpack src/brave/
     Note over S2: gclient sync (Chromium for target_os)<br/>pnpm run apply_patches<br/>Compiles heavy targets (v8 & blink)
     S2->>Reg: upload-cache.sh (split 4.5GB chunks + SHA256)
     
-    GCache->>S3: Pull pre-patched src/brave/
+    Art->>S3: Download & unpack src/brave/
     Reg->>S3: download-cache.sh (restores warm out/Release)
     Note over S3: Fast incremental compile (chrome / brave)<br/>Packages APK, AAB, ZIP distributions
     
     S3->>S4: Artifacts (APK, AAB, ZIP, checksums)
     Note over S4: publish-release-direct.sh<br/>Creates official GitLab Release
+
 ```
 
 ---

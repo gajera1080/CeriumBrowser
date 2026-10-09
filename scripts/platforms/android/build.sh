@@ -147,6 +147,31 @@ T_CHECKOUT_START=${T_START}
 
 # Phase 2: Verify brave-core
 if [[ ! -d "${BRAVE_DIR}" ]]; then
+  BRAVE_ARCHIVE=""
+  if [[ -n "${BRAVE_VERSION:-}" && -f "${WORKSPACE_DIR}/brave-src-${BRAVE_VERSION}.tar.gz" ]]; then
+    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${BRAVE_VERSION}.tar.gz"
+  elif [[ -n "${DYNAMIC_BRAVE_VERSION:-}" && -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]]; then
+    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
+  else
+    BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
+  fi
+  if [[ -n "${BRAVE_ARCHIVE}" && -f "${BRAVE_ARCHIVE}" ]]; then
+    echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
+    mkdir -p "${SRC_DIR}"
+    tar -xzf "${BRAVE_ARCHIVE}" -C "${SRC_DIR}"
+    rm -f "${BRAVE_ARCHIVE}"
+    echo "brave-core unpacked successfully."
+  fi
+fi
+
+if [[ -d "${BRAVE_DIR}" && ! -d "${BRAVE_DIR}/.git" ]]; then
+  git -C "${BRAVE_DIR}" init -q
+  git -C "${BRAVE_DIR}" config user.name "Braving"
+  git -C "${BRAVE_DIR}" config user.email "ci@braving.org"
+  git -C "${BRAVE_DIR}" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
+fi
+
+if [[ ! -d "${BRAVE_DIR}" ]]; then
   echo "ERROR: Prepared brave-core not found in ${BRAVE_DIR}." >&2
   echo "Please run scripts/core/prepare-source.sh (Phase 1) first." >&2
   exit 1
@@ -168,7 +193,7 @@ if [[ ! -d "${SRC_DIR}/.git" ]]; then
 else
   echo "Chromium source directory already exists, resetting to clean state..."
   git -C "${SRC_DIR}" reset --hard HEAD
-  git -C "${SRC_DIR}" clean -ffd
+  git -C "${SRC_DIR}" clean -ffd -e brave -e out
 fi
 
 T_SYNC_START=$(date +%s)

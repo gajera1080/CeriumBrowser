@@ -23,11 +23,6 @@ spec:
   variables:
     CACHE_PREP_ONLY: "true"
     BUILD_TARGET: "v8 third_party/blink/public:blink skia gpu third_party/angle third_party/webrtc"
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"
@@ -58,11 +53,6 @@ spec:
   extends:
     - .linux_2xlarge
     - .build_environment_setup
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-    policy: pull
   script:
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"
     - echo "Restoring base Chromium and depot_tools from registry..."
