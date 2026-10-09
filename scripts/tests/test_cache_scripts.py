@@ -166,7 +166,11 @@ class TestSisoCachePipeline(unittest.TestCase):
 
     def test_sync_chromium_source_cleans_up_archives(self):
         """Verify sync-chromium-source.sh cleans up .tar.xz archives upon extraction."""
+        import shutil
         import tarfile
+        if not shutil.which("xz"):
+            self.skipTest("xz binary not available in PATH")
+
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir) / "build-workspace"
             workspace.mkdir(parents=True)
