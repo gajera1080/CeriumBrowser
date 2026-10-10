@@ -17,12 +17,10 @@ def apply(ctx: MutatorContext):
     chrome_version_name =
         "$chrome_version_minor.$chrome_version_build.$chrome_version_patch"
   }""",
-            check_token="$chrome_version_minor.$chrome_version_build.$chrome_version_patch"
         )
 
         ctx.replace_in_src(
             "chrome/android/java/version_strings.xml.template",
             re.compile(r'<string\s+name="product_version"[^>]*>@MAJOR@\.@MINOR@\.@BUILD@\.@PATCH@</string>'),
             '  <string name="product_version" translatable="false" tools:ignore="UnusedResources">@MINOR@.@BUILD@.@PATCH@</string>',
-            check_token='>@MINOR@.@BUILD@.@PATCH@</string>'
         )

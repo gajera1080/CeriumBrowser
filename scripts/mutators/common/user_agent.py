@@ -13,7 +13,6 @@ def apply(ctx: MutatorContext):
         "chromium_src/components/embedder_support/user_agent_utils.cc",
         re.compile(r"constexpr\s+char\s+kBraveBrandNameForCHUA\[\]\s*=\s*\"Brave\";"),
         '[[maybe_unused]] constexpr char kBraveBrandNameForCHUA[] = "Brave";',
-        check_token='[[maybe_unused]] constexpr char kBraveBrandNameForCHUA'
     )
 
     ctx.replace_in_file(
@@ -22,7 +21,6 @@ def apply(ctx: MutatorContext):
             r"#define\s+BRAVE_GET_USER_AGENT_BRAND_LIST\s+brand\s*=\s*(?:kBraveBrandNameForCHUA|\"Google Chrome\");(?:\s*\(void\)kBraveBrandNameForCHUA;)?"
         ),
         '#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = "Google Chrome"; (void)kBraveBrandNameForCHUA;',
-        check_token='brand = "Google Chrome"; (void)kBraveBrandNameForCHUA;'
     )
 
     ctx.replace_in_file(
@@ -32,7 +30,6 @@ def apply(ctx: MutatorContext):
             r"base::StrCat\(\s*\{\s*major_version\s*,\s*\"\.0\.0\.0\"\s*\}\s*\)"
         ),
         "#define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version",
-        check_token="#define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version"
     )
 
     # Preserve full version fidelity in UserAgentMetadata instead of zeroing out last 3 version components
@@ -47,7 +44,6 @@ def apply(ctx: MutatorContext):
   // Braving: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity
   return ChromeContentBrowserClient::GetUserAgentMetadata();
 }""",
-        check_token="// Braving: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity"
     )
 
     # Always hide Brave brand across all domains so Braving consistently identifies as Chrome
@@ -62,7 +58,6 @@ def apply(ctx: MutatorContext):
   (void)url;
   return false;
 }""",
-        check_token="// Braving: Never show Brave brand; always identify as standard Chrome"
     )
 
     ctx.replace_in_file(
@@ -76,7 +71,6 @@ def apply(ctx: MutatorContext):
   (void)url;
   return true;
 }""",
-        check_token="// Braving: Always hide Brave brand across all domains"
     )
 
     # Ensure reduced user agent resolves full Chromium major milestone instead of Brave's "1"
@@ -101,5 +95,4 @@ def apply(ctx: MutatorContext):
 #endif
   return base::StrCat({"Chrome/", major, ".0.0.0"});
 }""",
-        check_token="BRAVE_CHROMIUM_VERSION"
     )

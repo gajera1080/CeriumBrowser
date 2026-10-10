@@ -10,27 +10,13 @@ def apply(ctx: MutatorContext):
     # Disable Top Sites by default on Android NTP
     ctx.replace_in_file(
         "android/java/org/chromium/chrome/browser/ntp/NtpUtil.java",
-        """    public static boolean shouldDisplayTopSites() {
-        return ChromeSharedPreferences.getInstance()
-                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, true);
-    }""",
-        """    public static boolean shouldDisplayTopSites() {
-        return ChromeSharedPreferences.getInstance()
-                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, false);
-    }""",
-        check_token=".readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, false);"
+        ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, true);",
+        ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, false);",
     )
 
     # Disable Brave Stats by default on Android NTP
     ctx.replace_in_file(
         "android/java/org/chromium/chrome/browser/ntp/NtpUtil.java",
-        """    public static boolean shouldDisplayBraveStats() {
-        return ChromeSharedPreferences.getInstance()
-                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, true);
-    }""",
-        """    public static boolean shouldDisplayBraveStats() {
-        return ChromeSharedPreferences.getInstance()
-                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, false);
-    }""",
-        check_token=".readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, false);"
+        ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, true);",
+        ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, false);",
     )

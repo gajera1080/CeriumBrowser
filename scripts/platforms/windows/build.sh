@@ -143,12 +143,8 @@ command -v node >/dev/null 2>&1 || { echo "ERROR: node is required." >&2; exit 1
 command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm is required." >&2; exit 1; }
 
 if [[ ! -d "${BRAVE_DIR}" ]]; then
-  BRAVE_ARCHIVE=""
-  if [[ -n "${BRAVE_VERSION:-}" && -f "${WORKSPACE_DIR}/brave-src-${BRAVE_VERSION}.tar.gz" ]]; then
-    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${BRAVE_VERSION}.tar.gz"
-  elif [[ -n "${DYNAMIC_BRAVE_VERSION:-}" && -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]]; then
-    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
-  else
+  BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
+  if [[ ! -f "${BRAVE_ARCHIVE}" ]]; then
     BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
   fi
   if [[ -n "${BRAVE_ARCHIVE}" && -f "${BRAVE_ARCHIVE}" ]]; then
@@ -315,11 +311,9 @@ echo "4. Running gclient hooks on patched Chromium..."
 (cd "${WORKSPACE_DIR}" && gclient runhooks)
 
 # Propagate branding from brave-core/app/theme/brave_origin
-if command -v pnpm >/dev/null 2>&1 && [[ -f "${BRAVE_DIR}/package.json" ]]; then
-  echo ""
-  echo "5. Propagating branding from brave-core/app/theme/brave_origin..."
-  (cd "${BRAVE_DIR}" && pnpm run build Release --prepare_only --target_os=win --target_arch="${TARGET_ARCH}" --channel=release)
-fi
+echo ""
+echo "5. Propagating branding from brave-core/app/theme/brave_origin..."
+(cd "${BRAVE_DIR}" && pnpm run build Release --prepare_only --target_os=win --target_arch="${TARGET_ARCH}" --channel=release)
 
 # Generate brave/build/version.gni if missing
 if [[ -f "${BRAVE_DIR}/build/util/version.py" && -f "${SRC_DIR}/chrome/VERSION" && ! -f "${BRAVE_DIR}/build/version.gni" ]]; then

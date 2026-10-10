@@ -103,7 +103,7 @@ fi
 
 # Generate SHA256 checksums
 echo "Generating SHA256SUMS.txt..."
-(cd "${DEST_DIR}" && (sha256sum Cerium-* Braving-* 2>/dev/null || sha256sum *.zip *.exe 2>/dev/null || true) > SHA256SUMS.txt)
+(cd "${DEST_DIR}" && sha256sum Cerium-* > SHA256SUMS.txt)
 
 echo "========================================================"
 echo " [SUCCESS] Windows packaging completed successfully."

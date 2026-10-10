@@ -147,12 +147,8 @@ T_CHECKOUT_START=${T_START}
 
 # Phase 2: Verify brave-core
 if [[ ! -d "${BRAVE_DIR}" ]]; then
-  BRAVE_ARCHIVE=""
-  if [[ -n "${BRAVE_VERSION:-}" && -f "${WORKSPACE_DIR}/brave-src-${BRAVE_VERSION}.tar.gz" ]]; then
-    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${BRAVE_VERSION}.tar.gz"
-  elif [[ -n "${DYNAMIC_BRAVE_VERSION:-}" && -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]]; then
-    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
-  else
+  BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
+  if [[ ! -f "${BRAVE_ARCHIVE}" ]]; then
     BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
   fi
   if [[ -n "${BRAVE_ARCHIVE}" && -f "${BRAVE_ARCHIVE}" ]]; then
@@ -648,18 +644,6 @@ fi
 
 # Fallback: search for direct APK outputs
 if [[ -z "${BUILT_APK}" ]]; then
-  if [[ -f "${OUT_DIR}/apks/ChromePublic.apk" ]]; then
-    BUILT_APK="${OUT_DIR}/apks/ChromePublic.apk"
-  elif [[ -f "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
-    BUILT_APK="${OUT_DIR}/apks/${OUTPUT_NAME}"
-  else
-    BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic*.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
-  fi
-fi
-if [[ -z "${BUILT_APK}" ]]; then
-  BUILT_APK=$(find "${OUT_DIR}" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic*.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
-fi
-if [[ -z "${BUILT_APK}" ]]; then
   BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f 2>/dev/null | sort | head -n 1 || true)
 fi
 
@@ -675,11 +659,7 @@ if [[ -n "${BUILT_APK}" ]]; then
   if [[ -n "${KEY_PASSWORD_ANDROID:-}" || -n "${ANDROID_KEYSTORE_PASSWORD:-}" || -n "${ANDROID_KEYSTORE_PATH:-}" || -s "${REPO_ROOT}/.secure_files/${ANDROID_KEYSTORE_FILE:-braving_android.jks}" ]]; then
     echo ""
     echo "Signing release APK via package.sh..."
-    if [[ -x "${SCRIPT_DIR}/package.sh" ]]; then
-      "${SCRIPT_DIR}/package.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
-    else
-      "${SCRIPT_DIR}/sign-apk.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
-    fi
+    "${SCRIPT_DIR}/package.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
   fi
 
   # Final refresh of diagnostics archive

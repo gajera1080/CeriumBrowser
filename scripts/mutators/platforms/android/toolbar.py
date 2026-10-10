@@ -39,7 +39,6 @@ def apply(ctx: MutatorContext):
 
             return enable;
         }""",
-        check_token=".readBoolean(BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false);"
     )
 
     # Silence unused method warning for isSmallScreen() in BottomToolbarConfiguration
@@ -47,7 +46,6 @@ def apply(ctx: MutatorContext):
         "android/java/org/chromium/chrome/browser/toolbar/bottom/BottomToolbarConfiguration.java",
         "    private static boolean isSmallScreen() {",
         "    @SuppressWarnings(\"unused\")\n    private static boolean isSmallScreen() {",
-        check_token="@SuppressWarnings(\"unused\")\n    private static boolean isSmallScreen() {",
     )
 
     # Disable bottom toolbar fallback check in BraveToolbarManager
@@ -57,5 +55,4 @@ def apply(ctx: MutatorContext):
                     BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, true)) {""",
         """            if (sharedPreferences.getBoolean(
                     BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false)) {""",
-        check_token="BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false)) {"
     )

@@ -43,7 +43,8 @@ def apply(ctx: MutatorContext):
             if old in new_content:
                 new_content = new_content.replace(old, new)
                 modified = True
-        return new_content, modified, True
+        found = modified or ('inline constexpr wchar_t kCompanyPathName[] = L"Cerium";' in content)
+        return new_content, modified, found
 
     ctx.mutate_file(
         "chromium_src/chrome/install_static/chromium_install_modes.h",
@@ -64,7 +65,8 @@ def apply(ctx: MutatorContext):
             if old in new_content:
                 new_content = new_content.replace(old, new)
                 modified = True
-        return new_content, modified, True
+        found = modified or ('return L"CeriumFile";' in content)
+        return new_content, modified, found
 
     ctx.mutate_file(
         "installer/util/brave_shell_util.cc",

@@ -21,5 +21,4 @@ def apply(ctx: MutatorContext):
       'brave',
       'product_logo.svg',
     )""",
-        check_token="'product_logo.svg'"
     )

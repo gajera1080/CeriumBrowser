@@ -21,5 +21,4 @@ def apply(ctx: MutatorContext):
   # but secondary toolchains (such as webview) may still evaluate targets
   # that import timestamp.gni. Allow execution across all toolchains.
   not_needed([ "enable_android_secondary_abi" ])""",
-            check_token='not_needed([ "enable_android_secondary_abi" ])'
         )

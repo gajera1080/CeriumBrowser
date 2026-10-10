@@ -29,17 +29,13 @@ def apply(ctx: MutatorContext):
   (void)install_list;
   return;
 }""",
-        check_token="// Cerium: Disable VPN NT background service registration",
     )
 
     # Remove promo registry read in mini_installer.cc
     ctx.replace_in_file(
         "chromium_src/chrome/installer/mini_installer/mini_installer.cc",
-        re.compile(
-            r"const\s+bool\s+result\s*=\s*RegKey::ReadSZValue\(\s*(?:\\\s*)?\n"
-            r"\s*HKEY_CURRENT_USER,\s*L\"Software\\\\BraveSoftware\\\\Promo\",\s*(?:\\\s*)?\n"
-            r"\s*L\"StubInstallerPath\",\s*value,\s*_countof\(value\)\);\s*(?:\\)?"
-        ),
-        "const bool result = false; (void)value;  /* Cerium: Skip promo registry read */ \\\n  ",
-        check_token="/* Cerium: Skip promo registry read */",
+        '  const bool result = RegKey::ReadSZValue( \\\n'
+        '      HKEY_CURRENT_USER, L"Software\\\\BraveSoftware\\\\Promo", \\\n'
+        '      L"StubInstallerPath", value, _countof(value)); \\',
+        "  const bool result = false; (void)value;  /* Cerium: Skip promo registry read */ \\\n  ",
     )

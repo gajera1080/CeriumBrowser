@@ -24,7 +24,6 @@ def apply(ctx: MutatorContext):
             r'R\.drawable\.(?:ic_social_brave_release_favicon_fullheight_color|brave_icon_search)\s*\);'
         ),
         "quickSearchViewHolder.mSearchEngineLogo.setImageResource(\n                    R.drawable.ic_brave_icon_search);",
-        check_token="R.drawable.ic_brave_icon_search"
     )
 
     ctx.replace_in_file(
@@ -34,5 +33,4 @@ def apply(ctx: MutatorContext):
             r'R\.drawable\.(?:ic_social_brave_release_favicon_fullheight_color|brave_icon_search)\s*\);'
         ),
         "quickSearchEnginesSettingsViewHolder.mSearchEngineLogo.setImageResource(\n                    R.drawable.ic_brave_icon_search);",
-        check_token="R.drawable.ic_brave_icon_search"
     )
