@@ -1,20 +1,20 @@
-# Braving Project: Canonical Agent Instructions
+# Cerium Project: Canonical Agent Instructions
 
-Welcome, agent. This document outlines the architectural vision, constraints, workflows, and core principles of the **Braving** project. Read this carefully before making any modifications, proposing plans, or writing code.
+Welcome, agent. This document outlines the architectural vision, constraints, workflows, and core principles of the **Cerium** project (downstream distribution of Brave Browser). Read this carefully before making any modifications, proposing plans, or writing code.
 
 ---
 
 ## 1. Project Overview & Multi-Platform Vision
 
-**Braving** is a customized, fully de-branded, debloated, and privacy-hardened downstream distribution of the Brave Browser. It is designed to be built dynamically against upstream Brave and Chromium releases without maintaining a massive, unwieldy hard-forked Git repository.
+**Cerium** (developed by **Cerium Browser Team**) is a customized, fully de-branded, debloated, and privacy-hardened downstream distribution of the Brave Browser. It is designed to be built dynamically against upstream Brave and Chromium releases without maintaining a massive, unwieldy hard-forked Git repository.
 
-### Critical Principle: Braving is NOT Android-Only
-While Android (ARM64, ARM, x86_64) is currently the active primary target in CI/CD, Braving's architectural foundation is **fundamentally multi-platform**:
-- **Supported / Planned Targets**: Android, Desktop Linux (x86_64, aarch64), Windows (x64, arm64), macOS (Apple Silicon arm64, Intel x64), and iOS.
+### Critical Principle: Multi-Platform Targets
+While Android (`arm64`) and Windows (`x64`, `arm64`) are currently the active primary targets in CI/CD, Cerium's architectural foundation is **fundamentally multi-platform**:
+- **Supported Targets**: Android (`arm64`, `arm`, `x86_64`), Windows (`x64`, `arm64`), with straightforward extensibility for Linux and macOS.
 - **Platform-Agnostic Abstractions**:
   - Release manifests (`metadata/releases/*.yaml`) declare `target_os` and `target_cpu` dynamically.
   - GN build arguments (`args.gn`) debloat features across all platforms (`enable_ai_chat`, `enable_brave_wallet`, `enable_brave_vpn`, `enable_brave_rewards`, `enable_brave_news`, `enable_sparkle`, etc.).
-  - Programmatic Python mutators target shared cross-platform C++ subsystems (`components/brave_origin`, `components/brave_shields`, `components/resources`).
+  - Programmatic Python mutators target shared cross-platform C++ subsystems (`components/brave_origin`, `components/brave_shields`, `components/resources`, `components/ntp_background_images`).
   - Modular platform build entry points reside in `scripts/platforms/{android,windows}/` alongside shared core scripts in `scripts/core/`.
 - **Rule for Agents**: Never assume a feature or mutator is only for Android unless it specifically modifies Android-only paths (e.g. `android/java/` or Android XML drawables). Keep core C++ and build logic cleanly reusable across all target operating systems.
 
@@ -58,8 +58,7 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
   - Rely on `apply-assets.sh` for logo and image asset de-branding.
 
 ### CRITICAL SUB-RULE: Minimalist & Essential Code (Zero Bloat & Anti-Overengineering)
-- **Strict Minimalism**: Agents must ALWAYS introduce the absolute minimum code necessary to solve the issue or implement the requirement.
-- **No Speculative or Superfluous Checks**: Never add defensive checks, boilerplate layers, speculative fallbacks, hypothetical error handlers, or unrequested features that are not strictly demanded by the task.
+- **Strict Minimalism**: Agents must ALWAYS introduce the absolute minimum code necessary to solve the issue or implement the requirement. Dont put unnecessary , speculative, boilerplate, speculative or unrequested checks, features, fallbacks, or error handlers.
 - **Why**: Agents frequently add excessive checks and boilerplate that the codebase does not need. In a downstream distribution tracking fast-moving upstream releases, superfluous code adds maintenance debt, pollutes the repository, and creates unnecessary breakages across upstream version bumps (such as Chromium Clang `-Werror` unused variable/parameter failures).
 - **Surgical & Structured**: Focus directly on the root cause. Every line added must serve a verified, essential purpose. Keep code as minimalist, cleanly structured, and maintainable as possible.
 
@@ -73,9 +72,9 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 - Modifications must remain asynchronous, non-blocking to the main browser thread, and preserve native Blink/V8 performance characteristics.
 
 ### Component Updates & Shields Protection
-- Braving routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`.
-- Enforces Braving publisher key verification (`kBravingPublisherKeyHash`), batches component requests, and appends `disable-pings`.
-- Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
+- **Custom Updater Endpoint**: Cerium routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`.
+- **Default Aggressive Blocking**: Cerium defaults to Aggressive ad and tracker blocking out-of-the-box (`/*default_value=*/ControlType::BLOCK>;` in `brave_shields_settings_values.h`) and enables `kBraveAdblockDefault1pBlocking` by default via `scripts/mutators/common/shields.py`.
+- **Key Verification & Initialization**: Enforces publisher key verification (`kBravingPublisherKeyHash`), batches component requests, appends `disable-pings`, and initializes `ad_block_service()` on demand with full profile integration to ensure race-free browser startup.
 
 ---
 
@@ -87,14 +86,27 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
   - Splash screens, First Run Experience (FRE) graphics.
   - Themed icons (Android 13+ monochrome / themed drawables).
   - Browser toolbar shields vector drawables (`shields_drawables`).
-  - Strings: "Brave" $\to$ "Braving", package ID `com.brave.browser` $\to$ `org.braving.browser`.
+  - Strings: "Brave" $\to$ "Cerium", package ID `com.brave.browser` $\to$ `org.cerium.browser`.
+  - Authors & Attribution: Credited collectively to **Cerium Browser Team**.
+  - Desktop ProgIDs: `CeriumHTML`, `CeriumPDF`, `CeriumFile`, `CeriumBFile`, `CeriumDFile`, `CeriumSSFile` via `scripts/mutators/platforms/windows/branding.py`.
 - Brand assets are tracked in `branding/` and applied deterministically via `scripts/core/apply-assets.sh` and `scripts/core/apply-branding.py`.
 
-### 2. Radical Debloating (Enterprise Policy Approach)
-Braving strips all unneeded promotional, cryptocurrency, and auxiliary subsystems:
-- **Hidden Subsystems**: Brave Wallet / Crypto, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards / BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle auto-updater.
+### 2. Radical Debloating & Clean Defaults
+Cerium strips all unneeded promotional, cryptocurrency, and auxiliary subsystems:
+- **Clean New Tab Page (NTP) Defaults**:
+  - Background images and sponsored wallpaper takeovers disabled by default (`kNewTabPageShowBackgroundImage = false`, `kSponsoredEnabled = false`).
+  - Top sites tiles & shortcuts disabled by default (`kNtpShortcutsVisible = false`).
+  - Cerium / Brave stats counters disabled by default (`kNewTabPageShowStats = false`).
+  - Applied cross-platform via `scripts/mutators/common/ntp_ads.py` and on Android via `scripts/mutators/platforms/android/ntp.py`.
+- **Android Bottom Navigation Toolbar**:
+  - Disabled by default via `scripts/mutators/platforms/android/toolbar.py` (`BottomToolbarConfiguration.java` and `BraveToolbarManager.java`).
+- **Windows Services & Installer Debloating**:
+  - Neutralized `UpdateBraveVpn` in `install_worker.cc` (preventing registration of Windows NT VPN & WireGuard services).
+  - Skipped promo registry reading in `mini_installer.cc`.
 - **Enforced via Native Policies**:
-  To avoid constant build breakages caused by upstream dependency mismatches, Braving does *not* use compile-time GN arguments (`enable_brave_wallet = false`) to strip code. Instead, we compile the modules but strictly lock them down at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` via `patches/common/debloat/0004-enforce-enterprise-policies.patch`.
+  To avoid constant build breakages caused by upstream dependency mismatches, Cerium does *not* use compile-time GN arguments (`enable_brave_wallet = false`) to strip code. Instead, we compile the modules but strictly lock them down at runtime:
+  - **Native Brave Origin Policy Enforcement**: Bypassing the paywall in `patches/common/0001-brave-origin-paywall-bypass.patch` unlocks `IsBraveOriginPurchased() == true`, which natively triggers `LoadBraveOriginPolicies(bundle)` to enforce IPFS, Tor, Playlist, Email Aliases, and Psst lockdown.
+  - **Explicit Enterprise Policies (`patches/common/debloat/0004-enforce-enterprise-policies.patch`)**: Enforces runtime lockout for `BraveWalletDisabled`, `BraveVPNDisabled`, `BraveAIChatEnabled`, `BraveNewsDisabled`, `BraveRewardsDisabled`, `BraveSearchResultAdsEnabled`, `BraveTalkDisabled`, `BraveStatsPingEnabled`, `BraveWebDiscoveryEnabled`, `BraveP3AEnabled`, `BraveWaybackMachineEnabled`, and `BraveLocalAIEnabled`.
   - Debloat Patches: `patches/common/debloat/` (0001, 0002, 0004) and `patches/android/debloat/` (0003, 0005, 0006) disable promotional flags, unlock backend policy state, remove rating prompts, disable Play in-app updates, and enforce mandatory privacy policies so hidden features cannot be reached or leak data.
 
 ---
@@ -207,8 +219,12 @@ Before submitting changes or proposing pull requests:
 8. **Branch Model (`release` vs `main`)**:
    - The `release` branch is the production release branch (official releases, signed APK artifacts, and release tags). It compiles all target architectures (`COMPILE_TARGET="all"`) and publishes official releases. Its GitLab Web UI prompt only requests `brave_version`.
    - The `main` branch (and other topic branches) is for active testing, integration, and development. When triggered manually in the GitLab Web UI, it provides an interactive `compile_target` input dropdown (`all`, `android`, `windows`, `windows_x64`, `windows_arm64`, no default) allowing developers to choose target compilation on demand without publishing official releases. All merge requests and development topic branches must target `main`.
-9. **Enforce strict minimalism**: Keep all edits minimal, surgical, and structured. Do not introduce speculative checks, unnecessary wrapper boilerplate, or dead code. Every edit must be strictly essential.
+9. **Enforce strict minimalism & fail-fast error handling**: Keep all edits minimal, surgical, and structured. Do not introduce speculative checks, multi-tier fallback globbing, unnecessary wrapper boilerplate, or defensive `if ctx.has_chromium_src():` guards around `replace_in_src()`. When a required file or anchor token is missing, fail fast with a clear error rather than attempting speculative recovery branches.
+10. **Packaging & Signing**: `scripts/platforms/{android,windows}/package.sh` is the authoritative multi-platform packaging and signing entry point. (`sign-apk.sh` exists solely as a compatibility forwarder).
+11. **Toolchain Prerequisites**:
+    - Windows cross-compilation on Linux runner containers requires `libfuse2` for `ciopfs` to mount the Visual Studio toolchain (`vs_files`).
+    - Set `GCLIENT_SUPPRESS_GIT_VERSION_WARNING: "1"` across CI environments to suppress depot_tools git version alerts.
 
 ---
 **Summary for Agents:**
-Think dynamically. Don't write static patches; write resilient mutators. Don't pin versions; support the flow. Reuse Brave's architecture. Support multi-platform. Keep code strictly minimalist and structured. Test against clean environments.
+Think dynamically. Don't write static patches; write resilient mutators. Don't pin versions; support the flow. Reuse Brave's architecture. Support multi-platform. Keep code strictly minimalist and structured with direct fail-fast error reporting. Test against clean environments.

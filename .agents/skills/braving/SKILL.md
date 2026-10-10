@@ -1,30 +1,30 @@
 ---
 name: braving-browser
-description: Canonical guide and operational expert for the Braving Browser project (customized, de-branded, debloated downstream Brave distribution for Android, Linux, Windows, macOS). Use whenever working with Braving architecture, GN build arguments, programmatic Python mutators, offline adblock bundling, branding assets, Siso/Ninja build orchestration, distributed GitLab Generic Package Registry caching, verifying changes end-to-end via prepare-source and verify-all, or CI/CD pipelines.
+description: Canonical guide and operational expert for the Cerium Browser project (customized, de-branded, debloated downstream Brave distribution for Android, Linux, Windows, macOS). Use whenever working with Cerium architecture, GN build arguments, programmatic Python mutators, Shields adblock settings, branding assets, Siso/Ninja build orchestration, distributed GitLab Generic Package Registry caching, verifying changes end-to-end via prepare-source and verify-all, or CI/CD pipelines.
 ---
 
-# Braving Browser: The Complete Engineering & Agent Guide
+# Cerium Browser: The Complete Engineering & Agent Guide
 
-Welcome to the **Braving Browser** skill. This guide serves as the definitive reference for autonomous agents and engineers working on the Braving codebase.
+Welcome to the **Cerium Browser** skill. This guide serves as the definitive reference for autonomous agents and engineers working on the Cerium codebase (downstream distribution of Brave Browser).
 
 ---
 
 ## 1. Project Vision & Architectural Foundation
 
-### What is Braving?
-**Braving** is an independent downstream distribution of the Brave Browser. It is customized to be:
-1. **Completely De-Branded**: Stripped of all Brave Lion branding, proprietary telemetry, and promotional assets; replaced with Braving's clean identity.
-2. **Radically Debloated**: Stripped of cryptocurrency wallets, Web3 features, AI chatbots (Leo), VPN upsells, BAT rewards, news feeds, and user profiling.
-3. **Offline-Capable Ad-Blocking**: Out-of-the-box ad-blocking enabled on first run via bundled uBlock Origin filter lists without relying on network component updates.
+### What is Cerium?
+**Cerium** (maintained by **Cerium Browser Team**) is an independent downstream distribution of the Brave Browser. It is customized to be:
+1. **Completely De-Branded**: Stripped of all Brave Lion branding, proprietary telemetry, and promotional assets; replaced with Cerium's clean identity and `org.cerium.browser` package ID.
+2. **Radically Debloated**: Stripped of cryptocurrency wallets, Web3 features, AI chatbots (Leo), VPN background services, BAT rewards, news feeds, and user profiling.
+3. **Out-of-the-Box Privacy & Aggressive Shields**: Aggressive ad & tracker blocking enabled by default (`ControlType::BLOCK`), first-party ad blocking enabled by default, and a completely clean New Tab Page (zero background images, sponsored takeovers, top sites, or stats).
 4. **Dynamically Built**: Built against upstream Brave and Chromium tags without maintaining a permanent 100 GB hard-forked Git repository.
 
-### Critical Rule: Braving is NOT Android-Only
-While Android (ARM64, ARM, x86_64) is currently the active reference target in GitLab CI/CD, Braving's architecture is **fundamentally multi-platform**:
-- **Supported / Roadmap Platforms**: Android (APK & AAB), Desktop Linux (x86_64, aarch64), Windows (x64, arm64), macOS (Apple Silicon arm64, Intel x64), and iOS.
+### Critical Principle: Multi-Platform Vision
+While Android (`arm64`, `arm`, `x86_64`) and Windows (`x64`, `arm64`) are currently the active reference targets in GitLab CI/CD, Cerium's architecture is **fundamentally multi-platform**:
+- **Supported / Roadmap Platforms**: Android (APK & AAB), Windows (`x64`, `arm64`), Desktop Linux (`x86_64`, `aarch64`), macOS (Apple Silicon `arm64`, Intel `x64`), and iOS.
 - **Platform-Agnostic Design Principles**:
   - Release manifests (`metadata/releases/*.yaml`) declare `target_os` and `target_cpu` dynamically.
   - GN build arguments (`args.gn`) debloat features across all platforms (`enable_ai_chat`, `enable_brave_wallet`, `enable_brave_vpn`, `enable_brave_rewards`, `enable_brave_news`, `enable_sparkle`, etc.).
-  - Programmatic Python mutators target shared cross-platform C++ subsystems (`components/brave_origin`, `components/brave_shields`, `components/resources`).
+  - Programmatic Python mutators target shared cross-platform C++ subsystems (`components/brave_origin`, `components/brave_shields`, `components/resources`, `components/ntp_background_images`).
   - Modular platform build entry points reside in `scripts/platforms/{android,windows}/` alongside core scripts in `scripts/core/`.
 
 ---
@@ -103,10 +103,10 @@ def replace_in_file(filepath, search, replacement):
 Do not reinvent browser engines. When implementing custom behavior, hook into the existing system's fallback/failure paths rather than constructing a parallel engine.
 
 ### Component Updates & Shields Protection
-Braving routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`:
-1. Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
-2. Batches component checks into a single request and appends `disable-pings`.
-3. Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
+Cerium routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`:
+1. **Default Aggressive Blocking**: Cerium defaults to Aggressive ad and tracker blocking out-of-the-box (`ControlType::BLOCK` in `brave_shields_settings_values.h`) and enables `kBraveAdblockDefault1pBlocking` by default via `scripts/mutators/common/shields.py`.
+2. **Key Verification**: Enforces publisher key verification (`kBravingPublisherKeyHash`), batches component checks into a single request, and appends `disable-pings`.
+3. **On-Demand Service Initialization**: Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
 
 ---
 
@@ -116,13 +116,27 @@ Braving routes component updates through our secure GitLab Pages static endpoint
 - Master vector logo lives at `branding/logo.svg`.
 - 156 static raster PNG logos across all standard Android densities (`mipmap-mdpi` through `mipmap-xxxhdpi`) and 10 static SVGs reside in `branding/brave-core-static/`.
 - `scripts/core/apply-assets.sh` deploys all static assets into `brave-core` resource overlays with zero build-time dynamic rendering (no PIL or rsvg-convert).
-- Dedicated vector icons for Braving Shields reside in `branding/android/shields_drawables/`.
-- `scripts/core/apply-branding.py` rebrands GRD/GRDP strings and remaps Grit 63-bit XTB translation fingerprints safely across all locales.
+- Dedicated vector icons for Cerium Shields reside in `branding/android/shields_drawables/`.
+- `scripts/core/apply-branding.py` rebrands GRD/GRDP strings to "Cerium", credits attribution to "Cerium Browser Team", and remaps Grit 63-bit XTB translation fingerprints safely across all locales.
+- Desktop ProgIDs (`CeriumHTML`, `CeriumPDF`, `CeriumFile`, `CeriumBFile`, `CeriumDFile`, `CeriumSSFile`) and product names remapped via `scripts/mutators/platforms/windows/branding.py`.
 
-### 2. Radical Debloating (Enterprise Policy Approach)
-Stripped subsystems: Brave Wallet, AI Chat / Leo, Brave VPN, Brave News, Brave Rewards, BAT Ads, Web Discovery Project, P3A Telemetry, Wayback Machine fallback, Sparkle updater.
-- **Enforced via Native Enterprise Policies**:
-  To avoid constant upstream build breakages caused by GN dependency mismatches on Android, Braving compiles modules cleanly but locks them down unconditionally at runtime via Enterprise Policies enforced in `brave_browser_policy_provider.cc` via `patches/common/debloat/0004-enforce-enterprise-policies.patch`.
+### 2. Radical Debloating & Clean Defaults
+Cerium strips all unneeded promotional, cryptocurrency, and auxiliary subsystems:
+- **Clean New Tab Page (NTP) Defaults**:
+  - Background images and sponsored wallpaper takeovers disabled by default (`kNewTabPageShowBackgroundImage = false`, `kSponsoredEnabled = false`).
+  - Top sites tiles & shortcuts disabled by default (`kNtpShortcutsVisible = false`).
+  - Cerium / Brave stats counters disabled by default (`kNewTabPageShowStats = false`).
+  - Applied cross-platform via `scripts/mutators/common/ntp_ads.py` and on Android via `scripts/mutators/platforms/android/ntp.py`.
+- **Android Bottom Navigation Toolbar**:
+  - Disabled by default via `scripts/mutators/platforms/android/toolbar.py` (`BottomToolbarConfiguration.java` and `BraveToolbarManager.java`).
+- **Windows Services & Installer Debloating**:
+  - Neutralized `UpdateBraveVpn` in `install_worker.cc` (preventing registration of Windows NT VPN & WireGuard services).
+  - Skipped promo registry reading in `mini_installer.cc`.
+- **Enforced via Native Policies**:
+  To avoid constant upstream build breakages caused by GN dependency mismatches on Android, Cerium compiles modules cleanly but locks them down unconditionally at runtime:
+  - **Native Brave Origin Policy Enforcement**: Bypassing the paywall in `patches/common/0001-brave-origin-paywall-bypass.patch` unlocks `IsBraveOriginPurchased() == true`, which natively triggers `LoadBraveOriginPolicies(bundle)` to enforce IPFS, Tor, Playlist, Email Aliases, and Psst lockdown.
+  - **Explicit Enterprise Policies (`patches/common/debloat/0004-enforce-enterprise-policies.patch`)**: Enforces runtime lockout for `BraveWalletDisabled`, `BraveVPNDisabled`, `BraveAIChatEnabled`, `BraveNewsDisabled`, `BraveRewardsDisabled`, `BraveSearchResultAdsEnabled`, `BraveTalkDisabled`, `BraveStatsPingEnabled`, `BraveWebDiscoveryEnabled`, `BraveP3AEnabled`, `BraveWaybackMachineEnabled`, and `BraveLocalAIEnabled`.
+  - Debloat Patches: `patches/common/debloat/` (0001, 0002, 0004) and `patches/android/debloat/` (0003, 0005, 0006) disable promotional flags, unlock backend policy state, remove rating prompts, disable Play in-app updates, and enforce mandatory privacy policies so hidden features cannot be reached or leak data.
 - `scripts/core/apply-features.py` isolates Polymer and WebUI resources so Android builds do not transpile unused desktop-only frontend bundles.
 
 ---
@@ -310,4 +324,6 @@ Agents must ALWAYS perform the two-step verification workflow:
 10. **Branch Model (`release` vs `main`)**:
     - `release` is the production release branch (official signed releases and release tags). It compiles all target architectures (`COMPILE_TARGET="all"`) and publishes official releases. Its GitLab Web UI prompt only requests `brave_version`.
     - `main` is for active development, automated testing, and community merges. When triggered manually in the GitLab Web UI, it provides an interactive `compile_target` input dropdown (`all`, `android`, `windows`, `windows_x64`, `windows_arm64`, no default) allowing developers to choose target compilation on demand without publishing official releases. All merge requests must target `main`.
-11. **Keep modifications strictly minimalist and essential**: Never add speculative checks, defensive clutter, or unnecessary code that wasn't requested. Keep all patches and mutators lean, structured, and focused solely on the required behavior to prevent fragility across upstream version bumps.
+11. **Keep modifications strictly minimalist and essential**: Never add speculative checks, defensive clutter, multi-tier fallback globbing, or unnecessary code that wasn't requested. Keep all patches and mutators lean, structured, and focused solely on the required behavior with direct fail-fast error reporting to prevent fragility across upstream version bumps.
+12. **Authoritative Packaging Scripts**: `scripts/platforms/{android,windows}/package.sh` is the authoritative multi-platform packaging and signing entry point. (`sign-apk.sh` exists solely as a compatibility wrapper).
+13. **Toolchain Prerequisites**: Windows cross-compilation on Linux runner containers requires `libfuse2` for `ciopfs` to mount the Visual Studio toolchain (`vs_files`), and `GCLIENT_SUPPRESS_GIT_VERSION_WARNING: "1"` set across CI.
