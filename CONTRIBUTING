@@ -52,8 +52,8 @@ Contributing to Braving
 ------------------
 
     1. Clone the repository:
-         git clone https://gitlab.com/braving/braving-browser.git
-         cd braving-browser
+         git clone https://gitlab.com/CeriumBrowser/Cerium-Browser.git
+         cd Cerium-Browser
 
     2. Check out the development branch:
          git checkout main

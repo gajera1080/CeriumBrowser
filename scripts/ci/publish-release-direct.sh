@@ -80,7 +80,7 @@ if [[ "${DRY_RUN}" == "true" ]]; then
   CI_JOB_TOKEN="${CI_JOB_TOKEN:-dry-run-token}"
   CI_API_V4_URL="${CI_API_V4_URL:-https://gitlab.com/api/v4}"
   CI_PROJECT_ID="${CI_PROJECT_ID:-dry-run-project-id}"
-  CI_PROJECT_URL="${CI_PROJECT_URL:-https://gitlab.com/braving/braving-browser}"
+  CI_PROJECT_URL="${CI_PROJECT_URL:-https://gitlab.com/CeriumBrowser/Cerium-Browser}"
   CI_COMMIT_SHA="${CI_COMMIT_SHA:-$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo "0000000000000000000000000000000000000000")}"
 else
   # In live execution mode, strictly enforce all required GitLab CI variables

@@ -117,7 +117,7 @@ class TestPublishReleasePayload(unittest.TestCase):
         """Release payload must contain all required GitLab Release API fields."""
         payload = self._generate_payload(
             "1.96.60", "arm64", "abc123def",
-            "https://gitlab.com/braving/braving-browser/uploads/hash/file.apk",
+            "https://gitlab.com/CeriumBrowser/Cerium-Browser/uploads/hash/file.apk",
             sha256="deadbeef",
         )
         self.assertIn("name", payload)

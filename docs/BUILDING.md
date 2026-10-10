@@ -31,9 +31,9 @@ export BRAVING_DIR="${WORKSPACE_DIR}/Braving"
 export SRC_DIR="${WORKSPACE_DIR}/src"
 ```
 
-Clone the Braving repository:
+Clone the Cerium repository:
 ```bash
-git clone https://gitlab.com/braving/braving-browser.git "${BRAVING_DIR}"
+git clone https://gitlab.com/CeriumBrowser/Cerium-Browser.git "${BRAVING_DIR}"
 ```
 
 ---
