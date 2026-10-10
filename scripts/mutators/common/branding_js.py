@@ -1,7 +1,7 @@
 """
 WebUI Branding Logo Mutator (scripts/mutators/common/branding_js.py)
 Points WebUI chrome_logo_dark.svg override in branding.js to app/theme/brave/product_logo.svg
-instead of @brave/leo node_modules so WebUI pages use the colored Braving logo.
+instead of @brave/leo node_modules so WebUI pages use the colored Cerium logo.
 """
 
 import re

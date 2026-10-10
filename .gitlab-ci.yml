@@ -31,6 +31,7 @@ variables:
   BRAVE_VERSION: "$[[ inputs.brave_version ]]"
   FORCE_CACHE_REBUILD: "${FORCE_CACHE_REBUILD:-false}"
   COMPILE_TARGET: "$[[ inputs.compile_target ]]"
+  GCLIENT_SUPPRESS_GIT_VERSION_WARNING: "1"
 
 # Pipeline execution rules:
 # - release branch triggers on any push/merge to build all architectures and publish official release

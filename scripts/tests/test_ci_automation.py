@@ -228,6 +228,9 @@ class TestCIScriptSyntax(unittest.TestCase):
     def test_package_android_syntax(self):
         self._check_bash_syntax('scripts/platforms/android/package.sh')
 
+    def test_sign_apk_android_syntax(self):
+        self._check_bash_syntax('scripts/platforms/android/sign-apk.sh')
+
     def test_build_windows_syntax(self):
         self._check_bash_syntax('scripts/platforms/windows/build.sh')
 
@@ -366,6 +369,7 @@ class TestCIScriptSyntax(unittest.TestCase):
             'scripts/core/verify-branding.sh',
             'scripts/platforms/android/build.sh',
             'scripts/platforms/android/package.sh',
+            'scripts/platforms/android/sign-apk.sh',
             'scripts/platforms/windows/build.sh',
             'scripts/platforms/windows/package.sh',
         ]

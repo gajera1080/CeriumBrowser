@@ -80,7 +80,7 @@ v8_symbol_level = 0
 enable_resource_allowlist_generation = true
 is_component_build = false
 disable_fieldtrial_testing_config = true
-chrome_public_manifest_package = "org.braving.browser"
+chrome_public_manifest_package = "org.cerium.browser"
 android_channel = "stable"
 brave_channel = ""
 target_android_output_format = "aab"
@@ -95,7 +95,7 @@ disable_android_lint = true
 
 The resulting signed APK will be placed in:
 ```
-${BRAVING_DIR}/out/apks/Braving-<version>-arm64.apk
+${BRAVING_DIR}/out/apks/Cerium-<version>-arm64.apk
 ```
 
 ---
@@ -113,7 +113,7 @@ Run all verification tiers:
 
 To sign an existing or newly compiled APK using release credentials:
 ```bash
-./scripts/platforms/android/package.sh --apk="out/apks/Braving-<version>-arm64.apk"
+./scripts/platforms/android/package.sh --apk="out/apks/Cerium-<version>-arm64.apk"
 ```
 
 ---

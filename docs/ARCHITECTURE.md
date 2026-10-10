@@ -36,7 +36,7 @@ Braving Repository Structure
 │   │   ├── apply-assets.sh         # [Module 1] Static asset overlay deployment
 │   │   ├── build-android.sh        # [Module 4] Release build orchestration & GN configuration
 │   │   ├── filter-build-log.py     # [Module 4] Real-time CI 4MB stream log filter
-│   │   ├── sign-apk.sh             # [Module 5] APK release signing & verification
+│   │   ├── package.sh              # [Module 5] APK release signing & verification
 │   │   ├── verify-branding.sh      # [Module 1] Standalone branding verification
 │   │   └── verify-all.sh           # [Module 7] Master 5-tier verification suite
 │   ├── download-cache.sh           # [Module 6] Generic Package Registry cache restore & Siso sync

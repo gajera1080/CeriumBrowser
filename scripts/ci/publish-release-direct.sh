@@ -120,7 +120,7 @@ done
 # Search Windows packages (both zip archives and installer executables across all architectures)
 for d in "${REPO_ROOT}/out/packages" "out/packages"; do
   if [[ -d "$d" ]]; then
-    for f in "$d"/Braving-Windows-*.zip "$d"/Braving-Installer-*.exe; do
+    for f in "$d"/Cerium-Windows-*.zip "$d"/Cerium-Installer-*.exe "$d"/Braving-Windows-*.zip "$d"/Braving-Installer-*.exe; do
       [[ -f "$f" ]] && PACKAGES_FOUND+=("$f")
     done
   fi
@@ -136,16 +136,16 @@ if [[ ${#PACKAGES_FOUND[@]} -eq 0 ]]; then
     if [[ "${CI_COMMIT_REF_NAME:-}" == "release" || "${CI_COMMIT_BRANCH:-}" == "release" ]]; then
       echo "[DRY-RUN] Simulating full multi-architecture release on release branch:"
       PACKAGES_FOUND+=(
-        "${REPO_ROOT}/out/apks/Braving-${DYNAMIC_BRAVE_VERSION}-arm64.apk"
-        "${REPO_ROOT}/out/packages/Braving-Windows-x64-v${DYNAMIC_BRAVE_VERSION}.zip"
-        "${REPO_ROOT}/out/packages/Braving-Windows-arm64-v${DYNAMIC_BRAVE_VERSION}.zip"
+        "${REPO_ROOT}/out/apks/Cerium-${DYNAMIC_BRAVE_VERSION}-arm64.apk"
+        "${REPO_ROOT}/out/packages/Cerium-Windows-x64-v${DYNAMIC_BRAVE_VERSION}.zip"
+        "${REPO_ROOT}/out/packages/Cerium-Windows-arm64-v${DYNAMIC_BRAVE_VERSION}.zip"
       )
     elif [[ "${TARGET_PLATFORM}" == "windows" ]]; then
       echo "[DRY-RUN] Simulating Windows release package:"
-      PACKAGES_FOUND+=("${REPO_ROOT}/out/packages/Braving-Windows-${TARGET_ARCH}-v${DYNAMIC_BRAVE_VERSION}.zip")
+      PACKAGES_FOUND+=("${REPO_ROOT}/out/packages/Cerium-Windows-${TARGET_ARCH}-v${DYNAMIC_BRAVE_VERSION}.zip")
     else
       echo "[DRY-RUN] Simulating Android release package:"
-      PACKAGES_FOUND+=("${REPO_ROOT}/out/apks/Braving-${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}.apk")
+      PACKAGES_FOUND+=("${REPO_ROOT}/out/apks/Cerium-${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}.apk")
     fi
   else
     echo "ERROR: No release packages found in out/apks or out/packages!" >&2

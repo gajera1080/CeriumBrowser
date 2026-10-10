@@ -126,7 +126,7 @@ Contributing to Braving
            git config user.email "your.email@example.com"
          Patch author headers in patches/ must follow standard format:
            From: Your Name <your.email@example.com>
-         General project attribution is credited to The Braving Contributors.
+         General project attribution is credited to Cerium Browser Team.
 
     4. Submit your Merge Request:
          - Target branch: 'main'

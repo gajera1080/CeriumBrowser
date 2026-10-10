@@ -32,7 +32,7 @@ def test_release_manifest():
         fpath = os.path.join(releases_dir, fname)
         with open(fpath, "r") as f:
             data = yaml.safe_load(f)
-        assert data["package_id"] == "org.braving.browser"
+        assert data["package_id"] in ("org.cerium.browser", "org.braving.browser")
         print(f"PASS: test_release_manifest ({fname})")
 
 if __name__ == "__main__":

@@ -295,6 +295,63 @@ PRODUCT_INSTALLER_FULLNAME=Brave Origin Installer
 PRODUCT_INSTALLER_SHORTNAME=Brave Origin Installer
 """)
 
+    pref_registry_cc = os.path.join(brave_dir, "components/brave_ads/core/internal/prefs/pref_registry.cc")
+    install_worker_cc = os.path.join(brave_dir, "chromium_src/chrome/installer/setup/install_worker.cc")
+    mini_installer_cc = os.path.join(brave_dir, "chromium_src/chrome/installer/mini_installer/mini_installer.cc")
+    chromium_install_modes_h = os.path.join(brave_dir, "chromium_src/chrome/install_static/chromium_install_modes.h")
+    brave_shell_util_cc = os.path.join(brave_dir, "installer/util/brave_shell_util.cc")
+
+    for p in [pref_registry_cc, install_worker_cc, mini_installer_cc, chromium_install_modes_h, brave_shell_util_cc]:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+
+    with open(pref_registry_cc, "w") as f:
+        f.write("registry->RegisterBooleanPref(prefs::kSponsoredEnabled, true);\n")
+
+    with open(install_worker_cc, "w") as f:
+        f.write("""void UpdateBraveVpn(const base::FilePath& target_path,
+                    const base::Version& new_version,
+                    WorkItemList* install_list) {
+  if (OneTimeVpnServiceCleanup(target_path, new_version, install_list)) {
+    return;
+  }
+}
+""")
+
+    with open(mini_installer_cc, "w") as f:
+        f.write("""  const bool result = RegKey::ReadSZValue( \\
+      HKEY_CURRENT_USER, L"Software\\\\BraveSoftware\\\\Promo", \\
+      L"StubInstallerPath", value, _countof(value)); \\
+""")
+
+    with open(chromium_install_modes_h, "w") as f:
+        f.write("""inline constexpr wchar_t kCompanyPathName[] = L"BraveSoftware";
+inline constexpr wchar_t kProductPathName[] = L"Brave-Origin";
+inline constexpr wchar_t kProductPathName[] = L"Brave-Browser";
+inline constexpr wchar_t kProductPathName[] = L"Brave-Browser-Development";
+.base_app_name = L"Brave Origin",
+.base_app_id = L"BraveOrigin",
+.browser_prog_id_prefix = L"BraveOHTML",
+.browser_prog_id_description =
+            L"Brave Origin HTML Document",
+.pdf_prog_id_prefix = L"BraveOPDF",
+.pdf_prog_id_description =
+            L"Brave Origin PDF Document",
+.base_app_name = L"Brave",
+.base_app_id = L"Brave",
+.browser_prog_id_prefix = L"BraveHTML",
+.browser_prog_id_description =
+            L"Brave HTML Document",
+.pdf_prog_id_prefix = L"BravePDF",
+.pdf_prog_id_description =
+            L"Brave PDF Document",
+""")
+
+    with open(brave_shell_util_cc, "w") as f:
+        f.write("""std::wstring GetProgIdForFileType() {
+  return L"BraveFile";
+}
+""")
+
     return {
         "webui_build_gn": webui_build_gn,
         "webui_sources_gni": webui_sources_gni,
@@ -315,6 +372,11 @@ PRODUCT_INSTALLER_SHORTNAME=Brave Origin Installer
         "origin_branding_beta": origin_branding_beta,
         "origin_branding_dev": origin_branding_dev,
         "origin_branding_nightly": origin_branding_nightly,
+        "pref_registry_cc": pref_registry_cc,
+        "install_worker_cc": install_worker_cc,
+        "mini_installer_cc": mini_installer_cc,
+        "chromium_install_modes_h": chromium_install_modes_h,
+        "brave_shell_util_cc": brave_shell_util_cc,
     }
 
 
@@ -589,33 +651,53 @@ def test_apply_features():
 
         with open(origin_branding) as f:
             ob_content = f.read()
-            assert "COMPANY_FULLNAME=Braving Project" in ob_content
-            assert "COMPANY_SHORTNAME=Braving" in ob_content
-            assert "PRODUCT_FULLNAME=Braving Browser" in ob_content
-            assert "PRODUCT_SHORTNAME=Braving" in ob_content
-            assert "PRODUCT_INSTALLER_FULLNAME=Braving Installer" in ob_content
+            assert "COMPANY_FULLNAME=Cerium Browser Team" in ob_content
+            assert "COMPANY_SHORTNAME=Cerium" in ob_content
+            assert "PRODUCT_FULLNAME=Cerium Browser" in ob_content
+            assert "PRODUCT_SHORTNAME=Cerium" in ob_content
+            assert "PRODUCT_INSTALLER_FULLNAME=Cerium Installer" in ob_content
 
         with open(origin_branding_beta) as f:
             obb_content = f.read()
-            assert "PRODUCT_FULLNAME=Braving Browser Beta" in obb_content
-            assert "PRODUCT_SHORTNAME=Braving Beta" in obb_content
+            assert "PRODUCT_FULLNAME=Cerium Browser Beta" in obb_content
+            assert "PRODUCT_SHORTNAME=Cerium Beta" in obb_content
 
         with open(origin_branding_dev) as f:
             obd_content = f.read()
-            assert "PRODUCT_FULLNAME=Braving Browser Development" in obd_content
-            assert "PRODUCT_SHORTNAME=Braving Development" in obd_content
+            assert "PRODUCT_FULLNAME=Cerium Browser Development" in obd_content
+            assert "PRODUCT_SHORTNAME=Cerium Development" in obd_content
 
         with open(origin_branding_nightly) as f:
             obn_content = f.read()
-            assert "PRODUCT_FULLNAME=Braving Browser Nightly" in obn_content
-            assert "PRODUCT_SHORTNAME=Braving Nightly" in obn_content
+            assert "PRODUCT_FULLNAME=Cerium Browser Nightly" in obn_content
+            assert "PRODUCT_SHORTNAME=Cerium Nightly" in obn_content
+
+        with open(mock_files["pref_registry_cc"]) as f:
+            assert "registry->RegisterBooleanPref(prefs::kSponsoredEnabled, false);" in f.read()
+
+        with open(mock_files["install_worker_cc"]) as f:
+            assert "// Cerium: Disable VPN NT background service registration" in f.read()
+
+        with open(mock_files["mini_installer_cc"]) as f:
+            assert "/* Cerium: Skip promo registry read */" in f.read()
+
+        with open(mock_files["chromium_install_modes_h"]) as f:
+            cim_content = f.read()
+            assert 'inline constexpr wchar_t kCompanyPathName[] = L"Cerium";' in cim_content
+            assert 'inline constexpr wchar_t kProductPathName[] = L"Cerium-Browser";' in cim_content
+            assert 'inline constexpr wchar_t kProductPathName[] = L"Brave-Browser";' not in cim_content
+            assert 'inline constexpr wchar_t kProductPathName[] = L"Brave-Origin";' not in cim_content
+            assert '.browser_prog_id_prefix = L"CeriumHTML"' in cim_content
+
+        with open(mock_files["brave_shell_util_cc"]) as f:
+            assert 'return L"CeriumFile";' in f.read()
 
         with open(origin_branding, "w") as f:
-            f.write(ob_content.replace("PRODUCT_SHORTNAME=Braving", "PRODUCT_SHORTNAME=Incorrect", 1))
+            f.write(ob_content.replace("PRODUCT_SHORTNAME=Cerium", "PRODUCT_SHORTNAME=Incorrect", 1))
         res_partial = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
         assert res_partial.returncode == 0, f"apply-features partial branding repair failed: {res_partial.stderr}"
         with open(origin_branding) as f:
-            assert "PRODUCT_SHORTNAME=Braving" in f.read()
+            assert "PRODUCT_SHORTNAME=Cerium" in f.read()
 
         # Verify idempotence
         res_idem = subprocess.run([sys.executable, script, tmpdir, "--strict"], capture_output=True, text=True)
@@ -756,11 +838,11 @@ def test_patch_suite():
         c0001 = f.read()
     assert "app/theme/brave/BRANDING" in c0001
     assert "app/theme/brave/BRANDING." not in c0001, "Dev/Beta/Nightly BRANDING files should not be in 0001"
-    assert "PRODUCT_FULLNAME=Braving Browser" in c0001
-    assert "PRODUCT_SHORTNAME=Braving" in c0001
-    assert 'Braving - Debug' not in c0001, "Found Debug suffix in 0001-braving-branding.patch"
-    assert '<string name="app_name" translatable="false">Braving</string>' in c0001
-    assert "org.braving.browser" in c0001
+    assert "PRODUCT_FULLNAME=Cerium Browser" in c0001
+    assert "PRODUCT_SHORTNAME=Cerium" in c0001
+    assert 'Cerium - Debug' not in c0001, "Found Debug suffix in 0001-braving-branding.patch"
+    assert '<string name="app_name" translatable="false">Cerium</string>' in c0001
+    assert "org.cerium.browser" in c0001
     assert "R.mipmap.layered_app_icon" in c0001
     assert "R.mipmap.layered_app_icon_background" in c0001
     assert "R.drawable.btn_brave" in c0001
@@ -841,6 +923,11 @@ def test_patch_suite():
     assert 'enforce("BraveWalletDisabled", true);' in c_policies
     assert 'enforce("BraveVPNDisabled", true);' in c_policies
     assert 'enforce("BraveAIChatEnabled", false);' in c_policies
+    assert 'enforce("IPFSEnabled", false);' in c_policies
+    assert 'enforce("TorDisabled", true);' in c_policies
+    assert 'enforce("BravePlaylistEnabled", false);' in c_policies
+    assert 'enforce("EmailAliasesEnabled", false);' in c_policies
+    assert 'enforce("PsstEnabled", false);' in c_policies
 
     p_rate_brave = os.path.join(android_debloat_dir, "0005-remove-rate-brave.patch")
     assert os.path.isfile(p_rate_brave), f"Missing debloat patch: {p_rate_brave}"
@@ -921,13 +1008,13 @@ def test_apply_branding():
 
         import xml.etree.ElementTree as ET
         old_fp_1 = mod.get_fingerprint_for_xtb(ET.fromstring("<message>Welcome to Brave</message>"))
-        new_fp_1 = mod.get_fingerprint_for_xtb(ET.fromstring("<message>Welcome to Braving</message>"))
+        new_fp_1 = mod.get_fingerprint_for_xtb(ET.fromstring("<message>Welcome to Cerium</message>"))
 
         old_fp_2 = mod.get_fingerprint_for_xtb(
             ET.fromstring('<message>Brave Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Brave 1.0</ex></ph></message>')
         )
         new_fp_2 = mod.get_fingerprint_for_xtb(
-            ET.fromstring('<message>Braving Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Braving 1.0</ex></ph></message>')
+            ET.fromstring('<message>Cerium Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Cerium 1.0</ex></ph></message>')
         )
 
         with open(part_path, "w", encoding="utf-8") as f:
@@ -992,29 +1079,29 @@ def test_apply_branding():
 
         with open(grd_path, "r", encoding="utf-8") as f:
             grd_out = f.read()
-        assert ">Welcome to Braving</message>" in grd_out
-        assert ">Braving history</message>" in grd_out
-        assert ">Braving runs faster</message>" in grd_out
-        assert ">Try Brave Search at https://search.brave.com or brave://settings in Braving</message>" in grd_out
-        assert ">Try the Braving Search widget</message>" in grd_out
-        assert ">Copyright © %1$d The Braving Contributors. All rights reserved.</message>" in grd_out
+        assert ">Welcome to Cerium</message>" in grd_out
+        assert ">Cerium history</message>" in grd_out
+        assert ">Cerium runs faster</message>" in grd_out
+        assert ">Try Brave Search at https://search.brave.com or brave://settings in Cerium</message>" in grd_out
+        assert ">Try the Cerium Search widget</message>" in grd_out
+        assert ">Copyright © %1$d The Cerium Browser Team. All rights reserved.</message>" in grd_out
         assert ">Brave Wallet</message>" in grd_out, "Bloat wallet string should not be branded"
         assert ">Ask Brave Leo AI</message>" in grd_out, "Bloat AI chat string should not be branded"
         assert ">Brave Tor</message>" in grd_out, "Bloat Tor string should not be branded"
 
         with open(part_path, "r", encoding="utf-8") as f:
             part_out = f.read()
-        assert 'Braving Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Brave 1.0</ex></ph>' in part_out
+        assert 'Cerium Shields &amp; privacy in <ph name="BRAVE_VERSION">%1$s<ex>Brave 1.0</ex></ph>' in part_out
 
         with open(xtb_path, "r", encoding="utf-8") as f:
             xtb_out = f.read()
-        assert f'id="{new_fp_1}">Bienvenido a Braving</translation>' in xtb_out
-        assert f'id="{new_fp_2}">Escudos de Braving en <ph name="BRAVE_VERSION"/></translation>' in xtb_out
+        assert f'id="{new_fp_1}">Bienvenido a Cerium</translation>' in xtb_out
+        assert f'id="{new_fp_2}">Escudos de Cerium en <ph name="BRAVE_VERSION"/></translation>' in xtb_out
 
         with open(pref_path, "r", encoding="utf-8") as f:
             pref_out = f.read()
         assert "The Brave Authors" in pref_out, "Copyright comment should not be modified"
-        assert 'android:title="Tap Braving version in About Braving"' in pref_out
+        assert 'android:title="Tap Cerium version in About Cerium"' in pref_out
         assert 'android:summary="Visit https://brave.com for Brave Search"' in pref_out
 
         # Idempotence check

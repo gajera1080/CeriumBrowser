@@ -530,7 +530,7 @@ class TestBrandingAssets(unittest.TestCase):
 
             manifest = os.path.join(tmpdir, "AndroidManifest.xml")
             with open(manifest, "w", encoding="utf-8") as mf:
-                mf.write('<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.braving.browser" />\n')
+                mf.write('<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.cerium.browser" />\n')
 
             flats = [os.path.join(compiled_dir, f) for f in os.listdir(compiled_dir) if f.endswith(".flat")]
             link_res = subprocess.run(

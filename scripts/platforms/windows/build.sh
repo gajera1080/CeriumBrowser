@@ -289,6 +289,7 @@ EOF
 echo ""
 export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools${PYTHONPATH:+:${PYTHONPATH}}"
 export PYTHONUNBUFFERED="1"
+export GCLIENT_SUPPRESS_GIT_VERSION_WARNING="1"
 
 echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
 (cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow --nohooks -j16)

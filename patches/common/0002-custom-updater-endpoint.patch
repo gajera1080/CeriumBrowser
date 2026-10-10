@@ -93,7 +93,7 @@ index 000000000..83e399df3
 --- /dev/null
 +++ b/chromium_src/components/update_client/net/network_impl.cc
 @@ -0,0 +1,52 @@
-+/* Copyright (c) 2026 The Braving Contributors. All rights reserved.
++/* Copyright (c) 2026 Cerium Browser Team. All rights reserved.
 + * This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this file,
 + * You can obtain one at https://mozilla.org/MPL/2.0/. */

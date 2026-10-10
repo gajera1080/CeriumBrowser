@@ -98,7 +98,7 @@ BRAVE_CORE_COMMIT=$(extract_manifest_val "brave_core_commit")
 BRAVE_VERSION=$(extract_manifest_val "brave_version")
 CHROMIUM_COMMIT=$(extract_manifest_val "chromium_commit")
 CHROMIUM_VERSION=$(extract_manifest_val "chromium_version")
-PACKAGE_ID=$(extract_manifest_val "package_id" "org.braving.browser")
+PACKAGE_ID=$(extract_manifest_val "package_id" "org.cerium.browser")
 
 export BRAVE_VERSION
 export DYNAMIC_BRAVE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}"
@@ -312,6 +312,7 @@ echo ""
 # Matches pythonPaths array in build/commands/lib/config.ts
 export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools${PYTHONPATH:+:${PYTHONPATH}}"
 export PYTHONUNBUFFERED="1"
+export GCLIENT_SUPPRESS_GIT_VERSION_WARNING="1"
 
 echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
 (cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow --nohooks -j16)
@@ -594,11 +595,11 @@ fi
 T_PKG_START=$(date +%s)
 
 # Step 11: Collect and Optimize Artifacts (AAB Bundle & Standalone Universal APK)
-BRAVING_VERSION=$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")
+BRAVING_VERSION=$(extract_manifest_val "cerium_version" "$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")")
 OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
-OUTPUT_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
-OUTPUT_AAB_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.aab"
+OUTPUT_NAME="Cerium-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
+OUTPUT_AAB_NAME="Cerium-${BRAVING_VERSION}-${TARGET_ARCH}.aab"
 
 BUILT_AAB=$(find "${OUT_DIR}/apks" -name "*.aab" -type f 2>/dev/null | sort | head -n 1 || true)
 BUILT_APK=""
@@ -673,8 +674,12 @@ if [[ -n "${BUILT_APK}" ]]; then
   # Step 12: Release APK Signing (when KEY_PASSWORD_ANDROID or keystore is configured)
   if [[ -n "${KEY_PASSWORD_ANDROID:-}" || -n "${ANDROID_KEYSTORE_PASSWORD:-}" || -n "${ANDROID_KEYSTORE_PATH:-}" || -s "${REPO_ROOT}/.secure_files/${ANDROID_KEYSTORE_FILE:-braving_android.jks}" ]]; then
     echo ""
-    echo "Signing release APK via sign-apk.sh..."
-    "${SCRIPT_DIR}/sign-apk.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+    echo "Signing release APK via package.sh..."
+    if [[ -x "${SCRIPT_DIR}/package.sh" ]]; then
+      "${SCRIPT_DIR}/package.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+    else
+      "${SCRIPT_DIR}/sign-apk.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+    fi
   fi
 
   # Final refresh of diagnostics archive

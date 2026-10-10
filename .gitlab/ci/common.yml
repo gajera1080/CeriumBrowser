@@ -19,11 +19,13 @@ spec:
   variables:
     GIT_STRATEGY: fetch
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
+    GCLIENT_SUPPRESS_GIT_VERSION_WARNING: "1"
 
 .build_environment_setup:
   before_script:
     - 'if [ -z "${DYNAMIC_BRAVE_VERSION:-}" ]; then echo "ERROR: DYNAMIC_BRAVE_VERSION is missing from build.env."; exit 1; fi'
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config zip
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config zip libfuse2
+    - export GCLIENT_SUPPRESS_GIT_VERSION_WARNING=1
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
     - |

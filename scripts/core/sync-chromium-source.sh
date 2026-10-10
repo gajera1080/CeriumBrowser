@@ -162,6 +162,7 @@ if [[ ! -d "${DEPOT_TOOLS_DIR}" ]]; then
 fi
 export PATH="${DEPOT_TOOLS_DIR}:${DEPOT_TOOLS_DIR}/.cipd_bin:${PATH}"
 export DEPOT_TOOLS_UPDATE=0
+export GCLIENT_SUPPRESS_GIT_VERSION_WARNING=1
 
 # Ensure CIPD packages (including luci-auth) are bootstrapped synchronously
 if [[ -f "${DEPOT_TOOLS_DIR}/cipd_bin_setup.sh" ]]; then

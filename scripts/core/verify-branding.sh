@@ -14,12 +14,12 @@ echo "========================================================"
 
 FAILURES=0
 
-# 1. Verify release manifests specify org.braving.browser
+# 1. Verify release manifests specify valid package_id
 echo "Checking release manifests..."
 for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   if [[ -f "${manifest}" ]]; then
-    if ! grep -Eq 'package_id:[[:space:]]*"?org\.braving\.browser"?' "${manifest}"; then
-      echo "ERROR: Manifest ${manifest} does not specify package_id: org.braving.browser" >&2
+    if ! grep -Eq 'package_id:[[:space:]]*"?(org\.cerium\.browser|org\.braving\.browser)"?' "${manifest}"; then
+      echo "ERROR: Manifest ${manifest} does not specify package_id: org.cerium.browser" >&2
       FAILURES=$((FAILURES + 1))
     else
       echo " [OK] Manifest ${manifest} has valid package_id."

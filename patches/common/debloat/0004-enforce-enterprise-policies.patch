@@ -19,7 +19,7 @@ diff --git a/components/brave_policy/brave_browser_policy_provider.cc b/componen
  }
  
  void BraveBrowserPolicyProvider::RefreshPolicies(
-@@ -62,6 +63,25 @@ void BraveBrowserPolicyProvider::OnBrowserPolicyChanged(
+@@ -62,6 +63,30 @@ void BraveBrowserPolicyProvider::OnBrowserPolicyChanged(
  policy::PolicyBundle BraveBrowserPolicyProvider::LoadPolicies() {
    policy::PolicyBundle bundle;
  
@@ -41,6 +41,11 @@ diff --git a/components/brave_policy/brave_browser_policy_provider.cc b/componen
 +  enforce("BraveP3AEnabled", false);
 +  enforce("BraveWaybackMachineEnabled", false);
 +  enforce("BraveLocalAIEnabled", false);
++  enforce("IPFSEnabled", false);
++  enforce("TorDisabled", true);
++  enforce("BravePlaylistEnabled", false);
++  enforce("EmailAliasesEnabled", false);
++  enforce("PsstEnabled", false);
 +
    if (brave_origin::IsBraveOriginPurchased()) {
      LoadBraveOriginPolicies(bundle);
