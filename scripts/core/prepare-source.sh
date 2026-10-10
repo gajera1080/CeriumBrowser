@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving — Release Mode Source Preparation Script
+# Cerium — Release Mode Source Preparation Script
 # Enforces strict Release Mode determinism:
 #   BRAVE_VERSION -> exact matching brave-core release -> exact pinned Chromium revision
 #   NO arbitrary overrides permitted.
@@ -10,11 +10,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 BRAVE_VERSION="${1:-${BRAVE_VERSION:-}}"
-
-echo "========================================================"
-echo " Braving Source Preparation (RELEASE MODE)"
-echo " Rule          : Exact brave-core -> Exact Chromium"
-echo "========================================================"
 
 # Step 0: Clean stale metadata and resolve upstream release versions
 rm -f "${REPO_ROOT}/metadata/releases"/*.yaml "${REPO_ROOT}/metadata"/upstream-*.yaml "${REPO_ROOT}/build.env"
@@ -73,29 +68,34 @@ else
   fi
 fi
 
-# Step 2: Apply Braving git patches to brave-core
+# Step 2: Apply Cerium git patches to brave-core
 echo ""
-echo "Applying Braving patches to brave-core..."
+echo "Applying Cerium patches to brave-core..."
 bash "${REPO_ROOT}/scripts/core/apply-patches.sh" "${BRAVE_DIR}"
+
+# Step 2b: Verify Cerium patches apply cleanly to brave-core
+echo ""
+echo "Verifying Cerium patches on brave-core..."
+bash "${REPO_ROOT}/scripts/core/apply-patches.sh" "${BRAVE_DIR}" --check
 
 # Step 3: Apply GN-only programmatic fixes
 echo ""
 echo "Applying GN build fixes..."
 python3 "${REPO_ROOT}/scripts/core/apply-features.py" "${BRAVE_DIR}" --strict
 
-# Step 4: Apply Braving branding overlay and vector assets to brave-core
+# Step 4: Apply Cerium branding overlay and vector assets to brave-core
 echo ""
 bash "${REPO_ROOT}/scripts/core/apply-assets.sh" "${BRAVE_DIR}"
 
-# Step 5: Apply Braving UI string branding across GRD/GRDP/XTB and Android XML resources
+# Step 5: Apply Cerium UI string branding across GRD/GRDP/XTB and Android XML resources
 echo ""
-echo "Applying Braving UI string branding..."
+echo "Applying Cerium UI string branding..."
 python3 "${REPO_ROOT}/scripts/core/apply-branding.py" "${BRAVE_DIR}" --strict
 
 echo ""
 echo "Phase 1: brave-core Source Preparation Complete."
 
-# Step 6: Package prepared brave-core for guaranteed artifact transfer across pipeline stages
+# Step 6: Package prepared brave-core for GitLab pipeline cache transfer
 IN_CI="${CI:-false}"
 if [[ -n "${GITLAB_CI:-}" || -n "${CI_JOB_ID:-}" ]]; then
   IN_CI=true
@@ -109,5 +109,3 @@ if [[ "${IN_CI}" == true || "${PACKAGE_BRAVE_ARCHIVE:-false}" == true ]]; then
   tar --exclude='.git' --exclude='node_modules' -czf "${BRAVE_ARCHIVE}" -C "${SRC_DIR}" brave
   echo "brave-core packaged successfully ($(du -h "${BRAVE_ARCHIVE}" | cut -f1))."
 fi
-
-

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Braving — GN Build Fix Mutators Runner (Cross-Platform)
+Cerium — GN Build Fix Mutators Runner (Cross-Platform)
 Delegates to the modular component-based mutator engine in scripts/mutators/.
 """
 

@@ -88,7 +88,7 @@ def _patch_validate_expectations_in_gn(content):
         any_transformed = True
 
     if any_transformed:
-        header = f"{group_indent}# In Braving, enable_android_secondary_abi is disabled for single-arch builds.\n{group_indent}# Only validate 32-bit and dual-ABI targets when secondary ABI is enabled.\n"
+        header = f"{group_indent}# In Cerium, enable_android_secondary_abi is disabled for single-arch builds.\n{group_indent}# Only validate 32-bit and dual-ABI targets when secondary ABI is enabled.\n"
         new_group_text = header + new_group_text
         new_content = content[:start_idx] + new_group_text + content[end_idx + 1 :]
         return new_content, True, True

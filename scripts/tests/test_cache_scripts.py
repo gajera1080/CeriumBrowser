@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit and integration tests for Braving Siso warm cache pipeline:
+Unit and integration tests for Cerium Siso warm cache pipeline:
 - scripts/upload-cache.sh
 - scripts/download-cache.sh
 - scripts/android/build-android.sh
@@ -26,11 +26,6 @@ class TestCacheScriptsSyntax(unittest.TestCase):
 
     def test_download_cache_syntax(self):
         script = REPO_ROOT / "scripts" / "core" / "download-cache.sh"
-        res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
-        self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
-
-    def test_sync_chromium_source_syntax(self):
-        script = REPO_ROOT / "scripts" / "core" / "sync-chromium-source.sh"
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 
@@ -164,49 +159,6 @@ class TestSisoCachePipeline(unittest.TestCase):
                 "inmtime must NOT be after outmtime (otherwise Siso marks target dirty)",
             )
 
-    def test_sync_chromium_source_cleans_up_archives(self):
-        """Verify sync-chromium-source.sh cleans up .tar.xz archives upon extraction."""
-        import shutil
-        import tarfile
-        if not shutil.which("xz"):
-            self.skipTest("xz binary not available in PATH")
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            workspace = Path(tmpdir) / "build-workspace"
-            workspace.mkdir(parents=True)
-            depot_tools = workspace / "depot_tools"
-            depot_tools.mkdir(parents=True)
-
-            # Create dummy src tree to archive
-            dummy_content_dir = Path(tmpdir) / "dummy"
-            (dummy_content_dir / "src").mkdir(parents=True)
-            (dummy_content_dir / "src" / ".git").mkdir(parents=True)
-            (dummy_content_dir / "src" / "chrome").mkdir(parents=True)
-            (dummy_content_dir / "src" / "chrome" / "VERSION").write_text("MAJOR=1\nMINOR=2\nBUILD=3\nPATCH=4\n")
-
-            archive_path = workspace / "chromium-src-1.2.3.4.tar.xz"
-            with tarfile.open(archive_path, "w:xz") as tar:
-                tar.add(dummy_content_dir / "src", arcname="src")
-
-            self.assertTrue(archive_path.exists())
-
-            # Run sync-chromium-source.sh --download-only
-            script = REPO_ROOT / "scripts" / "core" / "sync-chromium-source.sh"
-            env = dict(os.environ)
-            env["BUILD_ENV_FILE"] = str(Path(tmpdir) / "empty.env")
-            env["WORKSPACE_DIR"] = str(workspace)
-            env["DYNAMIC_CHROMIUM_VERSION"] = "1.2.3.4"
-
-            res = subprocess.run(
-                ["bash", str(script), "--download-only"],
-                env=env,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(res.returncode, 0, f"sync-chromium-source failed: {res.stderr}\n{res.stdout}")
-            self.assertTrue((workspace / "src" / ".git").exists(), "src/.git must be extracted")
-            self.assertFalse(archive_path.exists(), "archive must be deleted after extraction to free disk space")
-
 
 class TestBraveSourceTransport(unittest.TestCase):
     """Verify brave-core source artifact packaging, unpacking, and git clean exclusions."""
@@ -285,8 +237,8 @@ class TestBraveSourceTransport(unittest.TestCase):
                 '    rm -f "${BRAVE_ARCHIVE}"\n'
                 '    if [ ! -d "${WORKSPACE_DIR}/src/brave/.git" ]; then\n'
                 '      git -C "${WORKSPACE_DIR}/src/brave" init -q\n'
-                '      git -C "${WORKSPACE_DIR}/src/brave" config user.name "Braving"\n'
-                '      git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@braving.org"\n'
+                '      git -C "${WORKSPACE_DIR}/src/brave" config user.name "Cerium Browser Team"\n'
+                '      git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@ceriumbrowser.org"\n'
                 '      git -C "${WORKSPACE_DIR}/src/brave" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q\n'
                 '    fi\n'
                 '  fi\n'

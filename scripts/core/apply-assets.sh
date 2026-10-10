@@ -8,7 +8,7 @@ if [[ -z "${BRAVE_DIR}" ]]; then
   exit 1
 fi
 
-echo "Applying Braving Vector & Raster Branding Assets..."
+echo "Applying Cerium Vector & Raster Branding Assets..."
 
 # 1. Overlay Android vector drawables into brave-res/drawable/, res/drawable/, and first_run/
 mkdir -p "${BRAVE_DIR}/android/java/brave-res/drawable"
@@ -163,4 +163,4 @@ if [[ -d "${QSE_DRAWABLE}" ]]; then
   rm -f "${QSE_DRAWABLE}/brave_icon_search.xml"
 fi
 
-echo " [OK] Braving vector and raster assets applied cleanly to brave-core."
+echo " [OK] Cerium vector and raster assets applied cleanly to brave-core."

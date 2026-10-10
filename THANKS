@@ -14,7 +14,7 @@ Projects and Organizations:
   - GitLab (https://gitlab.com/)
       For providing generous, powerful Continuous Integration and Continuous
       Deployment (CI/CD) SaaS runners, Generic Package Registry, and GitLab
-      Pages hosting that power Braving's automated build and updater systems.
+      Pages hosting that power Cerium's automated build and updater systems.
   - Raymond Hill (gorhill) & uBlock Origin (https://github.com/gorhill/uBlock)
       For developing uBlock Origin, advanced procedural cosmetic filtering,
       scriptlet injection standards, and privacy filter lists.
@@ -33,7 +33,7 @@ Maintainers and Contributors:
   - gajgaje2000 <gajgaje2000@gmail.com>
   - Cerium Browser Team
 
-Also thanks to all users and community members who test Braving releases,
+Also thanks to all users and community members who test Cerium releases,
 submit bug reports, and help improve the browser.
 
 I have probably forgot to add some names or projects to the above list.

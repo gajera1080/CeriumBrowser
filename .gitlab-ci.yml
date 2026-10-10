@@ -15,7 +15,7 @@ spec:
         - "windows_arm64"
       description: "Select target to compile (all, android, windows, windows_x64, windows_arm64)"
 ---
-# GitLab CI Pipeline for Braving Multi-Platform Distribution
+# GitLab CI Pipeline for Cerium Multi-Platform Distribution
 # Unified architecture building Android (arm64), Windows (x64), and Windows (arm64)
 # - Release branch builds all targets automatically and publishes official release
 # - Non-release branches provide interactive selection of compile target via GitLab inputs

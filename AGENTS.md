@@ -24,9 +24,9 @@ While Android (`arm64`) and Windows (`x64`, `arm64`) are currently the active pr
 
 ### CRITICAL RULE: Do NOT make permanent direct commits in `brave-core` or `chromium`.
 - The `build-workspace/src/brave` and `build-workspace/src` directories are treated as **ephemeral, dynamic build artifacts**. They are fetched and constructed dynamically at build time.
-- If you make a manual change in `brave-core` for local testing, you **MUST** extract that change into an automated programmatic Python mutator script stored in the **Braving** repository. The CI pipeline clones a fresh upstream repository and will never see local `brave-core` Git commits.
+- If you make a manual change in `brave-core` for local testing, you **MUST** extract that change into an automated programmatic Python mutator script stored in the **Cerium** repository. The CI pipeline clones a fresh upstream repository and will never see local `brave-core` Git commits.
 - **The build flow MUST be version-independent & always target the latest upstream version:**
-  - **Always Target Latest Upstream Version**: Braving is engineered to continuously roll forward with upstream Brave and Chromium releases. All mutators, patches, branding assets, and verification workflows must always be tested and maintained to work against the latest stable upstream release tag. Never pin or regress to older releases to bypass issues.
+  - **Always Target Latest Upstream Version**: Cerium is engineered to continuously roll forward with upstream Brave and Chromium releases. All mutators, patches, branding assets, and verification workflows must always be tested and maintained to work against the latest stable upstream release tag. Never pin or regress to older releases to bypass issues.
   - If `BRAVE_VERSION` is empty in CI/CD, the build system automatically resolves the latest stable release from the GitHub API and Google Gitiles API.
   - **Never hardcode versions** (e.g., `<version>`) in CI configs or scripts to "fix" a build. The pipeline is engineered to roll forward continuously with upstream Brave and Chromium tags.
   - Manifests (`metadata/releases/` and `metadata/upstream/`) are generated dynamically by preparation scripts and are pipeline artifacts, not static git-pinned files.
@@ -39,7 +39,7 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 
 1. **Git Patches (`patches/`) for standard modifications**:
    - Use standard unified diff (`.patch`) files for straightforward edits like removing XML preference blocks, changing simple C++ constants, or modifying self-contained UI layouts.
-   - Example: `patches/android/0001-braving-branding.patch`.
+   - Example: `patches/android/0001-cerium-branding.patch`.
    - **Important**: Avoid using `.patch` files for highly dynamic code, such as GN build arrays (e.g. `deps = [...]`), which change constantly in upstream Chromium/Brave and will break patch application.
 
 2. **Programmatic Python Mutators (`scripts/`) for complex/dynamic changes**:
@@ -50,7 +50,7 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
      - **Strict Idempotence**: Running a mutator twice on the same codebase must be a safe, clean no-op. If a patch is missing but already applied, it should silently skip. If a patch is missing and NOT applied, it must throw a fatal error to fail the CI build loudly.
 
 ### CRITICAL SUB-RULE: No Naive Global String Replacements
-- **Never perform global find-and-replace for branding** (e.g., naively replacing "Brave" with "Braving" across `.grd`, `.cc`, or `.gn` files via a regex loop).
+- **Never perform global find-and-replace for branding** (e.g., naively replacing "Brave" with "Cerium" across `.grd`, `.cc`, or `.gn` files via a regex loop).
 - **Why:** The codebase relies on exact string matches for C++ variable names, GN targets, and translation IDs (e.g., `IDS_Brave_Rewards`). A global regex replacement will accidentally mutate these internal identifiers, causing widespread compiler and runtime crashes.
 - **How to de-brand safely:**
   - For UI strings (GRD/GRDP files), only mutate strings explicitly using proper XML parsing targeting the inner text of `<message>` nodes, or via safe targeted regex with negative lookbehinds that explicitly protect `name=` attributes.
@@ -116,7 +116,7 @@ Cerium strips all unneeded promotional, cryptocurrency, and auxiliary subsystems
 ### 1. The 3-Hour SaaS Runner Limit & Pipeline Stage Separation
 Chromium + Brave compilation is massive: over 43,000 compilation steps, requiring 1.5 to 3.5 hours on 32-core runners. GitLab CI SaaS runners (`saas-linux-2xlarge-amd64`) enforce a strict job timeout. Running a cold build from checkout to APK/distribution in a single job frequently times out.
 
-To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation into a strictly structured 4-stage pipeline:
+To guarantee that no runner exceeds the 3-hour limit, Cerium splits compilation into a strictly structured 4-stage pipeline:
 1. **Stage 1: `prepare_source`**: Lightweight stage. Resolves upstream versions dynamically, fetches exact `brave-core`, executes all patches/mutators/branding, and uploads the Tier 1 Source Cache.
 2. **Stage 2: `cache_prep` (`prepare_android_cache` & `prepare_windows_cache`)**: Pulls the pre-patched source cache, syncs Chromium for the target OS, compiles heavy common sub-targets (`v8` and `blink`), and uploads the Tier 2 Compiler Cache to the Package Registry.
 3. **Stage 3: `build` (`build_android` & `build_windows`)**: Pulls the pre-patched source cache, restores the Tier 2 warm compiler cache from the Package Registry, completes the remaining targets incrementally, and packages official distributions (APK/AAB/ZIP).
@@ -129,32 +129,26 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 #### Tier 1: Reliable brave-core Source Transport via Pipeline Job Artifacts
 - **Stage 1 (`prepare_source`) prepares ONLY `brave-core`**:
   - Shallow checkout of exact `brave-core` release commit.
-  - Applying all git patches in `patches/`.
+  - Applying all git patches in `patches/` via `apply-patches.sh`.
+  - Verifying patch set integrity via `apply-patches.sh --check`.
   - Applying cross-platform GN mutators via `apply-features.py --strict`.
-  - Applying Braving branding overlay and vector assets via `apply-assets.sh`.
+  - Applying Cerium branding overlay and vector assets via `apply-assets.sh`.
   - Applying UI strings remapping via `apply-branding.py --strict`.
   - Packaging prepared `brave-core` into a pipeline job artifact: `build-workspace/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz` (~380 MB compressed, well within GitLab SaaS 1 GB artifact limit).
   - Eliminates reliance on best-effort, opportunistic GitLab Runner `cache:`, guaranteeing deterministic delivery to downstream stages (`cache_prep` and `build`).
-  - Automatically unpacked into `build-workspace/src/brave` in downstream jobs (`.build_environment_setup`) and verified with fallback unpacking in platform build scripts.
+  - Automatically downloaded via `needs: artifacts: true` and unpacked into `build-workspace/src/brave` in downstream jobs (`.build_environment_setup`) with fallback unpacking in platform build scripts.
+  - Dotenv metadata (`build.env`) and manifests (`metadata/releases/*.yaml`) are passed through lightweight job artifacts.
 
-#### Tier 1.5: Base Chromium & Toolchain Cache via GitLab Generic Package Registry
-- **Managed via `scripts/core/sync-chromium-source.sh`**:
-  - Base Chromium (`chromium-src-${CHROMIUM_VERSION}.tar.xz`) and `depot_tools` (`depot-tools.tar.xz`) are stored in the Generic Package Registry under package `braving-chromium-source` and version `${CHROMIUM_VERSION}`.
-  - Shared across all platforms (Android, Windows, etc.) and branches targeting the same Chromium milestone.
-  - On registry cache hit: restored in ~25–30 seconds.
-  - On registry cache miss: fetched, pre-synced with host Clang, Rust, and GN, packaged, and idempotently uploaded during Stage 2 (`cache_prep`).
-  - Temporary `.tar.xz` archives are deleted immediately after upload/extraction to free disk space before Chromium compilation begins.
-  - Stage 2 (`cache_prep`) pre-compiles heavy Chromium targets unchanged by Brave (`v8`, `third_party/blink/public:blink`, `skia`, `gpu`, `third_party/angle`, `third_party/webrtc`) into the Tier 2 warm compiler cache.
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
 
 #### Tier 2: Compiler Object Cache (`out/Release/`) via GitLab Generic Package Registry
 - **Why We Cannot Use GitLab Runner `cache:` for Compiler Output**:
-  - **No Dotenv Variable Expansion**: In dynamic version mode, `DYNAMIC_BRAVE_VERSION` is computed at runtime in Stage 1 and exported as a dotenv artifact. GitLab CI evaluates `cache:key` **prior to job execution**, meaning dotenv variables are NOT expanded. A key like `braving-cache-${DYNAMIC_BRAVE_VERSION}` evaluates to `braving-cache-`, causing severe cross-version cache poisoning!
+  - **No Dotenv Variable Expansion**: In dynamic version mode, `DYNAMIC_BRAVE_VERSION` is computed at runtime in Stage 1 and exported as a dotenv artifact. GitLab CI evaluates `cache:key` **prior to job execution**, meaning dotenv variables are NOT expanded. A key like `cerium-cache-${DYNAMIC_BRAVE_VERSION}` evaluates to `cerium-cache-`, causing severe cross-version cache poisoning!
   - **Size and Timeout Bottlenecks**: GitLab runner cache creates a monolithic `.zip` archive on the runner and uploads it to GitLab object storage. For 5–10 GB compiler trees, zip compression and decompression take 15–20 minutes and often fail or time out.
 - **The Solution: Distributed Generic Package Registry (`upload-cache.sh` & `download-cache.sh`)**:
   - Compresses the `out/Release` directory, splitting into 4.5 GB chunks (`chunk.tar.gz.*`) with SHA256 verification (`checksums.sha256`).
   - Uses GitLab's official Package Registry API authenticated via `CI_JOB_TOKEN`:
-    `PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"`
+    `PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/cerium-cache/${CACHE_VERSION}"`
     where `CACHE_VERSION="${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}"` (or `${DYNAMIC_BRAVE_VERSION}-win-${TARGET_ARCH}`).
   - If no package exists (e.g. local builds), it logs `Starting cold build` and exits 0 cleanly.
 
@@ -170,7 +164,7 @@ To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation
 ---
 
 ### 4. Siso vs. Ninja Cache State Files (`.siso_deps` vs. `.ninja_deps`)
-- Braving enables Siso (`use_siso = true` in `args.gn`) as its primary build executor.
+- Cerium enables Siso (`use_siso = true` in `args.gn`) as its primary build executor.
 - Siso uses its own HashFS and dependency database (`.siso_deps` and `.siso_fs_state`) along with `.ninja_log` to track target dependencies and command hashes (`cmdhash`).
 - **Siso never writes or uses Ninja's legacy `.ninja_deps` binary log.** Checking for `.ninja_deps` will produce false-positive warnings.
 - **Rule for Agents**: Never require or verify `.ninja_deps` in cache upload/download routines or validation scripts. The authoritative state files for Siso are `.siso_fs_state`, `.siso_deps`, and `.ninja_log`.
@@ -196,7 +190,7 @@ In platform build scripts (`scripts/platforms/android/build.sh` and `scripts/pla
 
 Before submitting changes or proposing pull requests:
 1. **Always target and validate the latest upstream release**: Develop, test, and maintain all patches, mutators, and build configs against the latest stable upstream Brave tag. Fix any upstream code shifts or patch conflicts immediately.
-2. **Never make commits in `brave-core`**: Changes must live in `Braving` as mutators or scripts.
+2. **Never make commits in `brave-core`**: Changes must live in `Cerium` as mutators or scripts.
 3. **Never create brittle patches**: Prefer resilient programmatic Python mutators with semantic anchors. When unified `.patch` files are used, ensure they apply cleanly without fuzz across versions.
 4. **Never hardcode versions**: Ensure scripts work dynamically with auto-resolved versions.
 5. **Preserve strict error handling**: Shell scripts must run under `set -euo pipefail`.

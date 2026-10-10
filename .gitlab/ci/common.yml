@@ -44,8 +44,8 @@ spec:
           rm -f "${BRAVE_ARCHIVE}"
           if [ ! -d "${WORKSPACE_DIR}/src/brave/.git" ]; then
             git -C "${WORKSPACE_DIR}/src/brave" init -q
-            git -C "${WORKSPACE_DIR}/src/brave" config user.name "Braving"
-            git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@braving.org"
+            git -C "${WORKSPACE_DIR}/src/brave" config user.name "Cerium Browser Team"
+            git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@ceriumbrowser.org"
             git -C "${WORKSPACE_DIR}/src/brave" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
           fi
           echo "brave-core unpacked successfully."
@@ -60,12 +60,12 @@ prepare_source:
   script:
     - export BRAVE_VERSION="${BRAVE_VERSION:-$[[ inputs.brave_version ]]}"
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
-    - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
+    - echo "Preparing Cerium source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/core/verify-all.sh
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
   artifacts:
-    name: "braving-prepared-${BRAVE_VERSION}"
+    name: "cerium-prepared-${BRAVE_VERSION}"
     paths:
       - metadata/releases/*.yaml
       - metadata/upstream-*.yaml
@@ -96,7 +96,7 @@ publish_release:
     - echo "Publishing official multi-architecture release v${DYNAMIC_BRAVE_VERSION}..."
     - ./scripts/ci/publish-release-direct.sh
   artifacts:
-    name: "braving-release-${DYNAMIC_BRAVE_VERSION}"
+    name: "cerium-release-${DYNAMIC_BRAVE_VERSION}"
     when: on_success
     paths:
       - out/apks/
@@ -105,8 +105,6 @@ publish_release:
       - metadata/upstream-*.yaml
     expire_in: 90 days
   rules:
-    - if: '$SKIP_BUILD == "true"'
-      when: never
     - if: '$CI_COMMIT_BRANCH == "release"'
       when: on_success
     - when: never

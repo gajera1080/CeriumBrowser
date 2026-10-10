@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Braving Test Suite: Python Mutators and Git Patch Suite
+Cerium Test Suite: Python Mutators and Git Patch Suite
 Validates that:
 1. Python 3.11 syntax compatibility is maintained across all scripts and embedded heredocs.
 2. Dynamic GN array mutators (apply-features.py) execute properly and idempotently.
-3. Braving UI string branding and XTB localization mutators (apply-branding.py) execute properly and idempotently.
+3. Cerium UI string branding and XTB localization mutators (apply-branding.py) execute properly and idempotently.
 4. Git patch suite (branding, custom updater endpoint, debloat policies) applies cleanly.
 """
 
@@ -719,7 +719,7 @@ def test_apply_features():
             bfo_content = f.read()
             assert "document.addEventListener('DOMContentLoaded'" not in bfo_content
             assert "Interested in cool new Brave features" not in bfo_content
-            assert "// Braving: Overrides disabled for clean Lit WebUI compatibility" in bfo_content
+            assert "// Cerium: Overrides disabled for clean Lit WebUI compatibility" in bfo_content
 
         with open(brave_content_client) as f:
             bcc_content = f.read()
@@ -965,7 +965,9 @@ def test_patch_suite():
     assert not os.path.exists(old_0003), f"Monolithic patch should be split into patches/android/debloat/: {old_0003}"
 
     # Verify 0001 branding patch (release-only)
-    patch_0001 = os.path.join(REPO_ROOT, "patches/android/0001-braving-branding.patch")
+    patch_0001 = os.path.join(REPO_ROOT, "patches/android/0001-cerium-branding.patch")
+    if not os.path.isfile(patch_0001):
+        patch_0001 = os.path.join(REPO_ROOT, "patches/android/0001-braving-branding.patch")
     assert os.path.isfile(patch_0001), f"Missing patch file: {patch_0001}"
     with open(patch_0001, "r", encoding="utf-8") as f:
         c0001 = f.read()
@@ -973,7 +975,7 @@ def test_patch_suite():
     assert "app/theme/brave/BRANDING." not in c0001, "Dev/Beta/Nightly BRANDING files should not be in 0001"
     assert "PRODUCT_FULLNAME=Cerium Browser" in c0001
     assert "PRODUCT_SHORTNAME=Cerium" in c0001
-    assert 'Cerium - Debug' not in c0001, "Found Debug suffix in 0001-braving-branding.patch"
+    assert 'Cerium - Debug' not in c0001, "Found Debug suffix in 0001-cerium-branding.patch"
     assert '<string name="app_name" translatable="false">Cerium</string>' in c0001
     assert "org.cerium.browser" in c0001
     assert "R.mipmap.layered_app_icon" in c0001

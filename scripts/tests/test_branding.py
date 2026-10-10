@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit tests for Braving branding assets, verifying XML/SVG validity,
+Unit tests for Cerium branding assets, verifying XML/SVG validity,
 AAPT2 ResStringPool UTF-8 limits (32,767 bytes max per string),
 and presence of required de-branded vectors.
 """
@@ -77,7 +77,7 @@ class TestBrandingAssets(unittest.TestCase):
             self.assertEqual(root.attrib.get(f"{ANDROID_NS}width"), "24dp", f"{name} width must be 24dp")
             self.assertEqual(root.attrib.get(f"{ANDROID_NS}height"), "24dp", f"{name} height must be 24dp")
 
-        # Verify ON shields icon uses the 4 colored Braving gradients instead of flat white
+        # Verify ON shields icon uses the 4 colored Cerium gradients instead of flat white
         on_path = os.path.join(shields_dir, "ic_social_brave_release_favicon_fullheight_color.xml")
         with open(on_path, "r", encoding="utf-8") as f:
             on_content = f.read()
@@ -85,7 +85,7 @@ class TestBrandingAssets(unittest.TestCase):
         for grad_color in ("#fffd8c57", "#ff0091e6", "#fffce01f", "#ff8bd01d"):
             self.assertIn(grad_color, on_content.lower(), f"Missing gradient color {grad_color} in ON shields icon")
 
-        # Verify OFF/monochrome/carved shields icons use the 4 grayscale Braving ribbon paths (not invisible white stroke)
+        # Verify OFF/monochrome/carved shields icons use the 4 grayscale Cerium ribbon paths (not invisible white stroke)
         for off_name in (
             "ic_social_brave_monochrome_favicon_fullheight_color.xml",
             "ic_social_brave_outline_favicon_fullheight.xml",
@@ -95,7 +95,7 @@ class TestBrandingAssets(unittest.TestCase):
             with open(off_path, "r", encoding="utf-8") as f:
                 off_content = f.read()
             self.assertNotIn('strokecolor="#ffffff"', off_content.lower(), f"{off_name} must not use white stroke")
-            self.assertEqual(off_content.count("<path"), 4, f"{off_name} must contain the 4 Braving ribbon paths")
+            self.assertEqual(off_content.count("<path"), 4, f"{off_name} must contain the 4 Cerium ribbon paths")
 
     def test_all_vector_logo_drawables_exact_dimensions(self):
         """All 9 Android vector logo drawables must exist and preserve exact upstream dp dimensions."""

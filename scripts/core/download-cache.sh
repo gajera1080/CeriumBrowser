@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TARGET_ARCH="${TARGET_ARCH:-arm64}"
 CACHE_VERSION="${CACHE_VERSION:-${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}}"
-PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
+PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/cerium-cache/${CACHE_VERSION}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-${REPO_ROOT}}/build-workspace}"
 OUT_DIR="${WORKSPACE_DIR}/src/out"
 
@@ -30,6 +30,16 @@ cd "${DOWNLOAD_TMP_DIR}"
 echo "Fetching checksums from ${PKG_URL}/checksums.sha256..."
 # Use -sL (--location) so curl follows 302 redirects to object storage (e.g. Google Cloud Storage on GitLab SaaS)
 HTTP_CODE=$(curl -sL -o checksums.sha256 -w "%{http_code}" --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${PKG_URL}/checksums.sha256")
+
+if [[ "${HTTP_CODE}" != "200" ]]; then
+  # Fallback to legacy braving-cache package if present
+  LEGACY_PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"
+  LEGACY_HTTP_CODE=$(curl -sL -o checksums.sha256 -w "%{http_code}" --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${LEGACY_PKG_URL}/checksums.sha256")
+  if [[ "${LEGACY_HTTP_CODE}" == "200" ]]; then
+    PKG_URL="${LEGACY_PKG_URL}"
+    HTTP_CODE="200"
+  fi
+fi
 
 if [[ "${HTTP_CODE}" != "200" ]]; then
   echo "No cache found for ${CACHE_VERSION} (HTTP ${HTTP_CODE}). Starting cold build."

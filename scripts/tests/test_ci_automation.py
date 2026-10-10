@@ -69,7 +69,7 @@ class TestPublishReleasePayload(unittest.TestCase):
 
     def _generate_payload(self, version, arch, commit_sha, apk_url, sha256=None, apk_name=None, chromium_version=None, sha256_url=None):
         """Simulates the Python payload generator used by publish-release-direct.sh."""
-        apk_name = apk_name or f"braving-android-{arch}-v{version}.apk"
+        apk_name = apk_name or f"cerium-android-{arch}-v{version}.apk"
         chromium_part = f" and Chromium v{chromium_version}" if chromium_version else ""
         description_lines = [
             f"Updated to v{version}{chromium_part}\n",
@@ -213,7 +213,7 @@ class TestCIScriptSyntax(unittest.TestCase):
             capture_output=True, text=True, env=env
         )
         self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
-        self.assertIn("Braving Direct Release Publisher", res.stdout)
+        self.assertIn("Cerium Direct Release Publisher", res.stdout)
         self.assertIn("Release v1.96.61", res.stdout)
 
     def test_apply_patches_syntax(self):
@@ -251,7 +251,7 @@ class TestCIScriptSyntax(unittest.TestCase):
                 capture_output=True, text=True
             )
             self.assertEqual(res.returncode, 0, f"build-windows dry-run failed for {arch}: {res.stderr}")
-            self.assertIn("Braving Windows Build", res.stdout)
+            self.assertIn("Cerium Windows Build", res.stdout)
             self.assertIn(f"Architecture: {expected_arch}", res.stdout)
             self.assertIn("Dry-run mode requested. Validation complete.", res.stdout)
 
@@ -264,7 +264,7 @@ class TestCIScriptSyntax(unittest.TestCase):
                 capture_output=True, text=True
             )
             self.assertEqual(res.returncode, 0, f"package-windows dry-run failed for {arch}: {res.stderr}")
-            self.assertIn("Braving Windows Package", res.stdout)
+            self.assertIn("Cerium Windows Package", res.stdout)
             self.assertIn("Dry-run mode requested.", res.stdout)
 
     def test_package_windows_invalid_arch(self):
@@ -364,7 +364,6 @@ class TestCIScriptSyntax(unittest.TestCase):
             'scripts/core/filter-build-log.py',
             'scripts/core/upload-cache.sh',
             'scripts/core/download-cache.sh',
-            'scripts/core/sync-chromium-source.sh',
             'scripts/core/verify-all.sh',
             'scripts/core/verify-branding.sh',
             'scripts/platforms/android/build.sh',

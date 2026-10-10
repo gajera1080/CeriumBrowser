@@ -1,6 +1,6 @@
-# Building Braving Android
+# Building Cerium Browser
 
-This guide describes how to build Braving Android from source in a clean environment.
+This guide describes how to build Cerium Browser from source in a clean environment.
 
 ---
 
@@ -27,13 +27,14 @@ Set up a dedicated Chromium / Brave project directory:
 
 ```bash
 export WORKSPACE_DIR="/run/media/pc/D"
-export BRAVING_DIR="${WORKSPACE_DIR}/Braving"
+export CERIUM_DIR="${WORKSPACE_DIR}/Cerium"
+export BRAVING_DIR="${CERIUM_DIR}"
 export SRC_DIR="${WORKSPACE_DIR}/src"
 ```
 
 Clone the Cerium repository:
 ```bash
-git clone https://gitlab.com/CeriumBrowser/Cerium-Browser.git "${BRAVING_DIR}"
+git clone https://gitlab.com/CeriumBrowser/Cerium-Browser.git "${CERIUM_DIR}"
 ```
 
 ---
@@ -43,7 +44,7 @@ git clone https://gitlab.com/CeriumBrowser/Cerium-Browser.git "${BRAVING_DIR}"
 Select the target Brave version or omit to resolve latest upstream stable automatically:
 
 ```bash
-cd "${BRAVING_DIR}"
+cd "${CERIUM_DIR}"
 ./scripts/core/prepare-source.sh
 # Or specify a target version:
 # ./scripts/core/prepare-source.sh <version>
@@ -51,10 +52,12 @@ cd "${BRAVING_DIR}"
 
 What `prepare-source.sh` performs:
 1. Dynamically resolves latest stable Brave version from GitHub API and Google Gitiles.
-2. Generates `metadata/upstream-<version>.yaml` and release manifest at `metadata/releases/<version>.yaml`.
-3. Fetches `brave-core` at exact release commit (`--depth 1`).
-4. Applies Braving unified patches (`patches/common/` and platform patches).
-5. Executes programmatic Python mutators (`apply-features.py`, `apply-assets.sh`, `apply-branding.py`).
+2. Generates `metadata/upstream-<version>.yaml` and release manifest at `metadata/releases/<version>.yaml`, exporting environment to `build.env`.
+3. Fetches `brave-core` at exact release commit (`--depth 1` zero-history clone/checkout).
+4. Applies Cerium unified patches (`patches/common/` and platform patches) via `apply-patches.sh`.
+5. Verifies patch set integrity (`apply-patches.sh --check`) ensuring all patches apply cleanly.
+6. Executes programmatic Python mutators and Cerium branding overlays (`apply-features.py`, `apply-assets.sh`, `apply-branding.py`).
+7. Packages the prepared source into a compressed tarball (`build-workspace/brave-src-<version>.tar.gz`) for GitLab pipeline cache transfer.
 
 ---
 
@@ -63,11 +66,11 @@ What `prepare-source.sh` performs:
 Once the source is prepared, trigger the Android build:
 
 ```bash
-cd "${BRAVING_DIR}"
+cd "${CERIUM_DIR}"
 ./scripts/platforms/android/build.sh --arch=arm64 --release
 ```
 
-### Build Arguments Configured by Braving:
+### Build Arguments Configured by Cerium:
 ```gn
 target_os = "android"
 target_cpu = "arm64"
@@ -95,7 +98,7 @@ disable_android_lint = true
 
 The resulting signed APK will be placed in:
 ```
-${BRAVING_DIR}/out/apks/Cerium-<version>-arm64.apk
+${CERIUM_DIR}/out/apks/Cerium-<version>-arm64.apk
 ```
 
 ---

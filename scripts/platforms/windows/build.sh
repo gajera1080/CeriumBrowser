@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving — Windows Compilation Entry Point
+# Cerium — Windows Compilation Entry Point
 # Usage: ./scripts/platforms/windows/build.sh [--manifest=<path>] [--arch=x64|arm64] [--release] [--dry-run] [--gn-only]
 
 set -euo pipefail
@@ -75,7 +75,7 @@ fi
 MANIFEST="$(cd "$(dirname "${MANIFEST}")" && pwd)/$(basename "${MANIFEST}")"
 
 echo "========================================================"
-echo " Braving Windows Build"
+echo " Cerium Windows Build"
 echo " Manifest    : ${MANIFEST}"
 echo " Architecture: ${TARGET_ARCH}"
 echo " Release Mode: true"
@@ -155,8 +155,8 @@ fi
 
 if [[ -d "${BRAVE_DIR}" && ! -d "${BRAVE_DIR}/.git" ]]; then
   git -C "${BRAVE_DIR}" init -q
-  git -C "${BRAVE_DIR}" config user.name "Braving"
-  git -C "${BRAVE_DIR}" config user.email "ci@braving.org"
+  git -C "${BRAVE_DIR}" config user.name "Cerium Browser Team"
+  git -C "${BRAVE_DIR}" config user.email "ci@ceriumbrowser.org"
   git -C "${BRAVE_DIR}" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
 fi
 
@@ -167,18 +167,17 @@ if [[ ! -d "${BRAVE_DIR}" ]]; then
 fi
 
 
-CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
 if [[ ! -d "${SRC_DIR}/.git" ]]; then
-  if [[ -f "${CHROMIUM_ARCHIVE}" ]]; then
-    echo ""
-    echo "Unpacking base Chromium source from ${CHROMIUM_ARCHIVE}..."
-    tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
-    rm -f "${CHROMIUM_ARCHIVE}"
-  else
-    echo "ERROR: Base Chromium source not found in ${SRC_DIR}." >&2
-    echo "Please ensure scripts/core/sync-chromium-source.sh has been run." >&2
-    exit 1
-  fi
+  echo ""
+  echo "Fetching clean Chromium at exact revision with NO history (${CHROMIUM_VERSION} @ ${CHROMIUM_COMMIT})..."
+  mkdir -p "${SRC_DIR}"
+  git init "${SRC_DIR}"
+  git -C "${SRC_DIR}" config advice.detachedHead false
+  git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git" 2>/dev/null || git -C "${SRC_DIR}" remote set-url origin "https://chromium.googlesource.com/chromium/src.git"
+  git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
+  git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
+  git -C "${SRC_DIR}" reset --hard FETCH_HEAD
+  git -C "${SRC_DIR}" clean -ffd -e brave -e out
 else
   echo "Chromium source directory already exists, resetting to clean state..."
   git -C "${SRC_DIR}" reset --hard HEAD
@@ -303,13 +302,109 @@ if [[ -f "${SRC_DIR}/chrome/VERSION" ]]; then
   python3 "${REPO_ROOT}/scripts/core/apply-features.py" "${BRAVE_DIR}" --strict --src-dir="${SRC_DIR}" --target-os=win
 fi
 
+# Step 2d: Verify and prepare Windows cross-compilation toolchain
+if [[ "$(uname -s)" == "Linux"* ]]; then
+  echo ""
+  echo "4. Checking Windows cross-compilation toolchain..."
+  TOOLCHAIN_HASH=""
+  if [[ -f "${SRC_DIR}/build/vs_toolchain.py" ]]; then
+    TOOLCHAIN_HASH=$(python3 -c "
+import sys
+sys.path.append('${SRC_DIR}/build')
+try:
+    import vs_toolchain
+    print(getattr(vs_toolchain, 'TOOLCHAIN_HASH', ''))
+except Exception:
+    pass
+" 2>/dev/null || true)
+  fi
+
+  if [[ -n "${TOOLCHAIN_HASH}" ]]; then
+    echo "Required toolchain hash: ${TOOLCHAIN_HASH}"
+    TOOLCHAIN_DIR="${WORKSPACE_DIR}/win_toolchain_pkg"
+    mkdir -p "${TOOLCHAIN_DIR}"
+
+    # Determine candidate hashes to check (canonical hash first, then verified multi-platform community builds)
+    CANDIDATE_HASHES=("${TOOLCHAIN_HASH}")
+    MAPPING_VAR="GYP_MSVS_HASH_${TOOLCHAIN_HASH}"
+    if [[ -n "${!MAPPING_VAR:-}" ]]; then
+      CANDIDATE_HASHES=("${!MAPPING_VAR}" "${TOOLCHAIN_HASH}")
+    elif [[ "${TOOLCHAIN_HASH}" == "3bfcb536c8" ]]; then
+      # Known verified toolchain hashes for Chromium 155
+      CANDIDATE_HASHES=("3bfcb536c8" "32f2c0f568" "7b55f8d4cb")
+    fi
+
+    FOUND_HASH=""
+    LOCAL_TOOLCHAIN_ZIP=""
+
+    for CANDIDATE in "${CANDIDATE_HASHES[@]}"; do
+      CANDIDATE_ZIP="${TOOLCHAIN_DIR}/${CANDIDATE}.zip"
+      if [[ -f "${CANDIDATE_ZIP}" ]]; then
+        FOUND_HASH="${CANDIDATE}"
+        LOCAL_TOOLCHAIN_ZIP="${CANDIDATE_ZIP}"
+        echo "Found cached toolchain archive: ${LOCAL_TOOLCHAIN_ZIP}"
+        break
+      fi
+
+      # Check GitLab Generic Package Registry
+      DOWNLOAD_URL="${WIN_TOOLCHAIN_URL:-}"
+      if [[ -z "${DOWNLOAD_URL}" && -n "${CI_API_V4_URL:-}" && -n "${CI_PROJECT_ID:-}" ]]; then
+        DOWNLOAD_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/cerium-win-toolchain/${CANDIDATE}/${CANDIDATE}.zip"
+      fi
+
+      if [[ -n "${DOWNLOAD_URL}" ]]; then
+        CURL_ARGS=(-fsSL)
+        if [[ -n "${CI_JOB_TOKEN:-}" ]]; then
+          CURL_ARGS+=(--header "JOB-TOKEN: ${CI_JOB_TOKEN}")
+        fi
+        if curl "${CURL_ARGS[@]}" "${DOWNLOAD_URL}" -o "${CANDIDATE_ZIP}.tmp" 2>/dev/null; then
+          if python3 -c "import zipfile; zipfile.ZipFile('${CANDIDATE_ZIP}.tmp').testzip()" >/dev/null 2>&1; then
+            mv "${CANDIDATE_ZIP}.tmp" "${CANDIDATE_ZIP}"
+            echo "Toolchain archive downloaded and verified: ${CANDIDATE_ZIP}"
+            FOUND_HASH="${CANDIDATE}"
+            LOCAL_TOOLCHAIN_ZIP="${CANDIDATE_ZIP}"
+            break
+          else
+            rm -f "${CANDIDATE_ZIP}.tmp"
+          fi
+        else
+          rm -f "${CANDIDATE_ZIP}.tmp"
+        fi
+      fi
+    done
+
+    if [[ -n "${FOUND_HASH}" && -f "${LOCAL_TOOLCHAIN_ZIP}" ]]; then
+      if [[ "${FOUND_HASH}" != "${TOOLCHAIN_HASH}" ]]; then
+        echo "Mapping upstream canonical hash ${TOOLCHAIN_HASH} to custom toolchain hash ${FOUND_HASH}"
+        export "GYP_MSVS_HASH_${TOOLCHAIN_HASH}=${FOUND_HASH}"
+      fi
+      export DEPOT_TOOLS_WIN_TOOLCHAIN_BASE_URL="${TOOLCHAIN_DIR}"
+      echo "DEPOT_TOOLS_WIN_TOOLCHAIN_BASE_URL set to: ${DEPOT_TOOLS_WIN_TOOLCHAIN_BASE_URL}"
+    elif [[ -z "${DEPOT_TOOLS_WIN_TOOLCHAIN_BASE_URL:-}" ]]; then
+      echo ""
+      echo "========================================================================"
+      echo "ERROR: Windows cross-compilation toolchain archive (${TOOLCHAIN_HASH}.zip) not found!"
+      echo ""
+      echo "Chromium's default Google Storage bucket (gs://chrome-wintoolchain) requires internal"
+      echo "Google credentials (HTTP 401 Unauthorized)."
+      echo ""
+      echo "To resolve this:"
+      echo "1. Publish '${TOOLCHAIN_HASH}.zip' to the GitLab Generic Package Registry:"
+      echo "   ${CI_API_V4_URL:-<CI_API_V4_URL>}/projects/${CI_PROJECT_ID:-<PROJECT_ID>}/packages/generic/cerium-win-toolchain/${TOOLCHAIN_HASH}/${TOOLCHAIN_HASH}.zip"
+      echo "2. OR set DEPOT_TOOLS_WIN_TOOLCHAIN_BASE_URL to a directory or URL containing the archive."
+      echo "========================================================================"
+      exit 1
+    fi
+  fi
+fi
+
 echo ""
-echo "4. Running gclient hooks on patched Chromium..."
+echo "5. Running gclient hooks on patched Chromium..."
 (cd "${WORKSPACE_DIR}" && gclient runhooks)
 
 # Propagate branding from brave-core/app/theme/brave_origin
 echo ""
-echo "5. Propagating branding from brave-core/app/theme/brave_origin..."
+echo "6. Propagating branding from brave-core/app/theme/brave_origin..."
 (cd "${BRAVE_DIR}" && pnpm run build Release --prepare_only --target_os=win --target_arch="${TARGET_ARCH}" --channel=release)
 
 # Generate brave/build/version.gni if missing

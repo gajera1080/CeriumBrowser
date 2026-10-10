@@ -41,12 +41,12 @@ def apply(ctx: MutatorContext):
             r"return\s+metadata;\s*\}"
         ),
         """blink::UserAgentMetadata BraveContentBrowserClient::GetUserAgentMetadata() {
-  // Braving: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity
+  // Cerium: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity
   return ChromeContentBrowserClient::GetUserAgentMetadata();
 }""",
     )
 
-    # Always hide Brave brand across all domains so Braving consistently identifies as Chrome
+    # Always hide Brave brand across all domains so Cerium consistently identifies as Chrome
     ctx.replace_in_file(
         "components/brave_user_agent/browser/brave_user_agent_exceptions.cc",
         re.compile(
@@ -54,7 +54,7 @@ def apply(ctx: MutatorContext):
             r"return\s+!excepted_domains_\.contains\(domain\);\s*\}"
         ),
         """bool BraveUserAgentExceptions::CanShowBrave(const GURL& url) {
-  // Braving: Never show Brave brand; always identify as standard Chrome
+  // Cerium: Never show Brave brand; always identify as standard Chrome
   (void)url;
   return false;
 }""",
@@ -67,7 +67,7 @@ def apply(ctx: MutatorContext):
             r"return\s+exceptions\s*&&\s*!exceptions->CanShowBrave\(url\);\s*\}"
         ),
         """bool ShouldHideBraveBrand(const GURL& url) {
-  // Braving: Always hide Brave brand across all domains
+  // Cerium: Always hide Brave brand across all domains
   (void)url;
   return true;
 }""",

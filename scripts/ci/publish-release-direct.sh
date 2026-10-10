@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Braving Browser CI/CD — Direct Release Publisher
+# Cerium Browser CI/CD — Direct Release Publisher
 # ==============================================================================
 # Purpose:
 #   Uploads the signed release APK directly to GitLab project uploads and
@@ -97,7 +97,7 @@ if [[ ${#MISSING_VARS[@]} -gt 0 ]]; then
 fi
 
 echo "=========================================================="
-echo " Braving Direct Release Publisher"
+echo " Cerium Direct Release Publisher"
 echo " Version     : ${DYNAMIC_BRAVE_VERSION}"
 echo " Architecture: ${TARGET_ARCH}"
 echo " Dry Run     : ${DRY_RUN}"
@@ -156,7 +156,7 @@ fi
 # ------------------------------------------------------------------------------
 # 4. Upload Release Assets to GitLab Generic Package Registry
 # ------------------------------------------------------------------------------
-PACKAGE_NAME="braving-release"
+PACKAGE_NAME="cerium-release"
 PACKAGE_VERSION="${DYNAMIC_BRAVE_VERSION}"
 PACKAGE_REGISTRY_BASE="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME}/${PACKAGE_VERSION}"
 MASTER_SHA256_FILE="$(mktemp /tmp/master-sha256-XXXXXX.txt)"

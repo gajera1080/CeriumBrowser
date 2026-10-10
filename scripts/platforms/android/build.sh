@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving — Android Compilation Entry Point
+# Cerium — Android Compilation Entry Point
 # Usage: ./scripts/platforms/android/build.sh [--manifest=<path>] [--arch=arm64|arm|x86_64] [--release]
 
 set -euo pipefail
@@ -63,7 +63,7 @@ MANIFEST="$(cd "$(dirname "${MANIFEST}")" && pwd)/$(basename "${MANIFEST}")"
 
 
 echo "========================================================"
-echo " Braving Android Build"
+echo " Cerium Android Build"
 echo " Manifest    : ${MANIFEST}"
 echo " Architecture: ${TARGET_ARCH}"
 echo " Release Mode: true"
@@ -159,8 +159,8 @@ fi
 
 if [[ -d "${BRAVE_DIR}" && ! -d "${BRAVE_DIR}/.git" ]]; then
   git -C "${BRAVE_DIR}" init -q
-  git -C "${BRAVE_DIR}" config user.name "Braving"
-  git -C "${BRAVE_DIR}" config user.email "ci@braving.org"
+  git -C "${BRAVE_DIR}" config user.name "Cerium Browser Team"
+  git -C "${BRAVE_DIR}" config user.email "ci@ceriumbrowser.org"
   git -C "${BRAVE_DIR}" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
 fi
 
@@ -171,18 +171,17 @@ if [[ ! -d "${BRAVE_DIR}" ]]; then
 fi
 
 
-CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
 if [[ ! -d "${SRC_DIR}/.git" ]]; then
-  if [[ -f "${CHROMIUM_ARCHIVE}" ]]; then
-    echo ""
-    echo "Unpacking base Chromium source from ${CHROMIUM_ARCHIVE}..."
-    tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
-    rm -f "${CHROMIUM_ARCHIVE}"
-  else
-    echo "ERROR: Base Chromium source not found in ${SRC_DIR}." >&2
-    echo "Please ensure scripts/core/sync-chromium-source.sh has been run." >&2
-    exit 1
-  fi
+  echo ""
+  echo "Fetching clean Chromium at exact revision with NO history (${CHROMIUM_VERSION} @ ${CHROMIUM_COMMIT})..."
+  mkdir -p "${SRC_DIR}"
+  git init "${SRC_DIR}"
+  git -C "${SRC_DIR}" config advice.detachedHead false
+  git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git" 2>/dev/null || git -C "${SRC_DIR}" remote set-url origin "https://chromium.googlesource.com/chromium/src.git"
+  git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
+  git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
+  git -C "${SRC_DIR}" reset --hard FETCH_HEAD
+  git -C "${SRC_DIR}" clean -ffd -e brave -e out
 else
   echo "Chromium source directory already exists, resetting to clean state..."
   git -C "${SRC_DIR}" reset --hard HEAD
@@ -588,11 +587,11 @@ fi
 T_PKG_START=$(date +%s)
 
 # Step 11: Collect and Optimize Artifacts (AAB Bundle & Standalone Universal APK)
-BRAVING_VERSION=$(extract_manifest_val "cerium_version" "$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")")
+CERIUM_VERSION=$(extract_manifest_val "cerium_version" "$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")")
 OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
-OUTPUT_NAME="Cerium-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
-OUTPUT_AAB_NAME="Cerium-${BRAVING_VERSION}-${TARGET_ARCH}.aab"
+OUTPUT_NAME="Cerium-${CERIUM_VERSION}-${TARGET_ARCH}.apk"
+OUTPUT_AAB_NAME="Cerium-${CERIUM_VERSION}-${TARGET_ARCH}.aab"
 
 BUILT_AAB=$(find "${OUT_DIR}/apks" -name "*.aab" -type f 2>/dev/null | sort | head -n 1 || true)
 BUILT_APK=""

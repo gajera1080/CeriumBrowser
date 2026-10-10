@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving — Windows Packaging Script
+# Cerium — Windows Packaging Script
 # Usage: ./scripts/platforms/windows/package.sh [--out-dir=<path>] [--dest-dir=<path>] [--arch=x64|arm64] [--version=<ver>] [--dry-run]
 
 set -euo pipefail
@@ -67,7 +67,7 @@ if [[ -z "${VERSION}" ]]; then
 fi
 
 echo "========================================================"
-echo " Braving Windows Package"
+echo " Cerium Windows Package"
 echo " Version     : ${VERSION}"
 echo " Architecture: ${TARGET_ARCH}"
 echo " Source Dir  : ${OUT_DIR}"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving Dynamic Master Verification Suite
+# Cerium Dynamic Master Verification Suite
 # Runs all tests, linters, patch verifiers, and build dry-runs across any release version.
 
 set -euo pipefail
@@ -28,7 +28,7 @@ fi
 TARGET_VERSION="${TARGET_VERSION#v}"
 
 echo "========================================================"
-echo " Starting Braving Master Verification Suite"
+echo " Starting Cerium Master Verification Suite"
 echo " Target Version: ${TARGET_VERSION}"
 echo "========================================================"
 
@@ -123,5 +123,4 @@ fi
 echo ""
 echo "========================================================"
 echo " ALL VERIFICATION STEPS PASSED SUCCESSFULLY (6/6)"
-echo " Ready for GitLab CI/CD Pipeline Execution"
 echo "========================================================"

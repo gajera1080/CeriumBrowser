@@ -1,5 +1,5 @@
 ---
-name: braving-browser
+name: cerium-browser
 description: Canonical guide and operational expert for the Cerium Browser project (customized, de-branded, debloated downstream Brave distribution for Android, Linux, Windows, macOS). Use whenever working with Cerium architecture, GN build arguments, programmatic Python mutators, Shields adblock settings, branding assets, Siso/Ninja build orchestration, distributed GitLab Generic Package Registry caching, verifying changes end-to-end via prepare-source and verify-all, or CI/CD pipelines.
 ---
 
@@ -45,7 +45,7 @@ flowchart TD
 1. **Zero Permanent Commits in `brave-core`**:
    The `build-workspace/src/brave` and `build-workspace/src` directories are ephemeral build artifacts fetched and constructed at build time. Never make permanent commits in `brave-core`.
 2. **Version Independence & Continuous Roll Forward (Always Target Latest Upstream)**:
-   Never hardcode versions (e.g. `<version>`) into scripts or CI files. Braving is engineered to roll forward continuously with upstream Brave and Chromium tags. All mutators, patches, branding assets, and verification workflows must always be tested and maintained to work against the latest stable upstream release tag. When `BRAVE_VERSION` is omitted, `prepare-source.sh` dynamically queries GitHub's `/releases/latest` and Google's Gitiles API to determine the exact pinned commits for both `brave-core` and Chromium.
+   Never hardcode versions (e.g. `<version>`) into scripts or CI files. Cerium is engineered to roll forward continuously with upstream Brave and Chromium tags. All mutators, patches, branding assets, and verification workflows must always be tested and maintained to work against the latest stable upstream release tag. When `BRAVE_VERSION` is omitted, `prepare-source.sh` dynamically queries GitHub's `/releases/latest` and Google's Gitiles API to determine the exact pinned commits for both `brave-core` and Chromium.
 3. **Lightweight Metadata Generation**:
    `metadata/releases/*.yaml` files are generated dynamically at build time and stored as pipeline artifacts.
 
@@ -58,7 +58,7 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 
 1. **Git Patches (`patches/`) for standard modifications**:
    - Use standard unified diff (`.patch`) files for straightforward edits like removing XML preference blocks, changing simple C++ constants, or modifying self-contained UI layouts.
-   - Example: `patches/android/0001-braving-branding.patch`.
+   - Example: `patches/android/0001-cerium-branding.patch`.
    - **Important**: Avoid using `.patch` files for highly dynamic code, such as GN build arrays (e.g. `deps = [...]`), which change constantly in upstream Chromium/Brave and will break patch application.
 
 2. **Programmatic Python Mutators (`scripts/`) for complex/dynamic changes**:
@@ -146,52 +146,45 @@ Cerium strips all unneeded promotional, cryptocurrency, and auxiliary subsystems
 ### 1. The 3-Hour SaaS Runner Limit & Pipeline Stages
 Chromium + Brave compilation is massive: over 43,000 compilation steps, requiring 1.5 to 3.5 hours on 32-core runners. GitLab CI SaaS runners (`saas-linux-2xlarge-amd64`) enforce a strict job timeout. Running a cold build from checkout to APK or Windows distribution in a single monolithic job risks timing out and losing all compilation progress.
 
-To guarantee that no runner exceeds the 3-hour limit, Braving splits compilation into a strictly structured 4-stage multi-platform pipeline:
+To guarantee that no runner exceeds the 3-hour limit, Cerium splits compilation into a strictly structured 4-stage multi-platform pipeline:
 1. **Stage 1: `prepare_source`**: Lightweight runner. Resolves upstream versions dynamically, fetches exact `brave-core`, executes all patches/mutators/branding, and exports the **Tier 1 Source Artifact**.
-2. **Stage 2: `cache_prep` (`prepare_android_cache` & `prepare_windows_cache`)**: Unpacks the Tier 1 Source Artifact, syncs Chromium for the target OS, compiles heavy common sub-targets (`v8`, `blink`, `skia`, `gpu`, `angle`, `webrtc`), and uploads the **Tier 2 Compiler Cache** to the Generic Package Registry.
+2. **Stage 2: `cache_prep` (`prepare_android_cache` & `prepare_windows_cache`)**: Unpacks the Tier 1 Source Artifact, syncs Chromium for the target OS, compiles heavy common sub-targets (`v8`, `blink`, `skia`, `gpu`, `angle`), and uploads the **Tier 2 Compiler Cache** to the Generic Package Registry.
 3. **Stage 3: `build` (`build_android` & `build_windows`)**: Unpacks the Tier 1 Source Artifact, restores the Tier 2 warm compiler cache from the Package Registry, completes the remaining targets incrementally, and packages official distributions (APK/AAB/ZIP).
 4. **Stage 4: `publish` (`publish_release`)**: Collects all multi-platform binary packages and publishes an official GitLab Release with checksums.
 
 ---
 
-### 2. The Multi-Tier Caching Architecture
+### 2. The Two-Tier Caching Architecture
 
 | Cache Tier | Storage Layer | Scope & Contents | Key / Identifier | Policy |
 |---|---|---|---|---|
-| **Tier 1: Source Transport** | GitLab Pipeline Job Artifacts | Fully prepared, patched, branded `src/brave/` (~380 MB compressed) | `build-workspace/brave-src-*.tar.gz` | Stage 1: upload<br>Stages 2–3: download & unpack |
-| **Tier 1.5: Chromium Source** | GitLab Generic Package Registry | Clean base Chromium + depot_tools + host compilers (~1.5 GB) | `braving-chromium-source/${CHROMIUM_VERSION}` | Stage 2: create/upload<br>Stages 2–3: download |
+| **Tier 1: Source Transport** | GitLab Pipeline Job Artifact | Fully prepared, patched, branded `src/brave/` (~380 MB compressed) | `build-workspace/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz` | Stage 1: export<br>Stages 2–3: unpack |
 | **Tier 2: Compiler Cache** | GitLab Generic Package Registry | Compiled `out/Release/` object files (`v8`, `blink`, obj/, gen/, Siso state) | `${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}`<br>(or `-win-${TARGET_ARCH}`) | Stage 2: `upload-cache.sh`<br>Stage 3: `download-cache.sh` |
 
-#### Tier 1: Pre-Patched Source Transport (`src/brave/`) via Pipeline Job Artifacts
+#### Tier 1: Pre-Patched Source Transport (`src/brave/`) via Pipeline Job Artifact
 - **All `brave-core` modifications MUST happen exclusively in `prepare_source`**:
   - Shallow checkout of exact `brave-core` release commit.
-  - Applying all git patches in `patches/`.
+  - Applying all git patches in `patches/` via `apply-patches.sh`.
+  - Verifying patch set integrity via `apply-patches.sh --check`.
   - Applying cross-platform GN mutators via `apply-features.py --strict`.
-  - Applying Braving branding overlay and vector assets via `apply-assets.sh`.
+  - Applying Cerium branding overlay and vector assets via `apply-assets.sh`.
   - Applying UI strings remapping via `apply-branding.py --strict`.
   - Packaging prepared `brave-core` into `build-workspace/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz` (~380 MB compressed).
-- **Artifact Transport Configuration**:
-  - `prepare_source` exposes `build-workspace/brave-src-*.tar.gz` as a pipeline job artifact.
-  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) receive the artifact via `needs: [{job: prepare_source, artifacts: true}]`, and `.build_environment_setup` automatically unpacks it into `build-workspace/src/brave` before deleting the archive.
+- **Job Artifact Transport Configuration**:
+  - `prepare_source` saves `build-workspace/brave-src-*.tar.gz` directly into pipeline job artifacts (`artifacts: paths:`).
+  - Eliminates reliance on best-effort, opportunistic GitLab Runner `cache:`, guaranteeing deterministic delivery to downstream stages (`cache_prep` and `build`).
+  - Downstream runners (`prepare_android_cache`, `prepare_windows_cache`, `build_android`, `build_windows`) receive it via `needs: artifacts: true`, and `.build_environment_setup` automatically unpacks it into `build-workspace/src/brave` before deleting the archive.
   - Platform build scripts (`scripts/platforms/{android,windows}/build.sh`) provide fallback unpack logic if `src/brave` is not found, and protect `src/brave` and `src/out` during cleanups via `git clean -ffd -e brave -e out`.
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
 
-#### Tier 1.5: Base Chromium & Toolchain Cache via GitLab Generic Package Registry
-- **Managed via `scripts/core/sync-chromium-source.sh`**:
-  - Base Chromium (`chromium-src-${CHROMIUM_VERSION}.tar.xz`) and `depot_tools` (`depot-tools.tar.xz`) are cached under package `braving-chromium-source` and version `${CHROMIUM_VERSION}`.
-  - Shared across all platforms and branches on the same Chromium milestone.
-  - On hit: restored and unpacked in ~25–30 seconds.
-  - On miss: fetched, pre-synced with host Clang, Rust, and GN, packaged, and uploaded during Stage 2.
-  - Temporary `.tar.xz` archives are deleted immediately after upload/extraction to free disk space before compilation begins.
-
 #### Tier 2: Compiler Object Cache (`out/Release/`) via GitLab Generic Package Registry
 - **Why We Cannot Use GitLab Runner `cache:` for Compiler Output**:
-  - **Dotenv Variable Expansion Failure**: In dynamic release mode, `DYNAMIC_BRAVE_VERSION` is generated at runtime in Stage 1 and exported via `build.env` (dotenv report). GitLab CI evaluates `cache:key` **prior to job execution**. Dotenv variables are NOT expanded in `cache:key`. A key like `braving-cache-${DYNAMIC_BRAVE_VERSION}` evaluates literally to `braving-cache-`, causing cross-version cache poisoning!
+  - **Dotenv Variable Expansion Failure**: In dynamic release mode, `DYNAMIC_BRAVE_VERSION` is generated at runtime in Stage 1 and exported via `build.env` (dotenv report). GitLab CI evaluates `cache:key` **prior to job execution**. Dotenv variables are NOT expanded in `cache:key`. A key like `cerium-cache-${DYNAMIC_BRAVE_VERSION}` evaluates literally to `cerium-cache-`, causing cross-version cache poisoning!
   - **Zip Compression Bottleneck & Size Limits**: GitLab runner native caching compresses target directories into a single monolithic `.zip` archive on the runner and uploads it to object storage. For 5–10 GB compiler trees, zip compression and decompression take 15–20 minutes, frequently timeout, and saturate runner memory.
 - **The Solution: Distributed Generic Package Registry (`upload-cache.sh` & `download-cache.sh`)**:
   - Compresses the `out/Release` directory, splitting into 4.5 GB chunks (`chunk.tar.gz.*`) with SHA256 verification (`checksums.sha256`).
   - Uses GitLab's official Package Registry API authenticated via `CI_JOB_TOKEN`:
-    `PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/braving-cache/${CACHE_VERSION}"`
+    `PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/cerium-cache/${CACHE_VERSION}"`
     where `CACHE_VERSION="${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}"` (or `${DYNAMIC_BRAVE_VERSION}-win-${TARGET_ARCH}`).
   - If no package exists (e.g. local builds), it logs `Starting cold build` and exits 0 cleanly.
 

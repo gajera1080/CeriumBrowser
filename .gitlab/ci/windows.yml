@@ -22,7 +22,7 @@ spec:
       artifacts: true
   variables:
     CACHE_PREP_ONLY: "true"
-    BUILD_TARGET: "v8 third_party/blink/public:blink skia gpu third_party/angle third_party/webrtc"
+    BUILD_TARGET: "v8 third_party/blink/public:blink skia gpu third_party/angle"
   script:
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"
@@ -31,18 +31,16 @@ spec:
         echo "FORCE_CACHE_REBUILD is true. Forcing a cold build."
       else
         echo "Checking if Windows cache ${CACHE_VERSION} exists in the Packages API..."
-        if curl -s --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages?package_type=generic&package_name=braving-cache" | grep -q "\"version\":\"${CACHE_VERSION}\""; then
+        if curl -s --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages?package_type=generic" | grep -q "\"version\":\"${CACHE_VERSION}\""; then
           echo "Cache ${CACHE_VERSION} already exists in registry! Skipping Stage 2."
           exit 0
         fi
       fi
-    - echo "Syncing base Chromium and depot_tools from registry..."
-    - ./scripts/core/sync-chromium-source.sh
-    - echo "Building isolated Windows heavy targets (v8, blink, skia, gpu, angle, webrtc) for ${TARGET_ARCH} to generate warm cache..."
+    - echo "Building isolated Windows heavy targets (v8, blink, skia, gpu, angle) for ${TARGET_ARCH} to generate warm cache..."
     - ./scripts/platforms/windows/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - CACHE_VERSION="${CACHE_VERSION}" ./scripts/core/upload-cache.sh
   artifacts:
-    name: "braving-win-cache-logs-${DYNAMIC_BRAVE_VERSION}"
+    name: "cerium-win-cache-logs-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
       - build-workspace/build-artifacts.tar.xz
@@ -55,14 +53,12 @@ spec:
     - .build_environment_setup
   script:
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-win-${TARGET_ARCH}"
-    - echo "Restoring base Chromium and depot_tools from registry..."
-    - ./scripts/core/sync-chromium-source.sh --download-only
     - echo "Restoring warm Windows cache for ${CACHE_VERSION}..."
     - CACHE_VERSION="${CACHE_VERSION}" ./scripts/core/download-cache.sh || true
     - echo "Executing Windows compile and package for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
     - ./scripts/platforms/windows/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release --package
   artifacts:
-    name: "braving-windows-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
+    name: "cerium-windows-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
       - out/packages/

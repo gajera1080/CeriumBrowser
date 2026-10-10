@@ -15,8 +15,9 @@ def apply(ctx: MutatorContext):
             r"[ \t]*if\s*\(\s*!enable_android_secondary_abi\s*\)\s*\{[^}]*"
             r"assert\s*\(\s*current_toolchain\s*==\s*default_toolchain[^)]*\)[^}]*\}"
         ),
-        """  # In Braving, enable_android_secondary_abi is disabled for single-arch builds,
+        """  # In Cerium, enable_android_secondary_abi is disabled for single-arch builds,
   # but secondary toolchains (such as webview) may still evaluate targets
   # that import timestamp.gni. Allow execution across all toolchains.
   not_needed([ "enable_android_secondary_abi" ])""",
+        check_token="not_needed([ \"enable_android_secondary_abi\" ])",
     )

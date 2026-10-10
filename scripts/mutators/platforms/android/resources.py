@@ -1,6 +1,6 @@
 """
 Android Base Module Resources Mutator (scripts/mutators/android/resources.py)
-Registers Braving mipmap-anydpi-v26 vector app icons in brave_base_module_resources
+Registers Cerium mipmap-anydpi-v26 vector app icons in brave_base_module_resources
 so chrome_base_module_resources and chrome_public_apk_base_module_resources list all files.
 """
 

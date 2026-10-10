@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Programmatic Braving String & Localization Mutator (apply-branding.py)
+Programmatic Cerium String & Localization Mutator (apply-branding.py)
 
-Safely rebrands user-visible "Brave" browser and Shields strings to "Braving"
+Safely rebrands user-visible "Brave" browser and Shields strings to "Cerium"
 across Android and shared cross-platform .grd/.grdp files, remapping XTB
 translation fingerprints so all locales resolve the updated strings cleanly.
 

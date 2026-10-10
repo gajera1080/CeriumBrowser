@@ -12,7 +12,7 @@ def apply(ctx: MutatorContext):
     ctx.replace_in_file(
         "components/flags_ui/resources/brave_flags_overrides.js",
         re.compile(r"document\.addEventListener\('DOMContentLoaded'[\s\S]*\}\);\s*"),
-        "// Braving: Overrides disabled for clean Lit WebUI compatibility and complete de-branding.\n",
+        "// Cerium: Overrides disabled for clean Lit WebUI compatibility and complete de-branding.\n",
     )
 
     ctx.replace_in_file(
@@ -25,7 +25,7 @@ def apply(ctx: MutatorContext):
         ),
         """scoped_refptr<base::RefCountedMemory> BraveContentClient::GetDataResourceBytes(
     int resource_id) {
-  // Braving: Direct delegate to pure Chromium Lit WebUI resources without Brave promo injection
+  // Cerium: Direct delegate to pure Chromium Lit WebUI resources without Brave promo injection
   return ChromeContentClient::GetDataResourceBytes(resource_id);
 }""",
     )
