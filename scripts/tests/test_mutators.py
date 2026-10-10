@@ -373,8 +373,22 @@ PRODUCT_INSTALLER_SHORTNAME=Brave Origin Installer
         f.write("""void UpdateBraveVpn(const base::FilePath& target_path,
                     const base::Version& new_version,
                     WorkItemList* install_list) {
+  // When one time cleanup happens, we don't want to install the services at
+  // that time. Service will be installed at the time of purchase.
   if (OneTimeVpnServiceCleanup(target_path, new_version, install_list)) {
     return;
+  }
+
+  // If the VPN service is installed, we should update installed services to
+  // make it have latest executable path.
+  if (brave_vpn::IsBraveVPNHelperServiceInstalled()) {
+    install_list->AddCallbackWorkItem(
+        base::BindOnce(
+            [](const base::FilePath& target_path, const CallbackWorkItem&) {
+              return brave_vpn::InstallBraveVPNHelperService(target_path);
+            },
+            target_path.AppendASCII(new_version.GetString())),
+        base::DoNothing());
   }
 }
 """)
@@ -410,7 +424,18 @@ inline constexpr wchar_t kProductPathName[] = L"Brave-Browser-Development";
 
     with open(brave_shell_util_cc, "w") as f:
         f.write("""std::wstring GetProgIdForFileType() {
-  return L"BraveFile";
+  switch (install_static::GetChromeChannel()) {
+    case version_info::Channel::STABLE:
+      return L"BraveFile";
+    case version_info::Channel::BETA:
+      return L"BraveBFile";
+    case version_info::Channel::DEV:
+      return L"BraveDFile";
+    case version_info::Channel::CANARY:
+      return L"BraveSSFile";
+    default:
+      break;
+  }
 }
 """)
 

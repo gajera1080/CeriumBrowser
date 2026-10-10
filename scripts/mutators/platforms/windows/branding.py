@@ -43,7 +43,9 @@ def apply(ctx: MutatorContext):
             if old in new_content:
                 new_content = new_content.replace(old, new)
                 modified = True
-        found = modified or ('inline constexpr wchar_t kCompanyPathName[] = L"Cerium";' in content)
+            elif new not in new_content:
+                return content, False, False
+        found = ('inline constexpr wchar_t kCompanyPathName[] = L"Cerium";' in new_content)
         return new_content, modified, found
 
     ctx.mutate_file(
@@ -52,23 +54,10 @@ def apply(ctx: MutatorContext):
     )
 
     # 2. File type ProgIDs in brave_shell_util.cc
-    def mutate_shell_util(content: str):
-        replacements = [
-            ('return L"BraveFile";', 'return L"CeriumFile";'),
-            ('return L"BraveBFile";', 'return L"CeriumBFile";'),
-            ('return L"BraveDFile";', 'return L"CeriumDFile";'),
-            ('return L"BraveSSFile";', 'return L"CeriumSSFile";'),
-        ]
-        modified = False
-        new_content = content
-        for old, new in replacements:
-            if old in new_content:
-                new_content = new_content.replace(old, new)
-                modified = True
-        found = modified or ('return L"CeriumFile";' in content)
-        return new_content, modified, found
-
-    ctx.mutate_file(
-        "installer/util/brave_shell_util.cc",
-        mutate_shell_util,
-    )
+    for old, new in [
+        ('return L"BraveFile";', 'return L"CeriumFile";'),
+        ('return L"BraveBFile";', 'return L"CeriumBFile";'),
+        ('return L"BraveDFile";', 'return L"CeriumDFile";'),
+        ('return L"BraveSSFile";', 'return L"CeriumSSFile";'),
+    ]:
+        ctx.replace_in_file("installer/util/brave_shell_util.cc", old, new)

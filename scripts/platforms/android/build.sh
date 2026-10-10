@@ -148,10 +148,7 @@ T_CHECKOUT_START=${T_START}
 # Phase 2: Verify brave-core
 if [[ ! -d "${BRAVE_DIR}" ]]; then
   BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
-  if [[ ! -f "${BRAVE_ARCHIVE}" ]]; then
-    BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
-  fi
-  if [[ -n "${BRAVE_ARCHIVE}" && -f "${BRAVE_ARCHIVE}" ]]; then
+  if [[ -f "${BRAVE_ARCHIVE}" ]]; then
     echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
     mkdir -p "${SRC_DIR}"
     tar -xzf "${BRAVE_ARCHIVE}" -C "${SRC_DIR}"
@@ -642,25 +639,26 @@ if [[ -n "${BUILT_AAB}" ]]; then
   fi
 fi
 
-# Fallback: search for direct APK outputs
+# Search for direct APK outputs
 if [[ -z "${BUILT_APK}" ]]; then
   BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f 2>/dev/null | sort | head -n 1 || true)
 fi
 
-if [[ -n "${BUILT_APK}" ]]; then
-  if [[ "${BUILT_APK}" != "${OUTPUT_APK_DIR}/${OUTPUT_NAME}" ]]; then
-    cp -f "${BUILT_APK}" "${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
-  fi
-  if [[ "${BUILT_APK}" != "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
-    cp -f "${BUILT_APK}" "${OUT_DIR}/apks/${OUTPUT_NAME}" 2>/dev/null || true
-  fi
+if [[ -z "${BUILT_APK}" ]]; then
+  echo "ERROR: No built APK found in ${OUT_DIR}/apks." >&2
+  exit 1
+fi
 
-  # Step 12: Release APK Signing (when KEY_PASSWORD_ANDROID or keystore is configured)
-  if [[ -n "${KEY_PASSWORD_ANDROID:-}" || -n "${ANDROID_KEYSTORE_PASSWORD:-}" || -n "${ANDROID_KEYSTORE_PATH:-}" || -s "${REPO_ROOT}/.secure_files/${ANDROID_KEYSTORE_FILE:-braving_android.jks}" ]]; then
-    echo ""
-    echo "Signing release APK via package.sh..."
-    "${SCRIPT_DIR}/package.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
-  fi
+if [[ "${BUILT_APK}" != "${OUTPUT_APK_DIR}/${OUTPUT_NAME}" ]]; then
+  cp -f "${BUILT_APK}" "${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+fi
+
+# Step 12: Release APK Signing (when KEY_PASSWORD_ANDROID or keystore is configured)
+if [[ -n "${KEY_PASSWORD_ANDROID:-}" || -n "${ANDROID_KEYSTORE_PASSWORD:-}" || -n "${ANDROID_KEYSTORE_PATH:-}" || -s "${REPO_ROOT}/.secure_files/${ANDROID_KEYSTORE_FILE:-braving_android.jks}" ]]; then
+  echo ""
+  echo "Signing release APK via package.sh..."
+  "${SCRIPT_DIR}/package.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+fi
 
   # Final refresh of diagnostics archive
   archive_build_artifacts
@@ -679,8 +677,3 @@ if [[ -n "${BUILT_APK}" ]]; then
   echo " [TIMING] packaging=$((T_END - T_PKG_START))s"
   echo " [TIMING] total=$((T_END - T_START))s"
   echo "========================================================"
-else
-  echo "ERROR: Build completed but no APK found in ${OUT_DIR}" >&2
-  ls -la "${OUT_DIR}/apks/" 2>/dev/null || true
-  exit 1
-fi

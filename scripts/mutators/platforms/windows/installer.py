@@ -14,12 +14,9 @@ def apply(ctx: MutatorContext):
     # Neutralize UpdateBraveVpn in install_worker.cc
     ctx.replace_in_file(
         "chromium_src/chrome/installer/setup/install_worker.cc",
-        re.compile(
-            r"void\s+UpdateBraveVpn\s*\(\s*const\s+base::FilePath&\s*target_path,\s*\n"
-            r"\s*const\s+base::Version&\s*new_version,\s*\n"
-            r"\s*WorkItemList\*\s*install_list\s*\)\s*\{[\s\S]*?"
-            r"OneTimeVpnServiceCleanup[\s\S]*?\n\}"
-        ),
+        """void UpdateBraveVpn(const base::FilePath& target_path,
+                    const base::Version& new_version,
+                    WorkItemList* install_list) {""",
         """void UpdateBraveVpn(const base::FilePath& target_path,
                     const base::Version& new_version,
                     WorkItemList* install_list) {
@@ -27,15 +24,14 @@ def apply(ctx: MutatorContext):
   (void)target_path;
   (void)new_version;
   (void)install_list;
-  return;
-}""",
+  return;""",
     )
 
     # Remove promo registry read in mini_installer.cc
     ctx.replace_in_file(
         "chromium_src/chrome/installer/mini_installer/mini_installer.cc",
-        '  const bool result = RegKey::ReadSZValue( \\\n'
-        '      HKEY_CURRENT_USER, L"Software\\\\BraveSoftware\\\\Promo", \\\n'
-        '      L"StubInstallerPath", value, _countof(value)); \\',
-        "  const bool result = false; (void)value;  /* Cerium: Skip promo registry read */ \\\n  ",
+        re.compile(
+            r'const\s+bool\s+result\s*=\s*RegKey::ReadSZValue\([\s\S]*?_countof\(value\)\);\s*\\?'
+        ),
+        "const bool result = false; (void)value;  /* Cerium: Skip promo registry read */ \\\n  ",
     )

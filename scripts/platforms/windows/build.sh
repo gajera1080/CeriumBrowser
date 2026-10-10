@@ -144,10 +144,7 @@ command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm is required." >&2; exit 1
 
 if [[ ! -d "${BRAVE_DIR}" ]]; then
   BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
-  if [[ ! -f "${BRAVE_ARCHIVE}" ]]; then
-    BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
-  fi
-  if [[ -n "${BRAVE_ARCHIVE}" && -f "${BRAVE_ARCHIVE}" ]]; then
+  if [[ -f "${BRAVE_ARCHIVE}" ]]; then
     echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
     mkdir -p "${SRC_DIR}"
     tar -xzf "${BRAVE_ARCHIVE}" -C "${SRC_DIR}"

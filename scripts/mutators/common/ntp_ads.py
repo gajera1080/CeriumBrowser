@@ -40,14 +40,13 @@ def apply(ctx: MutatorContext):
     )
 
     # Disable top sites shortcuts when Chromium src is present
-    if ctx.has_chromium_src():
-        ctx.replace_in_src(
-            "chrome/browser/prefs/browser_prefs.cc",
-            "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, true);",
-            "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, false);",
-        )
-        ctx.replace_in_src(
-            "chrome/browser/ui/webui/cr_components/most_visited/most_visited_pref_observer.cc",
-            "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, true);",
-            "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, false);",
-        )
+    ctx.replace_in_src(
+        "chrome/browser/prefs/browser_prefs.cc",
+        "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, true);",
+        "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, false);",
+    )
+    ctx.replace_in_src(
+        "chrome/browser/ui/webui/cr_components/most_visited/most_visited_pref_observer.cc",
+        "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, true);",
+        "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, false);",
+    )

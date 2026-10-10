@@ -74,9 +74,8 @@ def apply(ctx: MutatorContext):
     )
 
     # Ensure reduced user agent resolves full Chromium major milestone instead of Brave's "1"
-    if ctx.has_chromium_src():
-        ctx.replace_in_src(
-            "components/version_info/version_info_with_user_agent.cc",
+    ctx.replace_in_src(
+        "components/version_info/version_info_with_user_agent.cc",
         re.compile(
             r"std::string\s+GetProductNameAndVersionForReducedUserAgent\(\)\s*\{[\s\S]*?"
             r"return\s+base::StrCat\(\s*\{\s*\"Chrome/\"\s*,\s*GetMajorVersionNumber\(\)\s*,\s*\"\.0\.0\.0\"\s*\}\s*\);\s*"

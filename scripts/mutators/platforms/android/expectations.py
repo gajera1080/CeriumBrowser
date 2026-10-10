@@ -97,5 +97,4 @@ def _patch_validate_expectations_in_gn(content):
 
 
 def apply(ctx: MutatorContext):
-    if ctx.has_chromium_src():
-        ctx.mutate_file("chrome/android/BUILD.gn", _patch_validate_expectations_in_gn, in_src=True)
+    ctx.mutate_file("chrome/android/BUILD.gn", _patch_validate_expectations_in_gn, in_src=True)
