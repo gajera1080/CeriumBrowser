@@ -1,5 +1,5 @@
 """
-Braving Mutator Execution Context (scripts/mutators/context.py)
+Cerium Mutator Execution Context (scripts/mutators/context.py)
 Provides unified file mutation and parsing primitives for component mutators.
 """
 

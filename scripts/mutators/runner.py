@@ -1,5 +1,5 @@
 """
-Braving Mutator Runner (scripts/mutators/runner.py)
+Cerium Mutator Runner (scripts/mutators/runner.py)
 Orchestrates component-based mutators across common and platform-specific targets.
 """
 

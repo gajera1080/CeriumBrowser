@@ -1,6 +1,6 @@
-# Braving System Architecture & Modular Design
+# Cerium Browser System Architecture & Modular Design
 
-Braving is an independent, customized, fully de-branded, debloated, and privacy-hardened downstream distribution of the Brave Browser. It is designed to be built dynamically against upstream Brave and Chromium releases without maintaining a permanent, unwieldy hard-forked Git repository.
+Cerium is an independent, customized, fully de-branded, debloated, and privacy-hardened downstream distribution of the Brave Browser. It is designed to be built dynamically against upstream Brave and Chromium releases without maintaining a permanent, unwieldy hard-forked Git repository.
 
 ---
 
@@ -9,18 +9,18 @@ Braving is an independent, customized, fully de-branded, debloated, and privacy-
 The repository is organized into distinct, decoupled subsystems with strict separation of concerns:
 
 ```
-Braving Repository Structure
+Cerium Repository Structure
 ├── branding/                       # [Module 1] Brand Identity & Assets
 │   ├── logo.svg                    # Master vector identity
 │   ├── android/                    # Adaptive & themed vector drawables
 │   │   ├── drawable/               # 10 core vector logo drawables
 │   │   ├── res_brave_base/         # Adaptive launcher & Android 13+ themed icons
-│   │   └── shields_drawables/      # Dedicated Braving Shields toolbar icons (24dp)
+│   │   └── shields_drawables/      # Dedicated Cerium Shields toolbar icons (24dp)
 │   └── brave-core-static/          # 156 density PNGs & 10 static SVGs for brave-core
 │
 ├── patches/                        # [Module 2 & 3] Standard Unified Patches
 │   └── android/
-│       ├── 0001-braving-branding.patch           # Core branding & package ID
+│       ├── 0001-cerium-branding.patch            # Core branding & package ID
 │       ├── 0002-custom-updater-endpoint.patch    # Custom updater & telemetry suppression
 │       └── debloat/                              # Modular Enterprise Debloating
 │           ├── 0001-hide-brave-origin-flag.patch
@@ -29,18 +29,23 @@ Braving Repository Structure
 │           └── 0004-enforce-enterprise-policies.patch
 │
 ├── scripts/                        # Operational Scripts & Mutators
-│   ├── android/                    # Android Target Entry Points
-│   │   ├── prepare-source.sh       # Version resolution, checkout, patch/mutator orchestration
+│   ├── core/                       # Shared Cross-Platform Scripts
+│   │   ├── prepare-source.sh       # Dynamic resolution, checkout, patch apply & check, mutators, pipeline cache tarball
+│   │   ├── apply-patches.sh        # Unified patch applier and idempotence checker (--check)
 │   │   ├── apply-features.py       # [Module 2] Programmatic GN array mutator
 │   │   ├── apply-branding.py       # [Module 1] GRD/GRDP string & XTB translation mutator
 │   │   ├── apply-assets.sh         # [Module 1] Static asset overlay deployment
-│   │   ├── build-android.sh        # [Module 4] Release build orchestration & GN configuration
 │   │   ├── filter-build-log.py     # [Module 4] Real-time CI 4MB stream log filter
-│   │   ├── sign-apk.sh             # [Module 5] APK release signing & verification
 │   │   ├── verify-branding.sh      # [Module 1] Standalone branding verification
-│   │   └── verify-all.sh           # [Module 7] Master 5-tier verification suite
-│   ├── download-cache.sh           # [Module 6] Generic Package Registry cache restore & Siso sync
-│   ├── upload-cache.sh             # [Module 6] Generic Package Registry cache chunker & upload
+│   │   ├── verify-all.sh           # [Module 7] Master verification suite
+│   │   ├── download-cache.sh       # [Module 6] Generic Package Registry cache restore & Siso sync
+│   │   └── upload-cache.sh         # [Module 6] Generic Package Registry cache chunker & upload
+│   ├── platforms/                  # Modular Platform Build Entry Points
+│   │   ├── android/                # Android build and packaging (build.sh, package.sh)
+│   │   └── windows/                # Windows build and packaging (build.sh, package.sh)
+│   ├── ci/                         # CI Automation Scripts
+│   │   ├── check-release-needed.sh # Release tag verification for publish stage
+│   │   └── publish-release-direct.sh# Direct release creation via GitLab Releases API
 │   └── tests/                      # [Module 7] Automated Unit & Integration Tests
 │       ├── test_manifest.py        # Manifest schema & package_id verification
 │       ├── test_branding.py        # Asset dimensions, XML syntax, AAPT2 string limits
@@ -64,7 +69,7 @@ Braving Repository Structure
 - **Verification (`verify-branding.sh` & `test_branding.py`)**: Enforces AAPT2 ResStringPool limits (<32,767 bytes), intrinsic dimensions (e.g. 24dp for toolbar shields), and verifies the complete absence of upstream Brave lion vector paths.
 
 ### Module 2: Enterprise Policies & Radical Debloating
-- Rather than maintaining fragile GN build flags that break upstream compiler trees, Braving compiles modules cleanly but disables them unconditionally via Enterprise Policies.
+- Rather than maintaining fragile GN build flags that break upstream compiler trees, Cerium compiles modules cleanly but disables them unconditionally via Enterprise Policies.
 - `patches/android/debloat/0004-enforce-enterprise-policies.patch` injects mandatory policies at browser start:
   - `BraveWalletDisabled = true`
   - `BraveVPNDisabled = true`
@@ -79,8 +84,8 @@ Braving Repository Structure
 - `apply-features.py` isolates Polymer and WebUI resources so Android builds do not transpile unused desktop-only frontend bundles.
 
 ### Module 3: Component Updater & Privacy
-- `patches/common/0002-custom-updater-endpoint.patch` points component updates to `https://braving.gitlab.io/braving-updater/components`.
-- Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
+- `patches/common/0002-custom-updater-endpoint.patch` points component updates to `https://ceriumbrowser.gitlab.io/cerium-updater/components`.
+- Verifies custom Cerium publisher key hashes (`kBravingPublisherKeyHash`).
 - Batches update checks and appends `disable-pings` to component updater invocations.
 
 ### Module 4: Release Build Orchestration
@@ -98,7 +103,7 @@ Braving Repository Structure
 - For Windows: Packages binary outputs into versioned release archives.
 
 ### Module 6: Distributed CI Caching (Siso-Aware)
-- Chromium compilation involves >43,000 steps. Braving splits compilation across CI stages and bridges them via GitLab Generic Package Registry.
+- Chromium compilation involves >43,000 steps. Cerium splits compilation across CI stages and bridges them via GitLab Generic Package Registry.
 - `scripts/core/upload-cache.sh` splits the `out/Release` directory into 4.5 GB chunks with SHA256 checksums.
 - `scripts/core/download-cache.sh` streams and extracts the cache, removing `build.ninja.d` to prevent spurious manifest regeneration.
 - Timestamp synchronization enforces:

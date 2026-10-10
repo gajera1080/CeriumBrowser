@@ -13,7 +13,6 @@ def apply(ctx: MutatorContext):
         "chromium_src/components/embedder_support/user_agent_utils.cc",
         re.compile(r"constexpr\s+char\s+kBraveBrandNameForCHUA\[\]\s*=\s*\"Brave\";"),
         '[[maybe_unused]] constexpr char kBraveBrandNameForCHUA[] = "Brave";',
-        check_token='[[maybe_unused]] constexpr char kBraveBrandNameForCHUA'
     )
 
     ctx.replace_in_file(
@@ -22,7 +21,6 @@ def apply(ctx: MutatorContext):
             r"#define\s+BRAVE_GET_USER_AGENT_BRAND_LIST\s+brand\s*=\s*(?:kBraveBrandNameForCHUA|\"Google Chrome\");(?:\s*\(void\)kBraveBrandNameForCHUA;)?"
         ),
         '#define BRAVE_GET_USER_AGENT_BRAND_LIST brand = "Google Chrome"; (void)kBraveBrandNameForCHUA;',
-        check_token='brand = "Google Chrome"; (void)kBraveBrandNameForCHUA;'
     )
 
     ctx.replace_in_file(
@@ -32,7 +30,6 @@ def apply(ctx: MutatorContext):
             r"base::StrCat\(\s*\{\s*major_version\s*,\s*\"\.0\.0\.0\"\s*\}\s*\)"
         ),
         "#define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version",
-        check_token="#define BRAVE_BRAND_VERSION_OVERRIDE_FOR_FULL_BRAND_VERSION_TYPE full_version"
     )
 
     # Preserve full version fidelity in UserAgentMetadata instead of zeroing out last 3 version components
@@ -44,13 +41,12 @@ def apply(ctx: MutatorContext):
             r"return\s+metadata;\s*\}"
         ),
         """blink::UserAgentMetadata BraveContentBrowserClient::GetUserAgentMetadata() {
-  // Braving: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity
+  // Cerium: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity
   return ChromeContentBrowserClient::GetUserAgentMetadata();
 }""",
-        check_token="// Braving: Return standard Chromium / Chrome UserAgentMetadata with full version fidelity"
     )
 
-    # Always hide Brave brand across all domains so Braving consistently identifies as Chrome
+    # Always hide Brave brand across all domains so Cerium consistently identifies as Chrome
     ctx.replace_in_file(
         "components/brave_user_agent/browser/brave_user_agent_exceptions.cc",
         re.compile(
@@ -58,11 +54,10 @@ def apply(ctx: MutatorContext):
             r"return\s+!excepted_domains_\.contains\(domain\);\s*\}"
         ),
         """bool BraveUserAgentExceptions::CanShowBrave(const GURL& url) {
-  // Braving: Never show Brave brand; always identify as standard Chrome
+  // Cerium: Never show Brave brand; always identify as standard Chrome
   (void)url;
   return false;
 }""",
-        check_token="// Braving: Never show Brave brand; always identify as standard Chrome"
     )
 
     ctx.replace_in_file(
@@ -72,17 +67,15 @@ def apply(ctx: MutatorContext):
             r"return\s+exceptions\s*&&\s*!exceptions->CanShowBrave\(url\);\s*\}"
         ),
         """bool ShouldHideBraveBrand(const GURL& url) {
-  // Braving: Always hide Brave brand across all domains
+  // Cerium: Always hide Brave brand across all domains
   (void)url;
   return true;
 }""",
-        check_token="// Braving: Always hide Brave brand across all domains"
     )
 
     # Ensure reduced user agent resolves full Chromium major milestone instead of Brave's "1"
-    if ctx.has_chromium_src():
-        ctx.replace_in_src(
-            "components/version_info/version_info_with_user_agent.cc",
+    ctx.replace_in_src(
+        "components/version_info/version_info_with_user_agent.cc",
         re.compile(
             r"std::string\s+GetProductNameAndVersionForReducedUserAgent\(\)\s*\{[\s\S]*?"
             r"return\s+base::StrCat\(\s*\{\s*\"Chrome/\"\s*,\s*GetMajorVersionNumber\(\)\s*,\s*\"\.0\.0\.0\"\s*\}\s*\);\s*"
@@ -101,5 +94,4 @@ def apply(ctx: MutatorContext):
 #endif
   return base::StrCat({"Chrome/", major, ".0.0.0"});
 }""",
-        check_token="BRAVE_CHROMIUM_VERSION"
     )

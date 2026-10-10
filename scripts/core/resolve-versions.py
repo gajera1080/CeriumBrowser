@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Braving — Upstream Release & Dependency Version Resolver
+Cerium — Upstream Release & Dependency Version Resolver
 Resolves strict, deterministic upstream release commits:
   BRAVE_VERSION -> exact brave-core release tag -> exact pinned Chromium revision
 Generates upstream metadata (metadata/upstream-<version>.yaml), release manifest
@@ -27,7 +27,7 @@ def is_commit_sha(value) -> bool:
 
 
 def fetch_json(url: str, headers: dict = None, timeout: int = 15):
-    hdrs = {"User-Agent": "Braving-CI", "Accept": "application/vnd.github+json"}
+    hdrs = {"User-Agent": "Cerium-CI", "Accept": "application/vnd.github+json"}
     if headers:
         hdrs.update(headers)
     req = urllib.request.Request(url, headers=hdrs)
@@ -139,7 +139,7 @@ def resolve_chromium_version(version: str, local_brave: str) -> str:
 
     try:
         pkg_url = f"https://raw.githubusercontent.com/brave/brave-core/v{version}/package.json"
-        req = urllib.request.Request(pkg_url, headers={"User-Agent": "Braving-Source-Prep"})
+        req = urllib.request.Request(pkg_url, headers={"User-Agent": "Cerium-Source-Prep"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             pkg_data = json.loads(resp.read().decode("utf-8"))
             cr = pkg_data.get("config", {}).get("projects", {}).get("chrome", {}).get("tag")
@@ -156,7 +156,7 @@ def resolve_chromium_commit(chromium_version: str) -> str:
     try:
         req = urllib.request.Request(
             f"https://chromium.googlesource.com/chromium/src/+/refs/tags/{chromium_version}?format=JSON",
-            headers={"User-Agent": "Braving-CI"}
+            headers={"User-Agent": "Cerium-CI"}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             raw = resp.read().decode("utf-8")
@@ -229,8 +229,8 @@ def write_manifests(repo_root: str, brave_version: str, brave_core_commit: str,
                 "symbol_level": 0,
                 "disable_fieldtrial_testing_config": True,
             },
-            "braving_overrides": {
-                "chrome_public_manifest_package": "org.braving.browser",
+            "cerium_overrides": {
+                "chrome_public_manifest_package": "org.cerium.browser",
                 "disable_android_lint": True,
                 "target_android_output_format": "aab",
                 "enable_resource_allowlist_generation": True,
@@ -239,13 +239,13 @@ def write_manifests(repo_root: str, brave_version: str, brave_core_commit: str,
     }
 
     release_data = {
-        "braving_version": brave_version,
+        "cerium_version": brave_version,
         "brave_version": brave_version,
         "brave_core_commit": brave_core_commit,
         "chromium_version": chromium_version,
         "chromium_commit": chromium_commit,
         "build_date": build_date,
-        "package_id": "org.braving.browser",
+        "package_id": "org.cerium.browser",
         "target_architecture": "arm64",
         "build_arguments": {
             "target_os": "android",
@@ -253,7 +253,7 @@ def write_manifests(repo_root: str, brave_version: str, brave_core_commit: str,
             "is_debug": False,
             "is_official_build": True,
             "is_component_build": False,
-            "chrome_public_manifest_package": "org.braving.browser",
+            "chrome_public_manifest_package": "org.cerium.browser",
             "disable_android_lint": True,
             "target_android_output_format": "aab",
             "enable_resource_allowlist_generation": True,
@@ -281,7 +281,7 @@ def write_env_file(env_path: str, brave_version: str, brave_core_commit: str,
 def main():
     parser = argparse.ArgumentParser(description="Resolve upstream Brave and Chromium versions")
     parser.add_argument("version", nargs="?", default="", help="Brave version (e.g. 1.96.61)")
-    parser.add_argument("--repo-root", default=DEFAULT_REPO_ROOT, help="Braving repository root")
+    parser.add_argument("--repo-root", default=DEFAULT_REPO_ROOT, help="Cerium repository root")
     parser.add_argument("--local-brave", default=os.environ.get("BRAVE_CORE_DIR", "/run/media/pc/D/brave-core"))
     parser.add_argument("--env-file", default=None, help="Output dotenv file path")
     args = parser.parse_args()

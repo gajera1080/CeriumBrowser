@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Braving — Patch Application & Verification Engine
-# Applies or validates the Braving patch set against a target repository.
+# Cerium — Patch Application & Verification Engine
+# Applies or validates the Cerium patch set against a target repository.
 # Applies cross-platform patches (patches/common) first, followed by platform patches.
 # Supports clean forward application, strict idempotency (reverse-check),
 # and -C1 fuzzy context fallback across upstream version bumps.

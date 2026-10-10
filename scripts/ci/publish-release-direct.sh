@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Braving Browser CI/CD — Direct Release Publisher
+# Cerium Browser CI/CD — Direct Release Publisher
 # ==============================================================================
 # Purpose:
 #   Uploads the signed release APK directly to GitLab project uploads and
@@ -80,7 +80,7 @@ if [[ "${DRY_RUN}" == "true" ]]; then
   CI_JOB_TOKEN="${CI_JOB_TOKEN:-dry-run-token}"
   CI_API_V4_URL="${CI_API_V4_URL:-https://gitlab.com/api/v4}"
   CI_PROJECT_ID="${CI_PROJECT_ID:-dry-run-project-id}"
-  CI_PROJECT_URL="${CI_PROJECT_URL:-https://gitlab.com/braving/braving-browser}"
+  CI_PROJECT_URL="${CI_PROJECT_URL:-https://gitlab.com/CeriumBrowser/Cerium-Browser}"
   CI_COMMIT_SHA="${CI_COMMIT_SHA:-$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo "0000000000000000000000000000000000000000")}"
 else
   # In live execution mode, strictly enforce all required GitLab CI variables
@@ -97,7 +97,7 @@ if [[ ${#MISSING_VARS[@]} -gt 0 ]]; then
 fi
 
 echo "=========================================================="
-echo " Braving Direct Release Publisher"
+echo " Cerium Direct Release Publisher"
 echo " Version     : ${DYNAMIC_BRAVE_VERSION}"
 echo " Architecture: ${TARGET_ARCH}"
 echo " Dry Run     : ${DRY_RUN}"
@@ -120,7 +120,7 @@ done
 # Search Windows packages (both zip archives and installer executables across all architectures)
 for d in "${REPO_ROOT}/out/packages" "out/packages"; do
   if [[ -d "$d" ]]; then
-    for f in "$d"/Braving-Windows-*.zip "$d"/Braving-Installer-*.exe; do
+    for f in "$d"/Cerium-Windows-*.zip "$d"/Cerium-Installer-*.exe "$d"/Braving-Windows-*.zip "$d"/Braving-Installer-*.exe; do
       [[ -f "$f" ]] && PACKAGES_FOUND+=("$f")
     done
   fi
@@ -136,16 +136,16 @@ if [[ ${#PACKAGES_FOUND[@]} -eq 0 ]]; then
     if [[ "${CI_COMMIT_REF_NAME:-}" == "release" || "${CI_COMMIT_BRANCH:-}" == "release" ]]; then
       echo "[DRY-RUN] Simulating full multi-architecture release on release branch:"
       PACKAGES_FOUND+=(
-        "${REPO_ROOT}/out/apks/Braving-${DYNAMIC_BRAVE_VERSION}-arm64.apk"
-        "${REPO_ROOT}/out/packages/Braving-Windows-x64-v${DYNAMIC_BRAVE_VERSION}.zip"
-        "${REPO_ROOT}/out/packages/Braving-Windows-arm64-v${DYNAMIC_BRAVE_VERSION}.zip"
+        "${REPO_ROOT}/out/apks/Cerium-${DYNAMIC_BRAVE_VERSION}-arm64.apk"
+        "${REPO_ROOT}/out/packages/Cerium-Windows-x64-v${DYNAMIC_BRAVE_VERSION}.zip"
+        "${REPO_ROOT}/out/packages/Cerium-Windows-arm64-v${DYNAMIC_BRAVE_VERSION}.zip"
       )
     elif [[ "${TARGET_PLATFORM}" == "windows" ]]; then
       echo "[DRY-RUN] Simulating Windows release package:"
-      PACKAGES_FOUND+=("${REPO_ROOT}/out/packages/Braving-Windows-${TARGET_ARCH}-v${DYNAMIC_BRAVE_VERSION}.zip")
+      PACKAGES_FOUND+=("${REPO_ROOT}/out/packages/Cerium-Windows-${TARGET_ARCH}-v${DYNAMIC_BRAVE_VERSION}.zip")
     else
       echo "[DRY-RUN] Simulating Android release package:"
-      PACKAGES_FOUND+=("${REPO_ROOT}/out/apks/Braving-${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}.apk")
+      PACKAGES_FOUND+=("${REPO_ROOT}/out/apks/Cerium-${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}.apk")
     fi
   else
     echo "ERROR: No release packages found in out/apks or out/packages!" >&2
@@ -156,7 +156,7 @@ fi
 # ------------------------------------------------------------------------------
 # 4. Upload Release Assets to GitLab Generic Package Registry
 # ------------------------------------------------------------------------------
-PACKAGE_NAME="braving-release"
+PACKAGE_NAME="cerium-release"
 PACKAGE_VERSION="${DYNAMIC_BRAVE_VERSION}"
 PACKAGE_REGISTRY_BASE="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME}/${PACKAGE_VERSION}"
 MASTER_SHA256_FILE="$(mktemp /tmp/master-sha256-XXXXXX.txt)"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit and integration tests for Braving Siso warm cache pipeline:
+Unit and integration tests for Cerium Siso warm cache pipeline:
 - scripts/upload-cache.sh
 - scripts/download-cache.sh
 - scripts/android/build-android.sh
@@ -46,6 +46,11 @@ class TestCacheScriptsSyntax(unittest.TestCase):
 
     def test_package_windows_syntax(self):
         script = REPO_ROOT / "scripts" / "platforms" / "windows" / "package.sh"
+        res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
+
+    def test_prepare_source_syntax(self):
+        script = REPO_ROOT / "scripts" / "core" / "prepare-source.sh"
         res = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Syntax error in {script}: {res.stderr}")
 
@@ -154,14 +159,100 @@ class TestSisoCachePipeline(unittest.TestCase):
                 "inmtime must NOT be after outmtime (otherwise Siso marks target dirty)",
             )
 
-    def test_sisorc_configuration_content(self):
-        """Verify .sisorc flags format and content."""
-        siso_cache_dir = "/tmp/fake_siso_cache"
-        content = f"ninja -fs_keep_tainted -local_cache_enable -cache_dir={siso_cache_dir}\n"
-        self.assertIn("-fs_keep_tainted", content)
-        self.assertIn("-local_cache_enable", content)
-        self.assertIn(f"-cache_dir={siso_cache_dir}", content)
+
+class TestBraveSourceTransport(unittest.TestCase):
+    """Verify brave-core source artifact packaging, unpacking, and git clean exclusions."""
+
+    def test_git_clean_preserves_brave_and_out(self):
+        """Verify that git clean -ffd -e brave -e out preserves brave and out while cleaning untracked."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir) / "src"
+            src_dir.mkdir(parents=True)
+            subprocess.run(["git", "init", str(src_dir)], check=True, capture_output=True)
+            (src_dir / "tracked.txt").write_text("tracked")
+            subprocess.run(["git", "-C", str(src_dir), "config", "user.name", "Test"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(src_dir), "config", "user.email", "test@example.com"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(src_dir), "add", "tracked.txt"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(src_dir), "commit", "-m", "initial", "--no-gpg-sign"], check=True, capture_output=True)
+
+            # Untracked brave and out
+            brave_dir = src_dir / "brave"
+            brave_dir.mkdir(parents=True)
+            (brave_dir / "dummy.txt").write_text("brave content")
+            out_dir = src_dir / "out"
+            out_dir.mkdir(parents=True)
+            (out_dir / "build.txt").write_text("out content")
+            (src_dir / "untracked.txt").write_text("remove me")
+
+            subprocess.run(
+                ["git", "-C", str(src_dir), "clean", "-ffd", "-e", "brave", "-e", "out"],
+                check=True,
+                capture_output=True,
+            )
+
+            self.assertTrue((brave_dir / "dummy.txt").exists(), "brave directory must be preserved")
+            self.assertTrue((out_dir / "build.txt").exists(), "out directory must be preserved")
+            self.assertFalse((src_dir / "untracked.txt").exists(), "untracked files must be removed")
+
+    def test_brave_artifact_unpacking_and_cleanup(self):
+        """Verify brave-src-*.tar.gz packaging, extraction to src/brave, git initialization, and archive removal."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            src = workspace / "src"
+            brave = src / "brave"
+            brave.mkdir(parents=True)
+            (brave / "DEPS").write_text("vars = {}")
+            (brave / "package.json").write_text("{}")
+
+            archive = workspace / "brave-src-1.99.0.tar.gz"
+            subprocess.run(
+                ["tar", "--exclude=.git", "--exclude=node_modules", "-czf", str(archive), "-C", str(src), "brave"],
+                check=True,
+                capture_output=True,
+            )
+            self.assertTrue(archive.exists())
+
+            # Simulate fresh downstream runner
+            dest_workspace = Path(tmpdir) / "downstream_workspace"
+            dest_src = dest_workspace / "src"
+            dest_workspace.mkdir(parents=True)
+            import shutil
+            dest_archive = dest_workspace / "brave-src-1.99.0.tar.gz"
+            shutil.copy(archive, dest_archive)
+
+            # Run the exact unpack script snippet from .build_environment_setup
+            unpack_cmd = (
+                f'WORKSPACE_DIR="{dest_workspace}"\n'
+                f'DYNAMIC_BRAVE_VERSION="1.99.0"\n'
+                'if [ ! -d "${WORKSPACE_DIR}/src/brave" ]; then\n'
+                '  BRAVE_ARCHIVE=""\n'
+                '  if [ -n "${DYNAMIC_BRAVE_VERSION:-}" ] && [ -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]; then\n'
+                '    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"\n'
+                '  else\n'
+                '    BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)\n'
+                '  fi\n'
+                '  if [ -n "${BRAVE_ARCHIVE}" ] && [ -f "${BRAVE_ARCHIVE}" ]; then\n'
+                '    mkdir -p "${WORKSPACE_DIR}/src"\n'
+                '    tar -xzf "${BRAVE_ARCHIVE}" -C "${WORKSPACE_DIR}/src"\n'
+                '    rm -f "${BRAVE_ARCHIVE}"\n'
+                '    if [ ! -d "${WORKSPACE_DIR}/src/brave/.git" ]; then\n'
+                '      git -C "${WORKSPACE_DIR}/src/brave" init -q\n'
+                '      git -C "${WORKSPACE_DIR}/src/brave" config user.name "Cerium Browser Team"\n'
+                '      git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@ceriumbrowser.org"\n'
+                '      git -C "${WORKSPACE_DIR}/src/brave" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q\n'
+                '    fi\n'
+                '  fi\n'
+                'fi\n'
+            )
+            res = subprocess.run(["bash", "-c", unpack_cmd], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"Unpack failed: {res.stderr}")
+            self.assertTrue((dest_src / "brave" / "DEPS").exists(), "DEPS must exist in unpacked brave-core")
+            self.assertFalse(dest_archive.exists(), "Archive must be deleted after unpacking")
+            # Verify git repo and commit exist so gclient skips unmanaged solution
+            rev_res = subprocess.run(["git", "-C", str(dest_src / "brave"), "rev-parse", "--verify", "HEAD"], capture_output=True, text=True)
+            self.assertEqual(rev_res.returncode, 0, f"Git rev-parse HEAD failed: {rev_res.stderr}")
 
 
 if __name__ == "__main__":
     unittest.main()
+

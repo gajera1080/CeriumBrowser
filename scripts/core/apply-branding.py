@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Programmatic Braving String & Localization Mutator (apply-branding.py)
+Programmatic Cerium String & Localization Mutator (apply-branding.py)
 
-Safely rebrands user-visible "Brave" browser and Shields strings to "Braving"
+Safely rebrands user-visible "Brave" browser and Shields strings to "Cerium"
 across Android and shared cross-platform .grd/.grdp files, remapping XTB
 translation fingerprints so all locales resolve the updated strings cleanly.
 
@@ -35,18 +35,18 @@ BLOAT_KEYWORDS = (
     "SPEEDREADER",
 )
 
-AUTHORS_RE = re.compile(r"\b(?:Brave|Braving)\s+Authors\b")
+AUTHORS_RE = re.compile(r"\b(?:Brave|Braving|Cerium)\s+(?:Authors|Contributors)\b")
 
-# Match standalone "Brave" (or "Brave's"), excluding:
+# Match standalone "Brave" or "Braving", excluding:
 # - URLs/domains/paths (preceded by ., /, _, - or followed by ://, .[a-zA-Z])
-# - "Brave Search" (unless followed by "widget", e.g. "Try the Brave Search widget" -> "Try the Braving Search widget")
+# - "Brave Search" (unless followed by "widget", e.g. "Try the Brave Search widget" -> "Try the Cerium Search widget")
 # - Debloated sub-brands ("Brave Rewards", "Brave Wallet", etc.)
 BRAVE_RE = re.compile(
-    r"(?<![./_-])\bBrave\b"
+    r"(?<![./_-])\b(?:Brave|Braving)\b"
     r"(?!://|\.[a-zA-Z]|\s+(?:Search(?!\s+[Ww]idget\b)|Rewards|Leo|Wallet|News|Talk|VPN|Ads|Creators)\b)"
 )
 
-BRAVING_CHECK_RE = re.compile(r"\bBraving\b")
+CERIUM_CHECK_RE = re.compile(r"\bCerium\b")
 MSG_BLOCK_RE = re.compile(r"<message\b[^>]*>.*?</message>", re.DOTALL)
 PART_FILE_RE = re.compile(r'<part\s+file="([^"]+\.grdp)"')
 XTB_FILE_RE = re.compile(r'<file\s+[^>]*path="([^"]+\.xtb)"')
@@ -159,8 +159,8 @@ def should_skip_grdp_file(rel_path: str) -> bool:
 def replace_outside_ph_and_tags(block_str: str) -> str:
     parts = PH_OR_TAG_RE.split(block_str)
     for i in range(0, len(parts), 2):
-        parts[i] = AUTHORS_RE.sub("Braving Contributors", parts[i])
-        parts[i] = BRAVE_RE.sub("Braving", parts[i])
+        parts[i] = AUTHORS_RE.sub("Cerium Browser Team", parts[i])
+        parts[i] = BRAVE_RE.sub("Cerium", parts[i])
     return "".join(parts)
 
 
@@ -178,8 +178,9 @@ def process_grd_or_grdp_file(full_path: str, fp_map: dict, branded_fps: set) -> 
         msg_str = match.group(0)
         has_brave = "Brave" in msg_str
         has_braving = "Braving" in msg_str
-        has_authors = "Authors" in msg_str
-        if not has_brave and not has_braving and not has_authors:
+        has_cerium = "Cerium" in msg_str
+        has_authors = "Authors" in msg_str or "Contributors" in msg_str
+        if not has_brave and not has_braving and not has_cerium and not has_authors:
             return msg_str
 
         try:
@@ -194,7 +195,7 @@ def process_grd_or_grdp_file(full_path: str, fp_map: dict, branded_fps: set) -> 
 
         new_msg_str = replace_outside_ph_and_tags(msg_str)
         if new_msg_str == msg_str:
-            if has_braving:
+            if has_cerium or has_braving:
                 branded_fps.add(get_fingerprint_for_xtb(elem))
             return msg_str
 
@@ -266,7 +267,7 @@ def update_xtb_file(xtb_path: str, fp_map: dict, branded_fps: set) -> int:
 
 PREF_ATTR_RE = re.compile(r'(\b(?:android|app):(?:title|summary|dialogTitle|dialogMessage)=")([^"]*)(")')
 STRING_NODE_RE = re.compile(r'(<string\b[^>]*>)([^<]*)(</string>)')
-BRAVE_WORD_RE = re.compile(r"\b(?:Brave|Braving)(\s*-\s*Debug\b)?")
+BRAVE_WORD_RE = re.compile(r"\b(?:Brave|Braving|Cerium)(\s*-\s*Debug\b)?")
 
 
 def process_xml_preferences(brave_dir: str) -> int:
@@ -288,7 +289,7 @@ def process_xml_preferences(brave_dir: str) -> int:
         with open(p, "r", encoding="utf-8") as f:
             content = f.read()
         new_content = PREF_ATTR_RE.sub(
-            lambda m: m.group(1) + BRAVE_RE.sub("Braving", m.group(2)) + m.group(3),
+            lambda m: m.group(1) + BRAVE_RE.sub("Cerium", m.group(2)) + m.group(3),
             content,
         )
         if new_content != content:
@@ -308,7 +309,7 @@ def process_xml_preferences(brave_dir: str) -> int:
             content = f.read()
         new_content = STRING_NODE_RE.sub(
             lambda m: m.group(1) + BRAVE_WORD_RE.sub(
-                lambda word: "Braving" + (word.group(1) or ""), m.group(2)
+                lambda word: "Cerium" + (word.group(1) or ""), m.group(2)
             ) + m.group(3),
             content,
         )
@@ -417,7 +418,7 @@ def apply_branding(brave_dir: str, strict: bool = False) -> int:
         print(f" [OK] Branded {pref_count} Android XML preference file(s).")
 
     print(
-        f"Braving string branding complete: {total_messages} messages updated across "
+        f"Cerium string branding complete: {total_messages} messages updated across "
         f"{total_files} GRD/GRDP files and {total_xtbs} XTB translation files."
     )
     return 0

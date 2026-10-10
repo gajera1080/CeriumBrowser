@@ -1,10 +1,10 @@
 From: gajgaje2000 <gajgaje2000@gmail.com>
 Date: Fri, 5 Sep 2026 10:15:00 +0000
-Subject: [PATCH] [branding] Rebrand release app/theme/brave and package ID to Braving
+Subject: [PATCH] [branding] Rebrand release app/theme/brave and package ID to Cerium
 
 Updates release BRANDING and res_brave_base/values/channel_constants.xml under
-app/theme/brave to Braving, suppresses Android lint warnings for Braving assets,
-and sets the release Android manifest package ID to org.braving.browser.
+app/theme/brave to Cerium, suppresses Android lint warnings for Cerium assets,
+and sets the release Android manifest package ID to org.cerium.browser.
 ---
 diff --git a/app/theme/brave/BRANDING b/app/theme/brave/BRANDING
 index 7a81c45..c01e4a2 100644
@@ -19,14 +19,14 @@ index 7a81c45..c01e4a2 100644
 -PRODUCT_INSTALLER_SHORTNAME=Brave Installer
 -COPYRIGHT=Copyright 2016 The Brave Authors. All rights reserved.
 -MAC_BUNDLE_ID=com.brave.Browser
-+COMPANY_FULLNAME=Braving Project
-+COMPANY_SHORTNAME=Braving
-+PRODUCT_FULLNAME=Braving Browser
-+PRODUCT_SHORTNAME=Braving
-+PRODUCT_INSTALLER_FULLNAME=Braving Installer
-+PRODUCT_INSTALLER_SHORTNAME=Braving Installer
-+COPYRIGHT=Copyright 2026 The Braving Contributors. All rights reserved.
-+MAC_BUNDLE_ID=org.braving.browser
++COMPANY_FULLNAME=Cerium Browser Team
++COMPANY_SHORTNAME=Cerium
++PRODUCT_FULLNAME=Cerium Browser
++PRODUCT_SHORTNAME=Cerium
++PRODUCT_INSTALLER_FULLNAME=Cerium Installer
++PRODUCT_INSTALLER_SHORTNAME=Cerium Installer
++COPYRIGHT=Copyright 2026 Cerium Browser Team. All rights reserved.
++MAC_BUNDLE_ID=org.cerium.browser
  MAC_CREATOR_CODE=Cr24
  MAC_TEAM_ID=KL8N8XSYF4
 diff --git a/app/theme/brave/android/res_brave_base/values/channel_constants.xml b/app/theme/brave/android/res_brave_base/values/channel_constants.xml
@@ -41,10 +41,10 @@ index 4759d6a..8f21975 100644
 -    <string name="bookmark_widget_title" translatable="false">Brave bookmarks</string>
 -    <string name="search_widget_title" translatable="false">Brave search</string>
 -    <string name="quick_action_search_widget_title" translatable="false">Brave quick action search</string>
-+    <string name="app_name" translatable="false">Braving</string>
-+    <string name="bookmark_widget_title" translatable="false">Braving bookmarks</string>
-+    <string name="search_widget_title" translatable="false">Braving search</string>
-+    <string name="quick_action_search_widget_title" translatable="false">Braving quick action search</string>
++    <string name="app_name" translatable="false">Cerium</string>
++    <string name="bookmark_widget_title" translatable="false">Cerium bookmarks</string>
++    <string name="search_widget_title" translatable="false">Cerium search</string>
++    <string name="quick_action_search_widget_title" translatable="false">Cerium quick action search</string>
  </resources>
  diff --git a/build/commands/lib/buildArgs.ts b/build/commands/lib/buildArgs.ts
 index b0fe5f1..92518e9 100644
@@ -55,7 +55,7 @@ index b0fe5f1..92518e9 100644
      } else if (config.channel === '') {
        args.android_channel = 'stable'
 -      args.chrome_public_manifest_package = 'com.brave.browser'
-+      args.chrome_public_manifest_package = 'org.braving.browser'
++      args.chrome_public_manifest_package = 'org.cerium.browser'
      } else if (config.channel === 'beta') {
        args.chrome_public_manifest_package = 'com.brave.browser_beta'
      } else if (config.channel === 'dev') {

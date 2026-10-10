@@ -1,6 +1,6 @@
 
-Contributing to Braving
-=======================
+Contributing to Cerium Browser
+==============================
 
     0. Overview
     1. Branch Structure and Release Workflow
@@ -14,7 +14,7 @@ Contributing to Braving
 0. Overview
 -----------
 
-    Thank you for your interest in contributing to Braving! Braving is an
+    Thank you for your interest in contributing to Cerium Browser! Cerium Browser is an
     independently branded, debloated, and privacy-hardened downstream
     distribution of Brave.
 
@@ -26,7 +26,7 @@ Contributing to Braving
 1. Branch Structure and Release Workflow
 ----------------------------------------
 
-    Braving uses a two-tier branch model:
+    Cerium uses a two-tier branch model:
 
       - 'release' (Production Release Branch):
         The primary stable branch of the repository. Only thoroughly tested,
@@ -52,8 +52,8 @@ Contributing to Braving
 ------------------
 
     1. Clone the repository:
-         git clone https://gitlab.com/braving/braving-browser.git
-         cd braving-browser
+         git clone https://gitlab.com/CeriumBrowser/Cerium-Browser.git
+         cd Cerium-Browser
 
     2. Check out the development branch:
          git checkout main
@@ -71,18 +71,18 @@ Contributing to Braving
 3. Development Rules and Principles
 -----------------------------------
 
-    To keep Braving maintainable across upstream updates, all contributors
+    To keep Cerium maintainable across upstream updates, all contributors
     must follow these core rules:
 
     3.1. Zero Permanent Commits in brave-core or chromium
          The build-workspace/src/brave directory is ephemeral and fetched
          dynamically at build time. Never make direct Git commits in
-         brave-core. All modifications must live in the Braving repository as
+         brave-core. All modifications must live in the Cerium repository as
          clean Git patches (in patches/) or programmatic Python mutators
          (in scripts/).
 
     3.2. Always Target the Latest Upstream Version
-         Braving continuously rolls forward with upstream Brave and Chromium
+         Cerium continuously rolls forward with upstream Brave and Chromium
          releases. All patches, mutators, and assets must be developed,
          tested, and maintained against the latest stable upstream release.
          Never pin or regress to older versions to work around upstream shifts.
@@ -97,9 +97,9 @@ Contributing to Braving
            no-op) and use stable semantic anchors rather than line numbers.
 
     3.4. No Naive Global String Replacements
-         Never run global regex find-and-replace for "Brave" -> "Braving".
+         Never run global regex find-and-replace for "Brave" -> "Cerium".
          Global replacements corrupt C++ symbols, translation keys, and GN
-         targets. Use scripts/android/apply-branding.py for string rebranding.
+         targets. Use scripts/core/apply-branding.py for string rebranding.
 
 
 4. Submitting Changes
@@ -126,7 +126,7 @@ Contributing to Braving
            git config user.email "your.email@example.com"
          Patch author headers in patches/ must follow standard format:
            From: Your Name <your.email@example.com>
-         General project attribution is credited to The Braving Contributors.
+         General project attribution is credited to Cerium Browser Team.
 
     4. Submit your Merge Request:
          - Target branch: 'main'

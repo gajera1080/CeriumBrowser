@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving — Android Compilation Entry Point
+# Cerium — Android Compilation Entry Point
 # Usage: ./scripts/platforms/android/build.sh [--manifest=<path>] [--arch=arm64|arm|x86_64] [--release]
 
 set -euo pipefail
@@ -63,7 +63,7 @@ MANIFEST="$(cd "$(dirname "${MANIFEST}")" && pwd)/$(basename "${MANIFEST}")"
 
 
 echo "========================================================"
-echo " Braving Android Build"
+echo " Cerium Android Build"
 echo " Manifest    : ${MANIFEST}"
 echo " Architecture: ${TARGET_ARCH}"
 echo " Release Mode: true"
@@ -98,7 +98,7 @@ BRAVE_CORE_COMMIT=$(extract_manifest_val "brave_core_commit")
 BRAVE_VERSION=$(extract_manifest_val "brave_version")
 CHROMIUM_COMMIT=$(extract_manifest_val "chromium_commit")
 CHROMIUM_VERSION=$(extract_manifest_val "chromium_version")
-PACKAGE_ID=$(extract_manifest_val "package_id" "org.braving.browser")
+PACKAGE_ID=$(extract_manifest_val "package_id" "org.cerium.browser")
 
 export BRAVE_VERSION
 export DYNAMIC_BRAVE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}"
@@ -147,26 +147,45 @@ T_CHECKOUT_START=${T_START}
 
 # Phase 2: Verify brave-core
 if [[ ! -d "${BRAVE_DIR}" ]]; then
+  BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
+  if [[ -f "${BRAVE_ARCHIVE}" ]]; then
+    echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
+    mkdir -p "${SRC_DIR}"
+    tar -xzf "${BRAVE_ARCHIVE}" -C "${SRC_DIR}"
+    rm -f "${BRAVE_ARCHIVE}"
+    echo "brave-core unpacked successfully."
+  fi
+fi
+
+if [[ -d "${BRAVE_DIR}" && ! -d "${BRAVE_DIR}/.git" ]]; then
+  git -C "${BRAVE_DIR}" init -q
+  git -C "${BRAVE_DIR}" config user.name "Cerium Browser Team"
+  git -C "${BRAVE_DIR}" config user.email "ci@ceriumbrowser.org"
+  git -C "${BRAVE_DIR}" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
+fi
+
+if [[ ! -d "${BRAVE_DIR}" ]]; then
   echo "ERROR: Prepared brave-core not found in ${BRAVE_DIR}." >&2
   echo "Please run scripts/core/prepare-source.sh (Phase 1) first." >&2
   exit 1
 fi
 
 
-CHROMIUM_ARCHIVE="${WORKSPACE_DIR}/chromium-src-${CHROMIUM_VERSION}.tar.xz"
 if [[ ! -d "${SRC_DIR}/.git" ]]; then
-  if [[ ! -f "${CHROMIUM_ARCHIVE}" ]]; then
-    echo "ERROR: Base Chromium archive not found at ${CHROMIUM_ARCHIVE}." >&2
-    echo "Please ensure scripts/core/prepare-source.sh has been run and cached." >&2
-    exit 1
-  fi
   echo ""
-  echo "Unpacking base Chromium source from ${CHROMIUM_ARCHIVE}..."
-  tar -xf "${CHROMIUM_ARCHIVE}" -C "${WORKSPACE_DIR}"
+  echo "Fetching clean Chromium at exact revision with NO history (${CHROMIUM_VERSION} @ ${CHROMIUM_COMMIT})..."
+  mkdir -p "${SRC_DIR}"
+  git init "${SRC_DIR}"
+  git -C "${SRC_DIR}" config advice.detachedHead false
+  git -C "${SRC_DIR}" remote add origin "https://chromium.googlesource.com/chromium/src.git" 2>/dev/null || git -C "${SRC_DIR}" remote set-url origin "https://chromium.googlesource.com/chromium/src.git"
+  git -C "${SRC_DIR}" fetch --depth 1 origin "refs/tags/${CHROMIUM_VERSION}:refs/tags/${CHROMIUM_VERSION}" 2>/dev/null || \
+  git -C "${SRC_DIR}" fetch --depth 1 origin "${CHROMIUM_COMMIT}"
+  git -C "${SRC_DIR}" reset --hard FETCH_HEAD
+  git -C "${SRC_DIR}" clean -ffd -e brave -e out
 else
   echo "Chromium source directory already exists, resetting to clean state..."
   git -C "${SRC_DIR}" reset --hard HEAD
-  git -C "${SRC_DIR}" clean -ffd
+  git -C "${SRC_DIR}" clean -ffd -e brave -e out
 fi
 
 T_SYNC_START=$(date +%s)
@@ -285,6 +304,7 @@ echo ""
 # Matches pythonPaths array in build/commands/lib/config.ts
 export PYTHONPATH="${BRAVE_DIR}/script:${SRC_DIR}/tools/grit/grit/extern:${BRAVE_DIR}/vendor/requests:${BRAVE_DIR}/third_party/cryptography:${BRAVE_DIR}/third_party/macholib:${SRC_DIR}/build:${SRC_DIR}/third_party/depot_tools${PYTHONPATH:+:${PYTHONPATH}}"
 export PYTHONUNBUFFERED="1"
+export GCLIENT_SUPPRESS_GIT_VERSION_WARNING="1"
 
 echo "1. Syncing Chromium DEPS dependencies via gclient (shallow, no history, NOHOOKS)..."
 (cd "${WORKSPACE_DIR}" && gclient sync --no-history --shallow --nohooks -j16)
@@ -567,11 +587,11 @@ fi
 T_PKG_START=$(date +%s)
 
 # Step 11: Collect and Optimize Artifacts (AAB Bundle & Standalone Universal APK)
-BRAVING_VERSION=$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")
+CERIUM_VERSION=$(extract_manifest_val "cerium_version" "$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")")
 OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
-OUTPUT_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.apk"
-OUTPUT_AAB_NAME="Braving-${BRAVING_VERSION}-${TARGET_ARCH}.aab"
+OUTPUT_NAME="Cerium-${CERIUM_VERSION}-${TARGET_ARCH}.apk"
+OUTPUT_AAB_NAME="Cerium-${CERIUM_VERSION}-${TARGET_ARCH}.aab"
 
 BUILT_AAB=$(find "${OUT_DIR}/apks" -name "*.aab" -type f 2>/dev/null | sort | head -n 1 || true)
 BUILT_APK=""
@@ -618,37 +638,26 @@ if [[ -n "${BUILT_AAB}" ]]; then
   fi
 fi
 
-# Fallback: search for direct APK outputs
-if [[ -z "${BUILT_APK}" ]]; then
-  if [[ -f "${OUT_DIR}/apks/ChromePublic.apk" ]]; then
-    BUILT_APK="${OUT_DIR}/apks/ChromePublic.apk"
-  elif [[ -f "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
-    BUILT_APK="${OUT_DIR}/apks/${OUTPUT_NAME}"
-  else
-    BUILT_APK=$(find "${OUT_DIR}/apks" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic*.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
-  fi
-fi
-if [[ -z "${BUILT_APK}" ]]; then
-  BUILT_APK=$(find "${OUT_DIR}" \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic*.apk" \) -type f 2>/dev/null | sort | head -n 1 || true)
-fi
+# Search for direct APK outputs
 if [[ -z "${BUILT_APK}" ]]; then
   BUILT_APK=$(find "${OUT_DIR}/apks" -name "*.apk" -type f 2>/dev/null | sort | head -n 1 || true)
 fi
 
-if [[ -n "${BUILT_APK}" ]]; then
-  if [[ "${BUILT_APK}" != "${OUTPUT_APK_DIR}/${OUTPUT_NAME}" ]]; then
-    cp -f "${BUILT_APK}" "${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
-  fi
-  if [[ "${BUILT_APK}" != "${OUT_DIR}/apks/${OUTPUT_NAME}" ]]; then
-    cp -f "${BUILT_APK}" "${OUT_DIR}/apks/${OUTPUT_NAME}" 2>/dev/null || true
-  fi
+if [[ -z "${BUILT_APK}" ]]; then
+  echo "ERROR: No built APK found in ${OUT_DIR}/apks." >&2
+  exit 1
+fi
 
-  # Step 12: Release APK Signing (when KEY_PASSWORD_ANDROID or keystore is configured)
-  if [[ -n "${KEY_PASSWORD_ANDROID:-}" || -n "${ANDROID_KEYSTORE_PASSWORD:-}" || -n "${ANDROID_KEYSTORE_PATH:-}" || -s "${REPO_ROOT}/.secure_files/${ANDROID_KEYSTORE_FILE:-braving_android.jks}" ]]; then
-    echo ""
-    echo "Signing release APK via sign-apk.sh..."
-    "${SCRIPT_DIR}/sign-apk.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
-  fi
+if [[ "${BUILT_APK}" != "${OUTPUT_APK_DIR}/${OUTPUT_NAME}" ]]; then
+  cp -f "${BUILT_APK}" "${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+fi
+
+# Step 12: Release APK Signing (when KEY_PASSWORD_ANDROID or keystore is configured)
+if [[ -n "${KEY_PASSWORD_ANDROID:-}" || -n "${ANDROID_KEYSTORE_PASSWORD:-}" || -n "${ANDROID_KEYSTORE_PATH:-}" || -s "${REPO_ROOT}/.secure_files/${ANDROID_KEYSTORE_FILE:-braving_android.jks}" ]]; then
+  echo ""
+  echo "Signing release APK via package.sh..."
+  "${SCRIPT_DIR}/package.sh" --apk="${OUTPUT_APK_DIR}/${OUTPUT_NAME}"
+fi
 
   # Final refresh of diagnostics archive
   archive_build_artifacts
@@ -667,8 +676,3 @@ if [[ -n "${BUILT_APK}" ]]; then
   echo " [TIMING] packaging=$((T_END - T_PKG_START))s"
   echo " [TIMING] total=$((T_END - T_START))s"
   echo "========================================================"
-else
-  echo "ERROR: Build completed but no APK found in ${OUT_DIR}" >&2
-  ls -la "${OUT_DIR}/apks/" 2>/dev/null || true
-  exit 1
-fi

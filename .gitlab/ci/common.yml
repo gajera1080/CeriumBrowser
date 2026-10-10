@@ -4,10 +4,6 @@ spec:
       type: string
       default: ""
       description: "Brave release version. Leave empty to auto-fetch latest stable from GitHub."
-    force_cache_rebuild:
-      type: boolean
-      default: false
-      description: "Force cold build and rebuild cache package in registry"
     compile_target:
       type: string
       default: "all"
@@ -23,42 +19,58 @@ spec:
   variables:
     GIT_STRATEGY: fetch
     WORKSPACE_DIR: "${CI_PROJECT_DIR}/build-workspace"
+    GCLIENT_SUPPRESS_GIT_VERSION_WARNING: "1"
 
 .build_environment_setup:
   before_script:
     - 'if [ -z "${DYNAMIC_BRAVE_VERSION:-}" ]; then echo "ERROR: DYNAMIC_BRAVE_VERSION is missing from build.env."; exit 1; fi'
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config zip
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config zip libfuse2
+    - export GCLIENT_SUPPRESS_GIT_VERSION_WARNING=1
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
+    - |
+      WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-$PWD}/build-workspace}"
+      if [ ! -d "${WORKSPACE_DIR}/src/brave" ]; then
+        BRAVE_ARCHIVE=""
+        if [ -n "${DYNAMIC_BRAVE_VERSION:-}" ] && [ -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]; then
+          BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
+        else
+          BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
+        fi
+        if [ -n "${BRAVE_ARCHIVE}" ] && [ -f "${BRAVE_ARCHIVE}" ]; then
+          echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
+          mkdir -p "${WORKSPACE_DIR}/src"
+          tar -xzf "${BRAVE_ARCHIVE}" -C "${WORKSPACE_DIR}/src"
+          rm -f "${BRAVE_ARCHIVE}"
+          if [ ! -d "${WORKSPACE_DIR}/src/brave/.git" ]; then
+            git -C "${WORKSPACE_DIR}/src/brave" init -q
+            git -C "${WORKSPACE_DIR}/src/brave" config user.name "Cerium Browser Team"
+            git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@ceriumbrowser.org"
+            git -C "${WORKSPACE_DIR}/src/brave" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
+          fi
+          echo "brave-core unpacked successfully."
+        fi
+      fi
 
 prepare_source:
   stage: prepare
   image: debian:bookworm-slim
   before_script:
     - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates xz-utils
-    - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
-    - npm install -g pnpm@11.11.0
   script:
     - export BRAVE_VERSION="${BRAVE_VERSION:-$[[ inputs.brave_version ]]}"
-    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
-    - echo "Preparing Braving source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
+    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
+    - echo "Preparing Cerium source in RELEASE MODE for Brave version ${BRAVE_VERSION}"
     - ./scripts/core/prepare-source.sh "${BRAVE_VERSION}"
     - ./scripts/core/verify-all.sh
     - BUILD_ENV_FILE=build.env ./scripts/ci/check-release-needed.sh
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-      - build-workspace/depot_tools/
-      - build-workspace/chromium-src-*.tar.xz
-    policy: push
-    when: on_success
   artifacts:
-    name: "braving-prepared-${BRAVE_VERSION}"
+    name: "cerium-prepared-${BRAVE_VERSION}"
     paths:
       - metadata/releases/*.yaml
       - metadata/upstream-*.yaml
       - branding/
+      - build-workspace/brave-src-*.tar.gz
     reports:
       dotenv: build.env
     expire_in: 2 days
@@ -84,7 +96,7 @@ publish_release:
     - echo "Publishing official multi-architecture release v${DYNAMIC_BRAVE_VERSION}..."
     - ./scripts/ci/publish-release-direct.sh
   artifacts:
-    name: "braving-release-${DYNAMIC_BRAVE_VERSION}"
+    name: "cerium-release-${DYNAMIC_BRAVE_VERSION}"
     when: on_success
     paths:
       - out/apks/
@@ -93,8 +105,6 @@ publish_release:
       - metadata/upstream-*.yaml
     expire_in: 90 days
   rules:
-    - if: '$SKIP_BUILD == "true"'
-      when: never
     - if: '$CI_COMMIT_BRANCH == "release"'
       when: on_success
     - when: never

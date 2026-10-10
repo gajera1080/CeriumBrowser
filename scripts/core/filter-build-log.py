@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Braving Build Stream Filter
+Cerium Build Stream Filter
 Prevents GitLab CI log truncation (4MB limit) while preserving all progress,
 errors, warnings, and failure diagnostics in real-time.
 

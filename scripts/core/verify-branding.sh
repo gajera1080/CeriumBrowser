@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving Branding & Visual Asset Verification Script
+# Cerium Branding & Visual Asset Verification Script
 # Enforces complete elimination of Brave lion branding across launcher,
 # adaptive, themed, splash, and toolbar Shields assets.
 
@@ -9,17 +9,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 echo "========================================================"
-echo " Braving Branding & Package ID Verification"
+echo " Cerium Branding & Package ID Verification"
 echo "========================================================"
 
 FAILURES=0
 
-# 1. Verify release manifests specify org.braving.browser
+# 1. Verify release manifests specify valid package_id
 echo "Checking release manifests..."
 for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   if [[ -f "${manifest}" ]]; then
-    if ! grep -Eq 'package_id:[[:space:]]*"?org\.braving\.browser"?' "${manifest}"; then
-      echo "ERROR: Manifest ${manifest} does not specify package_id: org.braving.browser" >&2
+    if ! grep -Eq 'package_id:[[:space:]]*"?(org\.cerium\.browser|org\.braving\.browser)"?' "${manifest}"; then
+      echo "ERROR: Manifest ${manifest} does not specify package_id: org.cerium.browser" >&2
       FAILURES=$((FAILURES + 1))
     else
       echo " [OK] Manifest ${manifest} has valid package_id."
@@ -29,10 +29,10 @@ done
 
 # 2. Check for branding patch
 echo "Checking branding patch..."
-if [[ -f "${REPO_ROOT}/patches/android/0001-braving-branding.patch" ]]; then
+if [[ -f "${REPO_ROOT}/patches/android/0001-cerium-branding.patch" || -f "${REPO_ROOT}/patches/android/0001-braving-branding.patch" ]]; then
   echo " [OK] Branding patch found."
 else
-  echo "ERROR: patches/android/0001-braving-branding.patch is missing." >&2
+  echo "ERROR: patches/android/0001-cerium-branding.patch is missing." >&2
   FAILURES=$((FAILURES + 1))
 fi
 
@@ -44,7 +44,7 @@ else
 fi
 
 # 4. Check master vector logo
-echo "Checking Braving master vector logo..."
+echo "Checking Cerium master vector logo..."
 if [[ -f "${REPO_ROOT}/branding/logo.svg" ]]; then
   echo " [OK] Master vector logo exists: branding/logo.svg"
 else
@@ -197,8 +197,8 @@ for draw_dir in "drawable" "drawable-night"; do
 done
 
 
-# 8. Check dedicated Braving Shields toolbar vector drawables
-echo "Checking Braving Shields toolbar vector drawables..."
+# 8. Check dedicated Cerium Shields toolbar vector drawables
+echo "Checking Cerium Shields toolbar vector drawables..."
 SHIELDS_DIR="${REPO_ROOT}/branding/android/shields_drawables"
 REQUIRED_SHIELDS=(
   "ic_social_brave_release_favicon_fullheight_color.xml"
@@ -224,13 +224,13 @@ done
 SHIELDS_COLOR_XML="${SHIELDS_DIR}/ic_social_brave_release_favicon_fullheight_color.xml"
 if [[ -f "${SHIELDS_COLOR_XML}" ]]; then
   if grep -qi 'fillColor="#ffffff"' "${SHIELDS_COLOR_XML}" || ! grep -qi '#FFFD8C57' "${SHIELDS_COLOR_XML}"; then
-    echo "ERROR: ${SHIELDS_COLOR_XML} must use the colored Braving gradients, not flat white!" >&2
+    echo "ERROR: ${SHIELDS_COLOR_XML} must use the colored Cerium gradients, not flat white!" >&2
     FAILURES=$((FAILURES + 1))
   fi
 fi
 
 if [[ ${FAILURES} -eq 0 ]]; then
-  echo " [OK] Dedicated Braving Shields toolbar vector drawables (24dp x 24dp, colored ON state) verified."
+  echo " [OK] Dedicated Cerium Shields toolbar vector drawables (24dp x 24dp, colored ON state) verified."
 fi
 
 # 9. Verify no Android XML string/pathData exceeds the AAPT2 UTF-8 ResStringPool limit (32,767 bytes)
@@ -279,5 +279,5 @@ fi
 
 echo ""
 echo "SUCCESS: All branding verification checks passed cleanly."
-echo "No visible upstream Brave lion branding detected in Braving asset suite."
+echo "No visible upstream Brave lion branding detected in Cerium asset suite."
 exit 0

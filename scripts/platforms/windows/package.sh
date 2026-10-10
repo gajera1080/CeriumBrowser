@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving — Windows Packaging Script
+# Cerium — Windows Packaging Script
 # Usage: ./scripts/platforms/windows/package.sh [--out-dir=<path>] [--dest-dir=<path>] [--arch=x64|arm64] [--version=<ver>] [--dry-run]
 
 set -euo pipefail
@@ -67,7 +67,7 @@ if [[ -z "${VERSION}" ]]; then
 fi
 
 echo "========================================================"
-echo " Braving Windows Package"
+echo " Cerium Windows Package"
 echo " Version     : ${VERSION}"
 echo " Architecture: ${TARGET_ARCH}"
 echo " Source Dir  : ${OUT_DIR}"
@@ -86,7 +86,7 @@ fi
 command -v zip >/dev/null 2>&1 || { echo "ERROR: zip is required." >&2; exit 1; }
 
 mkdir -p "${DEST_DIR}"
-ZIP_NAME="Braving-Windows-${TARGET_ARCH}-v${VERSION}.zip"
+ZIP_NAME="Cerium-Windows-${TARGET_ARCH}-v${VERSION}.zip"
 ZIP_PATH="${DEST_DIR}/${ZIP_NAME}"
 
 echo "Packaging standalone Windows distribution into ${ZIP_NAME}..."
@@ -96,14 +96,14 @@ echo "Packaging standalone Windows distribution into ${ZIP_NAME}..."
 
 # Copy installer if generated
 if [[ -f "${OUT_DIR}/mini_installer.exe" ]]; then
-  INSTALLER_NAME="Braving-Installer-${TARGET_ARCH}-v${VERSION}.exe"
+  INSTALLER_NAME="Cerium-Installer-${TARGET_ARCH}-v${VERSION}.exe"
   echo "Found mini_installer.exe. Copying to ${DEST_DIR}/${INSTALLER_NAME}..."
   cp "${OUT_DIR}/mini_installer.exe" "${DEST_DIR}/${INSTALLER_NAME}"
 fi
 
 # Generate SHA256 checksums
 echo "Generating SHA256SUMS.txt..."
-(cd "${DEST_DIR}" && sha256sum Braving-* > SHA256SUMS.txt)
+(cd "${DEST_DIR}" && sha256sum Cerium-* > SHA256SUMS.txt)
 
 echo "========================================================"
 echo " [SUCCESS] Windows packaging completed successfully."

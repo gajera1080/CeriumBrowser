@@ -1,14 +1,14 @@
-Braving
-=======
+Cerium Browser
+==============
 
     0. Overview
     1. Downloads & Official Releases
     2. Architecture Overview
     3. Repository Structure
-    4. Building Braving
+    4. Building Cerium Browser
        4.1. Prerequisites
        4.2. Prepare Source
-       4.3. Build Braving APK
+       4.3. Build Cerium Packages
     5. Special Thanks
     6. License
 
@@ -16,10 +16,10 @@ Braving
 0. Overview
 -----------
 
-    Braving is an independently branded browser based on exact Brave
+    Cerium Browser is an independently branded browser based on exact Brave
     and Chromium releases, featuring a maintainable mutator-based architecture.
 
-    Braving does not simply rebrand an APK. It builds directly from clean
+    Cerium does not simply rebrand an APK. It builds directly from clean
     upstream source code with reproducible, mutator-driven modifications.
 
 
@@ -28,18 +28,18 @@ Braving
 
     Pre-built production packages are automatically published on the release
     branch every 15 days and upon upstream updates. You do not need to
-    compile from source to install and use Braving.
+    compile from source to install and use Cerium.
 
     To download official signed APKs directly:
 
-        https://gitlab.com/braving/braving-browser/-/releases
+        https://gitlab.com/CeriumBrowser/Cerium-Browser/-/releases
 
     On the releases page, select the latest release tag (v<version>)
     and download the package matching your device architecture:
 
-        - braving-android-arm64-v<version>.apk   (Modern 64-bit ARM devices)
-        - braving-android-arm-v<version>.apk     (Legacy 32-bit ARM devices)
-        - braving-android-x86_64-v<version>.apk  (x86_64 devices and emulators)
+        - cerium-android-arm64-v<version>.apk   (Modern 64-bit ARM devices)
+        - cerium-android-arm-v<version>.apk     (Legacy 32-bit ARM devices)
+        - cerium-android-x86_64-v<version>.apk  (x86_64 devices and emulators)
 
     Each release includes recorded SHA256 checksums to verify package
     integrity prior to installation.
@@ -54,19 +54,19 @@ Braving
               |
     exact Chromium revision
               |
-    Braving mutators
+    Cerium mutators
               |
-    Braving source
+    Cerium source
               |
-    reproducible Braving build
+    reproducible Cerium build
               |
-    Braving APK / AAB
+    Cerium APK / Windows Package
 
 
 3. Repository Structure
 -----------------------
 
-    Braving/
+    Cerium/
     |-- AUTHORS              Lead author and contributor credits
     |-- CONTRIBUTING         Branch model (release vs main) & contribution guide
     |-- THANKS               Detailed acknowledgments and community thanks
@@ -87,7 +87,7 @@ Braving
         |   |-- apply-patches.sh     Unified patch applicator (common then platform)
         |   |-- download-cache.sh    Distributed CI Siso warm cache restore
         |   |-- filter-build-log.py  Real-time CI stream filter preventing log truncation
-        |   |-- prepare-source.sh    Stage 1: Dynamic checkout, patches, & mutators
+        |   |-- prepare-source.sh    Stage 1: Dynamic checkout, patches, patch verify, mutators & cache
         |   |-- resolve-versions.py  Resolves upstream release tags and git commit hashes
         |   |-- upload-cache.sh      Distributed CI Siso warm cache chunker and upload
         |   |-- verify-all.sh        Master 6-step verification suite
@@ -101,12 +101,12 @@ Braving
         `-- tests/            Automated unit and integration test suite
 
 
-4. Building Braving
--------------------
+4. Building Cerium Browser
+--------------------------
 
 4.1. Prerequisites
 
-    Building Braving requires a Linux environment (x86_64 or aarch64).
+    Building Cerium requires a Linux environment (x86_64 or aarch64).
     You will need the following tools installed:
 
       - Node.js >= 24.16.0
@@ -118,14 +118,15 @@ Braving
 
 4.2. Prepare Source
 
-    To validate revisions, checkout the source code, and apply Braving
-    branding mutators, run the preparation script with the desired
-    Brave version (or omit to auto-resolve latest stable):
+    To validate revisions, checkout brave-core, apply and verify Cerium
+    patches, execute branding and debloat mutators, and package the pipeline
+    source cache, run the preparation script with the desired Brave version
+    (or omit to auto-resolve latest stable):
 
         ./scripts/core/prepare-source.sh [BRAVE_VERSION]
 
 
-4.3. Build Braving
+4.3. Build Cerium
 
     Once the source is prepared, compile for the target platform:
 
@@ -139,7 +140,7 @@ Braving
 5. Special Thanks
 -----------------
 
-    Braving would not be possible without the incredible work and
+    Cerium would not be possible without the incredible work and
     resources provided by others. Special thanks to Brave Software,
     the Chromium Authors, GitLab, and Raymond Hill (uBlock Origin).
 

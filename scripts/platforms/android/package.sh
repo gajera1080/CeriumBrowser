@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Braving — Android APK Release Signing & Verification Script
+# Cerium — Android APK Release Signing & Verification Script
 # Resolves keystore (local or GitLab Secure Files API), aligns APK with zipalign,
 # signs with apksigner, and verifies with apksigner verify.
 #
@@ -17,10 +17,10 @@ SRC_DIR="${WORKSPACE_DIR}/src"
 OUT_DIR="${OUT_DIR:-${SRC_DIR}/out/Release}"
 OUTPUT_APK_DIR="${OUTPUT_APK_DIR:-${REPO_ROOT}/out/apks}"
 
-KEYSTORE_FILENAME="${ANDROID_KEYSTORE_FILE:-braving_android.jks}"
+KEYSTORE_FILENAME="${ANDROID_KEYSTORE_FILE:-${CERIUM_KEYSTORE_FILE:-braving_android.jks}}"
 SECURE_FILES_DIR="${SECURE_FILES_DIR:-${REPO_ROOT}/.secure_files}"
 KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH:-}"
-KEY_ALIAS="${ANDROID_KEY_ALIAS:-braving}"
+KEY_ALIAS="${ANDROID_KEY_ALIAS:-${CERIUM_KEY_ALIAS:-braving}}"
 
 PREFLIGHT=false
 DRY_RUN=false
@@ -70,7 +70,7 @@ done
 
 if [[ "${DRY_RUN}" == "true" ]]; then
   echo "========================================================"
-  echo " Braving APK Signing (Dry-Run)"
+  echo " Cerium APK Signing (Dry-Run)"
   echo " Keystore : ${KEYSTORE_PATH:-${SECURE_FILES_DIR}/${KEYSTORE_FILENAME}}"
   echo " Alias    : ${KEY_ALIAS}"
   echo "========================================================"
@@ -154,10 +154,10 @@ fi
 
 # Preflight check: verify keystore unlocks and alias exists
 if command -v keytool >/dev/null 2>&1; then
-  if ! BRAVING_KS_PASS="${KEY_PASS}" keytool -list \
+  if ! CERIUM_KS_PASS="${KEY_PASS}" keytool -list \
     -keystore "${KEYSTORE_PATH}" \
     -alias "${KEY_ALIAS}" \
-    -storepass:env BRAVING_KS_PASS >/dev/null 2>&1; then
+    -storepass:env CERIUM_KS_PASS >/dev/null 2>&1; then
     echo "ERROR: Failed to unlock keystore '${KEYSTORE_PATH}' with alias '${KEY_ALIAS}'." >&2
     echo "Verify KEY_PASSWORD_ANDROID and that keystore contains alias '${KEY_ALIAS}'." >&2
     exit 1
@@ -215,7 +215,7 @@ if [[ ${#TARGET_APKS[@]} -eq 0 ]]; then
       dest="${OUTPUT_APK_DIR}/$(basename "${apk}")"
       cp -f "${apk}" "${dest}"
       TARGET_APKS+=("${dest}")
-    done < <(find "${OUT_DIR}/apks" -maxdepth 1 \( -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f -print0 | sort -z)
+    done < <(find "${OUT_DIR}/apks" -maxdepth 1 \( -name "Cerium*.apk" -o -name "Braving*.apk" -o -name "Brave*.apk" -o -name "ChromePublic.apk" \) -type f -print0 | sort -z)
   fi
 fi
 
@@ -242,9 +242,9 @@ for apk in "${TARGET_APKS[@]}"; do
   echo "Signing: ${apk}"
   echo "--------------------------------------------------------"
 
-  TMP_ALIGNED="$(mktemp "${TMPDIR:-/tmp}/braving-aligned-XXXXXX.apk")"
-  TMP_SIGNED="$(mktemp "${TMPDIR:-/tmp}/braving-signed-XXXXXX.apk")"
-  TMP_STRIPPED="$(mktemp "${TMPDIR:-/tmp}/braving-stripped-XXXXXX.apk")"
+  TMP_ALIGNED="$(mktemp "${TMPDIR:-/tmp}/cerium-aligned-XXXXXX.apk")"
+  TMP_SIGNED="$(mktemp "${TMPDIR:-/tmp}/cerium-signed-XXXXXX.apk")"
+  TMP_STRIPPED="$(mktemp "${TMPDIR:-/tmp}/cerium-stripped-XXXXXX.apk")"
   cp -f "${apk}" "${TMP_STRIPPED}"
 
   # Strip any existing v1 JAR signatures (e.g. debug signatures) to ensure clean single-identity signing
@@ -276,10 +276,10 @@ except Exception:
 PYEOF
 
   "${ZIPALIGN_BIN}" -p -f 4 "${TMP_STRIPPED}" "${TMP_ALIGNED}"
-  BRAVING_KS_PASS="${KEY_PASS}" "${APKSIGNER_BIN}" sign \
+  CERIUM_KS_PASS="${KEY_PASS}" "${APKSIGNER_BIN}" sign \
     --ks "${KEYSTORE_PATH}" \
     --ks-key-alias "${KEY_ALIAS}" \
-    --ks-pass env:BRAVING_KS_PASS \
+    --ks-pass env:CERIUM_KS_PASS \
     --v1-signing-enabled true \
     --v2-signing-enabled true \
     --v3-signing-enabled true \

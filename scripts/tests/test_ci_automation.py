@@ -69,7 +69,7 @@ class TestPublishReleasePayload(unittest.TestCase):
 
     def _generate_payload(self, version, arch, commit_sha, apk_url, sha256=None, apk_name=None, chromium_version=None, sha256_url=None):
         """Simulates the Python payload generator used by publish-release-direct.sh."""
-        apk_name = apk_name or f"braving-android-{arch}-v{version}.apk"
+        apk_name = apk_name or f"cerium-android-{arch}-v{version}.apk"
         chromium_part = f" and Chromium v{chromium_version}" if chromium_version else ""
         description_lines = [
             f"Updated to v{version}{chromium_part}\n",
@@ -117,7 +117,7 @@ class TestPublishReleasePayload(unittest.TestCase):
         """Release payload must contain all required GitLab Release API fields."""
         payload = self._generate_payload(
             "1.96.60", "arm64", "abc123def",
-            "https://gitlab.com/braving/braving-browser/uploads/hash/file.apk",
+            "https://gitlab.com/CeriumBrowser/Cerium-Browser/uploads/hash/file.apk",
             sha256="deadbeef",
         )
         self.assertIn("name", payload)
@@ -213,7 +213,7 @@ class TestCIScriptSyntax(unittest.TestCase):
             capture_output=True, text=True, env=env
         )
         self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
-        self.assertIn("Braving Direct Release Publisher", res.stdout)
+        self.assertIn("Cerium Direct Release Publisher", res.stdout)
         self.assertIn("Release v1.96.61", res.stdout)
 
     def test_apply_patches_syntax(self):
@@ -227,6 +227,9 @@ class TestCIScriptSyntax(unittest.TestCase):
 
     def test_package_android_syntax(self):
         self._check_bash_syntax('scripts/platforms/android/package.sh')
+
+    def test_sign_apk_android_syntax(self):
+        self._check_bash_syntax('scripts/platforms/android/sign-apk.sh')
 
     def test_build_windows_syntax(self):
         self._check_bash_syntax('scripts/platforms/windows/build.sh')
@@ -248,7 +251,7 @@ class TestCIScriptSyntax(unittest.TestCase):
                 capture_output=True, text=True
             )
             self.assertEqual(res.returncode, 0, f"build-windows dry-run failed for {arch}: {res.stderr}")
-            self.assertIn("Braving Windows Build", res.stdout)
+            self.assertIn("Cerium Windows Build", res.stdout)
             self.assertIn(f"Architecture: {expected_arch}", res.stdout)
             self.assertIn("Dry-run mode requested. Validation complete.", res.stdout)
 
@@ -261,7 +264,7 @@ class TestCIScriptSyntax(unittest.TestCase):
                 capture_output=True, text=True
             )
             self.assertEqual(res.returncode, 0, f"package-windows dry-run failed for {arch}: {res.stderr}")
-            self.assertIn("Braving Windows Package", res.stdout)
+            self.assertIn("Cerium Windows Package", res.stdout)
             self.assertIn("Dry-run mode requested.", res.stdout)
 
     def test_package_windows_invalid_arch(self):
@@ -310,7 +313,7 @@ class TestCIScriptSyntax(unittest.TestCase):
             combined.update(d)
         inputs = combined.get('spec', {}).get('inputs', {})
         self.assertIn('brave_version', inputs)
-        self.assertIn('force_cache_rebuild', inputs)
+        self.assertNotIn('force_cache_rebuild', inputs)
 
         variables = combined.get('variables', {})
         self.assertIn('BRAVE_VERSION', variables)
@@ -365,6 +368,7 @@ class TestCIScriptSyntax(unittest.TestCase):
             'scripts/core/verify-branding.sh',
             'scripts/platforms/android/build.sh',
             'scripts/platforms/android/package.sh',
+            'scripts/platforms/android/sign-apk.sh',
             'scripts/platforms/windows/build.sh',
             'scripts/platforms/windows/package.sh',
         ]

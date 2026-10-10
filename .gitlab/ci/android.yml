@@ -4,10 +4,6 @@ spec:
       type: string
       default: ""
       description: "Brave release version. Leave empty to auto-fetch latest stable from GitHub."
-    force_cache_rebuild:
-      type: boolean
-      default: false
-      description: "Force cold build and rebuild cache package in registry"
     compile_target:
       type: string
       default: "all"
@@ -26,17 +22,10 @@ prepare_android_cache:
       artifacts: true
   variables:
     CACHE_PREP_ONLY: "true"
-    BUILD_TARGET: "v8 third_party/blink/public:blink"
+    BUILD_TARGET: "v8 third_party/blink/public:blink skia gpu third_party/angle"
     TARGET_ARCH: "arm64"
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-      - build-workspace/depot_tools/
-      - build-workspace/chromium-src-*.tar.xz
-    policy: pull
   script:
-    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-$[[ inputs.force_cache_rebuild ]]}"
+    - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
     - export TARGET_ARCH="arm64"
     - export CACHE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION}}-${TARGET_ARCH}"
     - |
@@ -44,16 +33,16 @@ prepare_android_cache:
         echo "FORCE_CACHE_REBUILD is true. Forcing a cold build."
       else
         echo "Checking if cache ${CACHE_VERSION} exists in the Packages API..."
-        if curl -s --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages?package_type=generic&package_name=braving-cache" | grep -q "\"version\":\"${CACHE_VERSION}\""; then
+        if curl -s --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages?package_type=generic" | grep -q "\"version\":\"${CACHE_VERSION}\""; then
           echo "Cache ${CACHE_VERSION} already exists in registry! Skipping Stage 2."
           exit 0
         fi
       fi
-    - echo "Building isolated Android heavy targets (v8 & blink) for ${TARGET_ARCH} to generate warm cache..."
+    - echo "Building isolated Android heavy targets (v8, blink, skia, gpu, angle) for ${TARGET_ARCH} to generate warm cache..."
     - ./scripts/platforms/android/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - ./scripts/core/upload-cache.sh
   artifacts:
-    name: "braving-cache-logs-${DYNAMIC_BRAVE_VERSION}"
+    name: "cerium-cache-logs-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
       - build-workspace/build-artifacts.tar.xz
@@ -81,13 +70,6 @@ build_android:
     ANDROID_KEYSTORE_FILE: "braving_android.jks"
     ANDROID_KEY_ALIAS: "braving"
     TARGET_ARCH: "arm64"
-  cache:
-    key: "braving-source-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - build-workspace/src/brave/
-      - build-workspace/depot_tools/
-      - build-workspace/chromium-src-*.tar.xz
-    policy: pull
   script:
     - export TARGET_ARCH="arm64"
     - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
@@ -99,7 +81,7 @@ build_android:
     - echo "Signing and verifying Android release APK..."
     - ./scripts/platforms/android/package.sh
   artifacts:
-    name: "braving-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
+    name: "cerium-android-${TARGET_ARCH}-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
       - out/apks/
