@@ -11,7 +11,7 @@ index a990f051d..13ea322fc 100644
        !base::FeatureList::IsEnabled(
            brave_component_updater::kUseDevUpdaterUrl)) {
 -    return BUILDFLAG(UPDATER_PROD_ENDPOINT);
-+    return "https://braving.gitlab.io/braving-updater/components";
++    return "https://ceriumbrowser.gitlab.io/cerium-updater/components";
    }
    return BUILDFLAG(UPDATER_DEV_ENDPOINT);
  }
@@ -35,7 +35,7 @@ index b827b398e..5a971e1b8 100644
      "https://brave-core-ext.s3.brave.com/",
      "https://dict.brave.com/",
 -    "https://go-updater.brave.com/",
-+    "https://braving.gitlab.io/braving-updater/components",
++    "https://ceriumbrowser.gitlab.io/cerium-updater/components",
      "https://redirector.brave.com/",
      "https://safebrowsing.brave.com/",
      "https://static.brave.com/",
@@ -339,7 +339,7 @@ index a3c19dfff..fb0211a46 100644
  declare_args() {
    updater_dev_endpoint = "https://go-updater-dev.bravesoftware.com/extensions"
 -  updater_prod_endpoint = "https://go-updater.brave.com/extensions"
-+  updater_prod_endpoint = "https://braving.gitlab.io/braving-updater/components"
++  updater_prod_endpoint = "https://ceriumbrowser.gitlab.io/cerium-updater/components"
  }
  
  if (is_official_build) {

@@ -34,12 +34,18 @@ def setup_mock_brave(brave_dir):
     brave_content_browser_client = os.path.join(brave_dir, "browser/brave_content_browser_client.cc")
     brave_user_agent_exceptions = os.path.join(brave_dir, "components/brave_user_agent/browser/brave_user_agent_exceptions.cc")
     brave_shields_features = os.path.join(brave_dir, "components/brave_shields/core/common/features.cc")
+    brave_shields_settings_values_h = os.path.join(brave_dir, "components/brave_shields/core/common/brave_shields_settings_values.h")
+    ntp_view_counter_pref_registry_cc = os.path.join(brave_dir, "components/ntp_background_images/common/view_counter_pref_registry.cc")
+    brave_profile_prefs_cc = os.path.join(brave_dir, "browser/brave_profile_prefs.cc")
+    bottom_toolbar_config_java = os.path.join(brave_dir, "android/java/org/chromium/chrome/browser/toolbar/bottom/BottomToolbarConfiguration.java")
+    brave_toolbar_manager_java = os.path.join(brave_dir, "android/java/org/chromium/chrome/browser/toolbar/BraveToolbarManager.java")
+    ntp_util_java = os.path.join(brave_dir, "android/java/org/chromium/chrome/browser/ntp/NtpUtil.java")
     origin_branding = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING")
     origin_branding_beta = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.beta")
     origin_branding_dev = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.development")
     origin_branding_nightly = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.nightly")
 
-    for p in [webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_content_client, user_agent_utils, brave_content_browser_client, brave_user_agent_exceptions, brave_shields_features, origin_branding, origin_branding_beta, origin_branding_dev, origin_branding_nightly]:
+    for p in [webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_content_client, user_agent_utils, brave_content_browser_client, brave_user_agent_exceptions, brave_shields_features, brave_shields_settings_values_h, ntp_view_counter_pref_registry_cc, brave_profile_prefs_cc, bottom_toolbar_config_java, brave_toolbar_manager_java, ntp_util_java, origin_branding, origin_branding_beta, origin_branding_dev, origin_branding_nightly]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
     with open(webui_build_gn, "w") as f:
@@ -259,6 +265,62 @@ BASE_FEATURE(kBraveAdblockDefault1pBlocking, base::FEATURE_DISABLED_BY_DEFAULT);
 }
 """)
 
+    with open(brave_shields_settings_values_h, "w") as f:
+        f.write("""using CosmeticFilteringSetting = traits::BraveShieldsSetting<
+    /*content_settings_type=*/ContentSettingsType::BRAVE_COSMETIC_FILTERING,
+    /*SettingType=*/ControlType,
+    /*default_value=*/ControlType::BLOCK_THIRD_PARTY>;
+""")
+
+    with open(ntp_view_counter_pref_registry_cc, "w") as f:
+        f.write("registry->RegisterBooleanPref(prefs::kNewTabPageShowBackgroundImage, true);\n")
+
+    with open(brave_profile_prefs_cc, "w") as f:
+        f.write("""registry->RegisterBooleanPref(kNewTabPageShowStats, true);
+  registry->SetDefaultPrefValue(ntp_prefs::kNtpCustomLinksVisible,
+                                base::Value(false));
+""")
+
+    with open(bottom_toolbar_config_java, "w") as f:
+        f.write("""        if (ChromeSharedPreferences.getInstance()
+                .readBoolean(BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_SET_KEY, false)) {
+            return ChromeSharedPreferences.getInstance()
+                    .readBoolean(BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, true);
+        } else {
+            ChromeSharedPreferences.getInstance()
+                    .writeBoolean(BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_SET_KEY, true);
+            boolean enable = true;
+            if (isSmallScreen()) {
+                enable = false;
+            }
+            ChromeSharedPreferences.getInstance()
+                    .writeBoolean(BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, enable);
+
+            return enable;
+        }
+
+    private static boolean isSmallScreen() {
+        return false;
+    }
+""")
+
+    with open(brave_toolbar_manager_java, "w") as f:
+        f.write("""            if (sharedPreferences.getBoolean(
+                    BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, true)) {
+""")
+
+    with open(ntp_util_java, "w") as f:
+        f.write("""    public static boolean shouldDisplayTopSites() {
+        return ChromeSharedPreferences.getInstance()
+                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, true);
+    }
+
+    public static boolean shouldDisplayBraveStats() {
+        return ChromeSharedPreferences.getInstance()
+                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, true);
+    }
+""")
+
     with open(origin_branding, "w") as f:
         f.write("""COMPANY_FULLNAME=Brave Software, Inc.
 COMPANY_SHORTNAME=Brave Software
@@ -368,6 +430,12 @@ inline constexpr wchar_t kProductPathName[] = L"Brave-Browser-Development";
         "brave_content_browser_client": brave_content_browser_client,
         "brave_user_agent_exceptions": brave_user_agent_exceptions,
         "brave_shields_features": brave_shields_features,
+        "brave_shields_settings_values_h": brave_shields_settings_values_h,
+        "ntp_view_counter_pref_registry_cc": ntp_view_counter_pref_registry_cc,
+        "brave_profile_prefs_cc": brave_profile_prefs_cc,
+        "bottom_toolbar_config_java": bottom_toolbar_config_java,
+        "brave_toolbar_manager_java": brave_toolbar_manager_java,
+        "ntp_util_java": ntp_util_java,
         "origin_branding": origin_branding,
         "origin_branding_beta": origin_branding_beta,
         "origin_branding_dev": origin_branding_dev,
@@ -390,9 +458,17 @@ def setup_mock_src(src_dir):
     skills_build_gn = os.path.join(src_dir, "third_party/devtools-frontend/src/front_end/models/ai_assistance/skills/BUILD.gn")
     chrome_android_build_gn = os.path.join(src_dir, "chrome/android/BUILD.gn")
     ver_ua_cc = os.path.join(src_dir, "components/version_info/version_info_with_user_agent.cc")
+    chrome_browser_prefs_cc = os.path.join(src_dir, "chrome/browser/prefs/browser_prefs.cc")
+    most_visited_pref_observer_cc = os.path.join(src_dir, "chrome/browser/ui/webui/cr_components/most_visited/most_visited_pref_observer.cc")
 
-    for p in [chrome_ver_gni, ver_values, ver_consts, ver_strings, timestamp_gni, ts_split_file, skills_build_gn, chrome_android_build_gn, ver_ua_cc]:
+    for p in [chrome_ver_gni, ver_values, ver_consts, ver_strings, timestamp_gni, ts_split_file, skills_build_gn, chrome_android_build_gn, ver_ua_cc, chrome_browser_prefs_cc, most_visited_pref_observer_cc]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
+
+    with open(chrome_browser_prefs_cc, "w") as f:
+        f.write("registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, true);\n")
+
+    with open(most_visited_pref_observer_cc, "w") as f:
+        f.write("registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, true);\n")
 
     with open(ver_ua_cc, "w") as f:
         f.write("""#include "components/version_info/version_info_with_user_agent.h"
@@ -545,6 +621,8 @@ if (_is_default_toolchain &&
         "skills_build_gn": skills_build_gn,
         "chrome_android_build_gn": chrome_android_build_gn,
         "ver_ua_cc": ver_ua_cc,
+        "chrome_browser_prefs_cc": chrome_browser_prefs_cc,
+        "most_visited_pref_observer_cc": most_visited_pref_observer_cc,
     }
 
 
@@ -675,6 +753,30 @@ def test_apply_features():
         with open(mock_files["pref_registry_cc"]) as f:
             assert "registry->RegisterBooleanPref(prefs::kSponsoredEnabled, false);" in f.read()
 
+        with open(mock_files["brave_shields_settings_values_h"]) as f:
+            assert "/*default_value=*/ControlType::BLOCK>;" in f.read()
+
+        with open(mock_files["ntp_view_counter_pref_registry_cc"]) as f:
+            assert "registry->RegisterBooleanPref(prefs::kNewTabPageShowBackgroundImage, false);" in f.read()
+
+        with open(mock_files["brave_profile_prefs_cc"]) as f:
+            bpp_content = f.read()
+            assert "registry->RegisterBooleanPref(kNewTabPageShowStats, false);" in bpp_content
+            assert "registry->SetDefaultPrefValue(ntp_prefs::kNtpShortcutsVisible," in bpp_content
+
+        with open(mock_files["bottom_toolbar_config_java"]) as f:
+            btc_content = f.read()
+            assert ".readBoolean(BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false);" in btc_content
+            assert '@SuppressWarnings("unused")' in btc_content
+
+        with open(mock_files["brave_toolbar_manager_java"]) as f:
+            assert "BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false)) {" in f.read()
+
+        with open(mock_files["ntp_util_java"]) as f:
+            ntp_u_content = f.read()
+            assert ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, false);" in ntp_u_content
+            assert ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, false);" in ntp_u_content
+
         with open(mock_files["install_worker_cc"]) as f:
             assert "// Cerium: Disable VPN NT background service registration" in f.read()
 
@@ -764,6 +866,12 @@ def test_apply_features():
             assert "std::string major = GetMajorVersionNumber();" in c
             assert "defined(BRAVE_CHROMIUM_VERSION)" in c
             assert 'base::StrCat({"Chrome/", major, ".0.0.0"})' in c
+
+        with open(mock_src["chrome_browser_prefs_cc"]) as f:
+            assert "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, false);" in f.read()
+
+        with open(mock_src["most_visited_pref_observer_cc"]) as f:
+            assert "registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, false);" in f.read()
 
         res_src_idem = subprocess.run([sys.executable, script, tmpdir, "--strict", f"--src-dir={src_tmpdir}"], capture_output=True, text=True)
         assert res_src_idem.returncode == 0, f"apply-features with --src-dir idempotence failed: {res_src_idem.stderr}"
@@ -879,8 +987,8 @@ def test_patch_suite():
     assert os.path.isfile(patch_0002), f"Missing patch file: {patch_0002}"
     with open(patch_0002, "r", encoding="utf-8") as f:
         c0002 = f.read()
-    assert 'https://braving.gitlab.io/braving-updater/components' in c0002
-    assert '+  updater_prod_endpoint = "https://braving.gitlab.io/braving-updater/components"' in c0002
+    assert 'https://ceriumbrowser.gitlab.io/cerium-updater/components' in c0002
+    assert '+  updater_prod_endpoint = "https://ceriumbrowser.gitlab.io/cerium-updater/components"' in c0002
     assert '+  updater_dev_endpoint' not in c0002
     assert 'kBravingPublisherKeyHash' in c0002
     assert 'IsStaticUpdaterGetUrl' in c0002

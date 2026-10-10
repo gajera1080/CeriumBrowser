@@ -79,7 +79,7 @@ Braving Repository Structure
 - `apply-features.py` isolates Polymer and WebUI resources so Android builds do not transpile unused desktop-only frontend bundles.
 
 ### Module 3: Component Updater & Privacy
-- `patches/common/0002-custom-updater-endpoint.patch` points component updates to `https://braving.gitlab.io/braving-updater/components`.
+- `patches/common/0002-custom-updater-endpoint.patch` points component updates to `https://ceriumbrowser.gitlab.io/cerium-updater/components`.
 - Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
 - Batches update checks and appends `disable-pings` to component updater invocations.
 

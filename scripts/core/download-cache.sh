@@ -113,7 +113,7 @@ rm -f "${OUT_DIR}/Release/obj/chrome/android/chrome_base_module_resources.resour
 # 3c. Invalidate cached object and buildflag files for patched Brave / updater / crx_file targets
 #     so Stage 3 always compiles the latest Stage 1 patches & mutators when gn gen is skipped.
 if [[ -f "${OUT_DIR}/Release/obj/brave/components/update_client/buildflags.ninja" ]]; then
-  sed -i 's|https://updates.braving.org/components|https://braving.gitlab.io/braving-updater/components|g' \
+  sed -i -E 's|https://(updates\.braving\.org\|braving\.gitlab\.io/braving-updater)/components|https://ceriumbrowser.gitlab.io/cerium-updater/components|g' \
     "${OUT_DIR}/Release/obj/brave/components/update_client/buildflags.ninja" || true
 fi
 rm -rf "${OUT_DIR}/Release/gen/brave/components/update_client" \

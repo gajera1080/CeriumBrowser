@@ -103,7 +103,7 @@ def replace_in_file(filepath, search, replacement):
 Do not reinvent browser engines. When implementing custom behavior, hook into the existing system's fallback/failure paths rather than constructing a parallel engine.
 
 ### Component Updates & Shields Protection
-Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`:
+Braving routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`:
 1. Verifies custom Braving publisher key hashes (`kBravingPublisherKeyHash`).
 2. Batches component checks into a single request and appends `disable-pings`.
 3. Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.

@@ -73,7 +73,7 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 - Modifications must remain asynchronous, non-blocking to the main browser thread, and preserve native Blink/V8 performance characteristics.
 
 ### Component Updates & Shields Protection
-- Braving routes component updates through our secure GitLab Pages static endpoint (`https://braving.gitlab.io/braving-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`.
+- Braving routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`.
 - Enforces Braving publisher key verification (`kBravingPublisherKeyHash`), batches component requests, and appends `disable-pings`.
 - Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
 
