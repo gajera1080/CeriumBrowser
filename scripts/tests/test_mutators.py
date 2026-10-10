@@ -923,11 +923,15 @@ def test_patch_suite():
     assert 'enforce("BraveWalletDisabled", true);' in c_policies
     assert 'enforce("BraveVPNDisabled", true);' in c_policies
     assert 'enforce("BraveAIChatEnabled", false);' in c_policies
-    assert 'enforce("IPFSEnabled", false);' in c_policies
-    assert 'enforce("TorDisabled", true);' in c_policies
-    assert 'enforce("BravePlaylistEnabled", false);' in c_policies
-    assert 'enforce("EmailAliasesEnabled", false);' in c_policies
-    assert 'enforce("PsstEnabled", false);' in c_policies
+    assert 'enforce("BraveNewsDisabled", true);' in c_policies
+    assert 'enforce("BraveRewardsDisabled", true);' in c_policies
+    assert 'enforce("BraveWaybackMachineEnabled", false);' in c_policies
+    assert 'enforce("BraveLocalAIEnabled", false);' in c_policies
+    assert 'enforce("IPFSEnabled", false);' not in c_policies
+    assert 'enforce("TorDisabled", true);' not in c_policies
+    assert 'enforce("BravePlaylistEnabled", false);' not in c_policies
+    assert 'enforce("EmailAliasesEnabled", false);' not in c_policies
+    assert 'enforce("PsstEnabled", false);' not in c_policies
 
     p_rate_brave = os.path.join(android_debloat_dir, "0005-remove-rate-brave.patch")
     assert os.path.isfile(p_rate_brave), f"Missing debloat patch: {p_rate_brave}"
