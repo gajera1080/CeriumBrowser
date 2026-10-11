@@ -379,6 +379,43 @@ class TestCIScriptSyntax(unittest.TestCase):
                     except OSError:
                         pass
 
+    def test_publish_release_no_duplicate_links(self):
+        """Ensure packages with the same basename across directories are deduplicated and do not generate duplicate links."""
+        apks_dir1 = os.path.join(self.REPO_ROOT, "out", "apks")
+        apks_dir2 = os.path.join(self.REPO_ROOT, "build-workspace", "src", "out", "Release", "apks")
+        os.makedirs(apks_dir1, exist_ok=True)
+        os.makedirs(apks_dir2, exist_ok=True)
+
+        mock1 = os.path.join(apks_dir1, "Cerium-1.96.61-arm64.apk")
+        mock2 = os.path.join(apks_dir2, "Cerium-1.96.61-arm64.apk")
+        try:
+            with open(mock1, "w") as f:
+                f.write("mock apk 1")
+            with open(mock2, "w") as f:
+                f.write("mock apk 2")
+
+            env = os.environ.copy()
+            env.update({
+                "DYNAMIC_BRAVE_VERSION": "1.96.61",
+                "TARGET_ARCH": "arm64",
+                "CI_COMMIT_BRANCH": "release",
+                "COMPILE_TARGET": "android",
+            })
+            res = subprocess.run(
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+                capture_output=True, text=True, env=env
+            )
+            self.assertEqual(res.returncode, 0, f"dry-run with duplicate files failed: {res.stderr}")
+            # Ensure the package is uploaded/linked exactly once, not duplicated
+            self.assertEqual(res.stdout.count("[DRY-RUN] Upload Cerium-1.96.61-arm64.apk ->"), 1)
+        finally:
+            for p in [mock1, mock2]:
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
+
     def test_apply_patches_syntax(self):
         self._check_bash_syntax('scripts/core/apply-patches.sh')
 
