@@ -50,9 +50,7 @@ prepare_android_cache:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "android")'
+    - if: '$COMPILE_TARGET == "all" || $COMPILE_TARGET == "android"'
       when: on_success
     - when: never
 
@@ -92,8 +90,6 @@ build_android:
   rules:
     - if: '$SKIP_BUILD == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "release"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "web" && ($COMPILE_TARGET == "all" || $COMPILE_TARGET == "android")'
+    - if: '$COMPILE_TARGET == "all" || $COMPILE_TARGET == "android"'
       when: on_success
     - when: never
