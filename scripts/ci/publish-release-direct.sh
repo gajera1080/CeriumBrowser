@@ -137,7 +137,7 @@ declare -a PACKAGES_FOUND=()
 
 # Search Android APKs (when COMPILE_TARGET is all or android)
 if [[ "${COMPILE_TARGET}" == "all" || "${COMPILE_TARGET}" == "android" ]]; then
-  for d in "${REPO_ROOT}/out/apks" "out/apks" "${REPO_ROOT}/build-workspace/src/out/Release/apks"; do
+  for d in "${REPO_ROOT}/out/apks" "${REPO_ROOT}/build-workspace/src/out/Release/apks"; do
     if [[ -d "$d" ]]; then
       for f in "$d"/*.apk; do
         [[ -f "$f" ]] && PACKAGES_FOUND+=("$f")
@@ -148,7 +148,7 @@ fi
 
 # Search Windows packages (when COMPILE_TARGET is all or windows*)
 if [[ "${COMPILE_TARGET}" == "all" || "${COMPILE_TARGET}" == windows* ]]; then
-  for d in "${REPO_ROOT}/out/packages" "out/packages"; do
+  for d in "${REPO_ROOT}/out/packages"; do
     if [[ -d "$d" ]]; then
       for f in "$d"/Cerium-Windows-*.zip "$d"/Cerium-Installer-*.exe "$d"/Braving-Windows-*.zip "$d"/Braving-Installer-*.exe; do
         if [[ -f "$f" ]]; then
@@ -166,9 +166,18 @@ if [[ "${COMPILE_TARGET}" == "all" || "${COMPILE_TARGET}" == windows* ]]; then
 fi
 
 
-# Deduplicate
+# Deduplicate packages strictly by basename to prevent duplicate uploads and release links
 if [[ ${#PACKAGES_FOUND[@]} -gt 0 ]]; then
-  mapfile -t PACKAGES_FOUND < <(printf "%s\n" "${PACKAGES_FOUND[@]}" | sort -u)
+  declare -A SEEN_BASENAMES=()
+  DEDUPED_PACKAGES=()
+  for pkg in "${PACKAGES_FOUND[@]}"; do
+    bn="$(basename "$pkg")"
+    if [[ -z "${SEEN_BASENAMES[$bn]:-}" ]]; then
+      SEEN_BASENAMES["$bn"]=1
+      DEDUPED_PACKAGES+=("$pkg")
+    fi
+  done
+  PACKAGES_FOUND=("${DEDUPED_PACKAGES[@]}")
 fi
 
 if [[ ${#PACKAGES_FOUND[@]} -eq 0 ]]; then
@@ -289,7 +298,13 @@ commit_sha = sys.argv[2]
 chromium_version = sys.argv[3]
 sha256_url = sys.argv[4]
 tag_name = sys.argv[5]
-items = [json.loads(x) for x in sys.argv[6:]]
+raw_items = [json.loads(x) for x in sys.argv[6:]]
+seen_item_names = set()
+items = []
+for it in raw_items:
+    if it["name"] not in seen_item_names:
+        seen_item_names.add(it["name"])
+        items.append(it)
 
 chromium_part = f" and Chromium v{chromium_version}" if chromium_version else ""
 description_lines = [f"Updated to v{version}{chromium_part}\n"]
@@ -325,8 +340,14 @@ description_lines.extend([
     "- P3A Telemetry\n",
 ])
 
-links = [{"name": it["name"], "url": it["url"], "link_type": "package"} for it in items]
-if sha256_url:
+seen_links = set()
+links = []
+for it in items:
+    if it["name"] not in seen_links:
+        seen_links.add(it["name"])
+        links.append({"name": it["name"], "url": it["url"], "link_type": "package"})
+
+if sha256_url and "SHA256SUMS.txt" not in seen_links:
     links.append({"name": "SHA256SUMS.txt", "url": sha256_url, "link_type": "package"})
 
 payload = {
