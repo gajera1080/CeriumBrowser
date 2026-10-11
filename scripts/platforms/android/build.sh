@@ -587,7 +587,7 @@ fi
 T_PKG_START=$(date +%s)
 
 # Step 11: Collect and Optimize Artifacts (AAB Bundle & Standalone Universal APK)
-CERIUM_VERSION=$(extract_manifest_val "cerium_version" "$(extract_manifest_val "braving_version" "${BRAVE_VERSION:-unknown}")")
+CERIUM_VERSION=$(extract_manifest_val "cerium_version" "${BRAVE_VERSION:-unknown}")
 OUTPUT_APK_DIR="${REPO_ROOT}/out/apks"
 mkdir -p "${OUTPUT_APK_DIR}"
 OUTPUT_NAME="Cerium-${CERIUM_VERSION}-${TARGET_ARCH}.apk"
