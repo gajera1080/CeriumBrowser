@@ -93,7 +93,7 @@ publish_release:
   before_script:
     - apt-get update -qq && apt-get install -y -qq curl python3 ca-certificates
   script:
-    - echo "Publishing official multi-architecture release v${DYNAMIC_BRAVE_VERSION}..."
+    - echo "Publishing official release v${DYNAMIC_BRAVE_VERSION}..."
     - ./scripts/ci/publish-release-direct.sh
   artifacts:
     name: "cerium-release-${DYNAMIC_BRAVE_VERSION}"

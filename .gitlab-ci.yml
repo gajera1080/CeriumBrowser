@@ -17,8 +17,8 @@ spec:
 ---
 # GitLab CI Pipeline for Cerium Multi-Platform Distribution
 # Unified architecture building Android (arm64), Windows (x64), and Windows (arm64)
-# - Release branch builds all targets automatically and publishes official release
-# - Non-release branches provide interactive selection of compile target via GitLab inputs
+# - Release branch builds all targets by default and publishes official release (or selected target via Web UI)
+# - Web UI execution provides interactive selection of compile target via GitLab inputs
 
 stages:
   - prepare
@@ -34,7 +34,7 @@ variables:
   GCLIENT_SUPPRESS_GIT_VERSION_WARNING: "1"
 
 # Pipeline execution rules:
-# - release branch triggers on any push/merge to build all architectures and publish official release
+# - release branch triggers on any push/merge to build and publish official release
 # - manual Web UI execution triggers configurable target compilation
 workflow:
   rules:

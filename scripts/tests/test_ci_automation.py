@@ -215,6 +215,69 @@ class TestCIScriptSyntax(unittest.TestCase):
         self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
         self.assertIn("Cerium Direct Release Publisher", res.stdout)
         self.assertIn("Release v1.96.61", res.stdout)
+        self.assertIn("### Android", res.stdout)
+        self.assertIn("### Windows", res.stdout)
+
+    def test_publish_release_dry_run_android(self):
+        """publish-release-direct.sh --dry-run with COMPILE_TARGET=android simulates only Android."""
+        env = os.environ.copy()
+        env.update({
+            "DYNAMIC_BRAVE_VERSION": "1.96.61",
+            "TARGET_ARCH": "arm64",
+            "CI_COMMIT_BRANCH": "release",
+            "COMPILE_TARGET": "android",
+        })
+        res = subprocess.run(
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+            capture_output=True, text=True, env=env
+        )
+        self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
+        self.assertIn("Simulating Android release package:", res.stdout)
+        self.assertNotIn("Simulating Windows", res.stdout)
+        self.assertIn("Cerium-1.96.61-arm64.apk", res.stdout)
+        self.assertIn("### Android", res.stdout)
+        self.assertNotIn("### Windows", res.stdout)
+
+    def test_publish_release_dry_run_windows(self):
+        """publish-release-direct.sh --dry-run with COMPILE_TARGET=windows simulates Windows packages."""
+        env = os.environ.copy()
+        env.update({
+            "DYNAMIC_BRAVE_VERSION": "1.96.61",
+            "TARGET_ARCH": "all",
+            "CI_COMMIT_BRANCH": "release",
+            "COMPILE_TARGET": "windows",
+        })
+        res = subprocess.run(
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+            capture_output=True, text=True, env=env
+        )
+        self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
+        self.assertIn("Simulating Windows release package(s):", res.stdout)
+        self.assertNotIn("Simulating Android", res.stdout)
+        self.assertIn("Cerium-Windows-x64-v1.96.61.zip", res.stdout)
+        self.assertIn("Cerium-Windows-arm64-v1.96.61.zip", res.stdout)
+        self.assertIn("### Windows", res.stdout)
+        self.assertNotIn("### Android", res.stdout)
+
+    def test_publish_release_dry_run_windows_x64(self):
+        """publish-release-direct.sh --dry-run with COMPILE_TARGET=windows_x64 simulates only x64."""
+        env = os.environ.copy()
+        env.update({
+            "DYNAMIC_BRAVE_VERSION": "1.96.61",
+            "TARGET_ARCH": "x64",
+            "CI_COMMIT_BRANCH": "release",
+            "COMPILE_TARGET": "windows_x64",
+        })
+        res = subprocess.run(
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+            capture_output=True, text=True, env=env
+        )
+        self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
+        self.assertIn("Simulating Windows x64 release package:", res.stdout)
+        self.assertNotIn("arm64", res.stdout)
+        self.assertIn("Cerium-Windows-x64-v1.96.61.zip", res.stdout)
+        self.assertIn("### Windows", res.stdout)
+        self.assertNotIn("### Android", res.stdout)
 
     def test_apply_patches_syntax(self):
         self._check_bash_syntax('scripts/core/apply-patches.sh')
@@ -322,7 +385,7 @@ class TestCIScriptSyntax(unittest.TestCase):
         self.assertIsInstance(variables['FORCE_CACHE_REBUILD'], str)
 
         if 'compile_target' in inputs:
-            # Non-release branches require interactive developer selection in Web UI
+            # Interactive developer selection in Web UI across all branches (default: all)
             self.assertEqual(
                 inputs['compile_target'].get('options'),
                 ['all', 'android', 'windows', 'windows_x64', 'windows_arm64']
@@ -330,8 +393,33 @@ class TestCIScriptSyntax(unittest.TestCase):
             self.assertEqual(inputs['compile_target'].get('default'), 'all')
             self.assertIn('COMPILE_TARGET', variables)
         else:
-            # Release branch builds all targets automatically without arch input prompt
             self.assertEqual(variables.get('COMPILE_TARGET', 'all'), 'all')
+
+    def test_ci_job_rules_target_filtering(self):
+        """Verify android.yml and windows.yml rules enforce COMPILE_TARGET filtering."""
+        import yaml
+        for rel_path, expected_jobs in [
+            ('.gitlab/ci/android.yml', ['prepare_android_cache', 'build_android']),
+            ('.gitlab/ci/windows.yml', ['prepare_windows_cache_x64', 'prepare_windows_cache_arm64', 'build_windows_x64', 'build_windows_arm64'])
+        ]:
+            full_path = os.path.join(self.REPO_ROOT, rel_path)
+            with open(full_path, 'r', encoding='utf-8') as f:
+                docs = [d for d in yaml.safe_load_all(f) if d]
+            job_dict = {}
+            for d in docs:
+                job_dict.update(d)
+            for j in expected_jobs:
+                self.assertIn(j, job_dict, f"Missing job {j} in {rel_path}")
+                rules = job_dict[j].get('rules', [])
+                self.assertTrue(len(rules) >= 2, f"Insufficient rules for {j} in {rel_path}")
+                rule_conditions = [r.get('if', '') for r in rules if 'if' in r]
+                # Ensure no unconditional release branch rule exists that bypasses COMPILE_TARGET
+                for cond in rule_conditions:
+                    if '$CI_COMMIT_BRANCH == "release"' in cond:
+                        self.assertIn('$COMPILE_TARGET', cond, f"Rule in {j} must not unconditionally match release branch")
+                # Ensure COMPILE_TARGET check is present
+                has_compile_target = any('$COMPILE_TARGET' in cond for cond in rule_conditions)
+                self.assertTrue(has_compile_target, f"Job {j} must check $COMPILE_TARGET")
 
     def test_resolve_versions_execution(self):
         """resolve-versions.py must generate deterministic manifest and env files."""
