@@ -966,8 +966,6 @@ def test_patch_suite():
 
     # Verify 0001 branding patch (release-only)
     patch_0001 = os.path.join(REPO_ROOT, "patches/android/0001-cerium-branding.patch")
-    if not os.path.isfile(patch_0001):
-        patch_0001 = os.path.join(REPO_ROOT, "patches/android/0001-braving-branding.patch")
     assert os.path.isfile(patch_0001), f"Missing patch file: {patch_0001}"
     with open(patch_0001, "r", encoding="utf-8") as f:
         c0001 = f.read()

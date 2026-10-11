@@ -35,7 +35,7 @@ index b827b398e..5a971e1b8 100644
      "https://brave-core-ext.s3.brave.com/",
      "https://dict.brave.com/",
 -    "https://go-updater.brave.com/",
-+    "https://ceriumbrowser.gitlab.io/cerium-updater/components",
++    "https://ceriumbrowser.gitlab.io/cerium-updater/",
      "https://redirector.brave.com/",
      "https://safebrowsing.brave.com/",
      "https://static.brave.com/",

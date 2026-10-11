@@ -18,7 +18,7 @@ FAILURES=0
 echo "Checking release manifests..."
 for manifest in "${REPO_ROOT}/metadata/releases"/*.yaml; do
   if [[ -f "${manifest}" ]]; then
-    if ! grep -Eq 'package_id:[[:space:]]*"?(org\.cerium\.browser|org\.braving\.browser)"?' "${manifest}"; then
+    if ! grep -Eq 'package_id:[[:space:]]*"?org\.cerium\.browser"?' "${manifest}"; then
       echo "ERROR: Manifest ${manifest} does not specify package_id: org.cerium.browser" >&2
       FAILURES=$((FAILURES + 1))
     else
@@ -29,7 +29,7 @@ done
 
 # 2. Check for branding patch
 echo "Checking branding patch..."
-if [[ -f "${REPO_ROOT}/patches/android/0001-cerium-branding.patch" || -f "${REPO_ROOT}/patches/android/0001-braving-branding.patch" ]]; then
+if [[ -f "${REPO_ROOT}/patches/android/0001-cerium-branding.patch" ]]; then
   echo " [OK] Branding patch found."
 else
   echo "ERROR: patches/android/0001-cerium-branding.patch is missing." >&2
