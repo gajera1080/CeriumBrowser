@@ -74,7 +74,7 @@ Modifications to `brave-core` use a **hybrid approach** to balance simplicity wi
 ### Component Updates & Shields Protection
 - **Custom Updater Endpoint**: Cerium routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`.
 - **Default Aggressive Blocking**: Cerium defaults to Aggressive ad and tracker blocking out-of-the-box (`/*default_value=*/ControlType::BLOCK>;` in `brave_shields_settings_values.h`) and enables `kBraveAdblockDefault1pBlocking` by default via `scripts/mutators/common/shields.py`.
-- **Key Verification & Initialization**: Enforces publisher key verification (`kBravingPublisherKeyHash`), batches component requests, appends `disable-pings`, and initializes `ad_block_service()` on demand with full profile integration to ensure race-free browser startup.
+- **Key Verification & Initialization**: Enforces publisher key verification (`kCeriumPublisherKeyHash`), batches component requests, appends `disable-pings`, and initializes `ad_block_service()` on demand with full profile integration to ensure race-free browser startup.
 
 ---
 

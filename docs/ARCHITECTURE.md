@@ -85,7 +85,7 @@ Cerium Repository Structure
 
 ### Module 3: Component Updater & Privacy
 - `patches/common/0002-custom-updater-endpoint.patch` points component updates to `https://ceriumbrowser.gitlab.io/cerium-updater/components`.
-- Verifies custom Cerium publisher key hashes (`kBravingPublisherKeyHash`).
+- Verifies custom Cerium publisher key hashes (`kCeriumPublisherKeyHash`).
 - Batches update checks and appends `disable-pings` to component updater invocations.
 
 ### Module 4: Release Build Orchestration

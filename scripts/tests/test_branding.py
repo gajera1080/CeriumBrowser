@@ -82,7 +82,7 @@ class TestBrandingAssets(unittest.TestCase):
         with open(on_path, "r", encoding="utf-8") as f:
             on_content = f.read()
         self.assertNotIn('fillColor="#ffffff"', on_content.lower())
-        for grad_color in ("#fffd8c57", "#ff0091e6", "#fffce01f", "#ff8bd01d"):
+        for grad_color in ("#ff552dff", "#ffb171fa", "#ff2150ed", "#ff0b50e9"):
             self.assertIn(grad_color, on_content.lower(), f"Missing gradient color {grad_color} in ON shields icon")
 
         # Verify OFF/monochrome/carved shields icons use the 4 grayscale Cerium ribbon paths (not invisible white stroke)
@@ -298,7 +298,7 @@ class TestBrandingAssets(unittest.TestCase):
             root = ET.parse(full_svg).getroot()
             self.assertEqual(root.attrib.get("width"), exp_w, f"{rel_svg} width mismatch")
             self.assertEqual(root.attrib.get("height"), exp_h, f"{rel_svg} height mismatch")
-            self.assertEqual(root.attrib.get("viewBox"), "0 0 1254 1254", f"{rel_svg} viewBox mismatch")
+            self.assertEqual(root.attrib.get("viewBox"), "0 0 1024 1024", f"{rel_svg} viewBox mismatch")
 
         ico_names = [
             "app_list.ico",

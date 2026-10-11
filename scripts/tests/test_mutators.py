@@ -1017,7 +1017,7 @@ def test_patch_suite():
     assert 'https://ceriumbrowser.gitlab.io/cerium-updater/components' in c0002
     assert '+  updater_prod_endpoint = "https://ceriumbrowser.gitlab.io/cerium-updater/components"' in c0002
     assert '+  updater_dev_endpoint' not in c0002
-    assert 'kBravingPublisherKeyHash' in c0002
+    assert 'kCeriumPublisherKeyHash' in c0002
     assert 'IsStaticUpdaterGetUrl' in c0002
     assert ',disable-pings' in c0002
     assert 'adjusted.status = "noupdate"' in c0002
