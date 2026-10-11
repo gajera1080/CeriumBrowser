@@ -51,8 +51,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # ------------------------------------------------------------------------------
 # Version resolution: DYNAMIC_BRAVE_VERSION preferred, fallback to BRAVE_VERSION
 DYNAMIC_BRAVE_VERSION="${DYNAMIC_BRAVE_VERSION:-${BRAVE_VERSION:-}}"
-TARGET_ARCH="${TARGET_ARCH:-arm64}"
-TARGET_PLATFORM="${TARGET_PLATFORM:-android}"
 COMPILE_TARGET="${COMPILE_TARGET:-}"
 if [[ -z "${COMPILE_TARGET}" ]]; then
   if [[ "${CI_COMMIT_REF_NAME:-}" == "release" || "${CI_COMMIT_BRANCH:-}" == "release" ]]; then
@@ -61,6 +59,26 @@ if [[ -z "${COMPILE_TARGET}" ]]; then
     COMPILE_TARGET="${TARGET_PLATFORM:-all}"
   fi
 fi
+
+if [[ -z "${TARGET_PLATFORM:-}" ]]; then
+  if [[ "${COMPILE_TARGET}" == windows* ]]; then
+    TARGET_PLATFORM="windows"
+  elif [[ "${COMPILE_TARGET}" == "android" ]]; then
+    TARGET_PLATFORM="android"
+  else
+    TARGET_PLATFORM="all"
+  fi
+fi
+
+if [[ -z "${TARGET_ARCH:-}" ]]; then
+  case "${COMPILE_TARGET}" in
+    windows_x64) TARGET_ARCH="x64" ;;
+    windows_arm64) TARGET_ARCH="arm64" ;;
+    windows|all) TARGET_ARCH="all" ;;
+    *) TARGET_ARCH="arm64" ;;
+  esac
+fi
+
 if [[ "${CI_COMMIT_REF_NAME:-}" == "release" || "${CI_COMMIT_BRANCH:-}" == "release" || -z "${TARGET_PLATFORM:-}" || "${TARGET_PLATFORM}" == "all" ]]; then
   RELEASE_TAG="v${DYNAMIC_BRAVE_VERSION}"
 else
@@ -147,23 +165,6 @@ if [[ "${COMPILE_TARGET}" == "all" || "${COMPILE_TARGET}" == windows* ]]; then
   done
 fi
 
-# Fallback search across all package directories if nothing found with filter
-if [[ ${#PACKAGES_FOUND[@]} -eq 0 && "${DRY_RUN}" != "true" ]]; then
-  for d in "${REPO_ROOT}/out/apks" "out/apks" "${REPO_ROOT}/build-workspace/src/out/Release/apks"; do
-    if [[ -d "$d" ]]; then
-      for f in "$d"/*.apk; do
-        [[ -f "$f" ]] && PACKAGES_FOUND+=("$f")
-      done
-    fi
-  done
-  for d in "${REPO_ROOT}/out/packages" "out/packages"; do
-    if [[ -d "$d" ]]; then
-      for f in "$d"/Cerium-Windows-*.zip "$d"/Cerium-Installer-*.exe "$d"/Braving-Windows-*.zip "$d"/Braving-Installer-*.exe; do
-        [[ -f "$f" ]] && PACKAGES_FOUND+=("$f")
-      done
-    fi
-  done
-fi
 
 # Deduplicate
 if [[ ${#PACKAGES_FOUND[@]} -gt 0 ]]; then

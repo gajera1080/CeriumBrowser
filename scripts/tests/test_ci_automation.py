@@ -279,6 +279,105 @@ class TestCIScriptSyntax(unittest.TestCase):
         self.assertIn("### Windows", res.stdout)
         self.assertNotIn("### Android", res.stdout)
 
+    def test_publish_release_dry_run_windows_arm64(self):
+        """publish-release-direct.sh --dry-run with COMPILE_TARGET=windows_arm64 simulates only arm64."""
+        env = os.environ.copy()
+        env.update({
+            "DYNAMIC_BRAVE_VERSION": "1.96.61",
+            "TARGET_ARCH": "arm64",
+            "CI_COMMIT_BRANCH": "release",
+            "COMPILE_TARGET": "windows_arm64",
+        })
+        res = subprocess.run(
+            ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+            capture_output=True, text=True, env=env
+        )
+        self.assertEqual(res.returncode, 0, f"publish-release dry-run failed: {res.stderr}")
+        self.assertIn("Simulating Windows arm64 release package:", res.stdout)
+        self.assertNotIn("x64", res.stdout)
+        self.assertIn("Cerium-Windows-arm64-v1.96.61.zip", res.stdout)
+        self.assertIn("### Windows", res.stdout)
+        self.assertNotIn("### Android", res.stdout)
+
+    def test_publish_release_package_discovery_filtering(self):
+        """publish-release-direct.sh must strictly filter discovered packages by COMPILE_TARGET and fail if none found."""
+        apks_dir = os.path.join(self.REPO_ROOT, "out", "apks")
+        pkgs_dir = os.path.join(self.REPO_ROOT, "out", "packages")
+        os.makedirs(apks_dir, exist_ok=True)
+        os.makedirs(pkgs_dir, exist_ok=True)
+
+        mock_apk = os.path.join(apks_dir, "Cerium-1.96.61-arm64.apk")
+        mock_win_x64 = os.path.join(pkgs_dir, "Cerium-Windows-x64-v1.96.61.zip")
+        mock_win_arm64 = os.path.join(pkgs_dir, "Cerium-Windows-arm64-v1.96.61.zip")
+
+        try:
+            with open(mock_apk, "w", encoding="utf-8") as f:
+                f.write("mock apk content")
+            with open(mock_win_x64, "w", encoding="utf-8") as f:
+                f.write("mock win x64 content")
+            with open(mock_win_arm64, "w", encoding="utf-8") as f:
+                f.write("mock win arm64 content")
+
+            base_env = os.environ.copy()
+            base_env.update({
+                "DYNAMIC_BRAVE_VERSION": "1.96.61",
+                "CI_COMMIT_BRANCH": "release",
+            })
+
+            # 1. When COMPILE_TARGET=android, ONLY the APK should be discovered and published
+            env_android = base_env.copy()
+            env_android["COMPILE_TARGET"] = "android"
+            res = subprocess.run(
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+                capture_output=True, text=True, env=env_android
+            )
+            self.assertEqual(res.returncode, 0, f"android dry-run failed: {res.stderr}")
+            self.assertIn("Cerium-1.96.61-arm64.apk", res.stdout)
+            self.assertNotIn("Cerium-Windows-x64", res.stdout)
+            self.assertNotIn("Cerium-Windows-arm64", res.stdout)
+            self.assertIn("### Android", res.stdout)
+            self.assertNotIn("### Windows", res.stdout)
+
+            # 2. When COMPILE_TARGET=windows_x64, ONLY the x64 zip should be discovered
+            env_win_x64 = base_env.copy()
+            env_win_x64["COMPILE_TARGET"] = "windows_x64"
+            res = subprocess.run(
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],
+                capture_output=True, text=True, env=env_win_x64
+            )
+            self.assertEqual(res.returncode, 0, f"windows_x64 dry-run failed: {res.stderr}")
+            self.assertIn("Cerium-Windows-x64-v1.96.61.zip", res.stdout)
+            self.assertNotIn("Cerium-Windows-arm64", res.stdout)
+            self.assertNotIn("Cerium-1.96.61-arm64.apk", res.stdout)
+            self.assertIn("### Windows", res.stdout)
+            self.assertNotIn("### Android", res.stdout)
+
+            # 3. Fail-fast: When COMPILE_TARGET=android but NO APK exists, must fail with error and NOT fall back to Windows
+            os.remove(mock_apk)
+            env_no_apk = base_env.copy()
+            env_no_apk.update({
+                "COMPILE_TARGET": "android",
+                "CI_JOB_TOKEN": "token",
+                "CI_API_V4_URL": "https://gitlab.com/api/v4",
+                "CI_PROJECT_ID": "123",
+                "CI_PROJECT_URL": "https://gitlab.com/test",
+                "CI_COMMIT_SHA": "0000000000000000000000000000000000000000",
+            })
+            res = subprocess.run(
+                ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh")],
+                capture_output=True, text=True, env=env_no_apk
+            )
+            self.assertNotEqual(res.returncode, 0, "Expected non-zero exit when target packages missing")
+            self.assertIn("No release packages found in out/apks or out/packages", res.stderr)
+
+        finally:
+            for p in [mock_apk, mock_win_x64, mock_win_arm64]:
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
+
     def test_apply_patches_syntax(self):
         self._check_bash_syntax('scripts/core/apply-patches.sh')
 
