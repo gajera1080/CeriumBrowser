@@ -142,17 +142,6 @@ fi
 command -v node >/dev/null 2>&1 || { echo "ERROR: node is required." >&2; exit 1; }
 command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm is required." >&2; exit 1; }
 
-if [[ ! -d "${BRAVE_DIR}" ]]; then
-  BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
-  if [[ -f "${BRAVE_ARCHIVE}" ]]; then
-    echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
-    mkdir -p "${SRC_DIR}"
-    tar -xzf "${BRAVE_ARCHIVE}" -C "${SRC_DIR}"
-    rm -f "${BRAVE_ARCHIVE}"
-    echo "brave-core unpacked successfully."
-  fi
-fi
-
 if [[ -d "${BRAVE_DIR}" && ! -d "${BRAVE_DIR}/.git" ]]; then
   git -C "${BRAVE_DIR}" init -q
   git -C "${BRAVE_DIR}" config user.name "Cerium Browser Team"
@@ -496,9 +485,9 @@ else
   BUILD_RES=${PIPESTATUS[0]}
 fi
 
-# Package build logs, Siso traces, and configs into .tar.xz artifact
+# Package build logs, Siso traces, and configs into .tar.gz artifact
 archive_build_artifacts() {
-  local archive_path="${WORKSPACE_DIR}/build-artifacts.tar.xz"
+  local archive_path="${WORKSPACE_DIR}/build-artifacts.tar.gz"
   echo "Compressing build logs and diagnostic artifacts to ${archive_path}..."
   local entries=()
   if [[ -f "${WORKSPACE_DIR}/build.log" ]]; then
@@ -519,8 +508,7 @@ archive_build_artifacts() {
   fi
 
   if [[ ${#entries[@]} -gt 0 ]]; then
-    XZ_OPT="-T0 -6" tar -cJf "${archive_path}" "${entries[@]}" 2>/dev/null || \
-      tar -czf "${WORKSPACE_DIR}/build-artifacts.tar.gz" "${entries[@]}" 2>/dev/null || true
+    tar -czf "${archive_path}" "${entries[@]}" 2>/dev/null || true
     if [[ -f "${archive_path}" ]]; then
       echo " [OK] Packed build artifacts: ${archive_path} ($(du -h "${archive_path}" | cut -f1))"
     fi

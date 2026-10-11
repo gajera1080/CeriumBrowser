@@ -207,6 +207,7 @@ class TestCIScriptSyntax(unittest.TestCase):
             "DYNAMIC_BRAVE_VERSION": "1.96.61",
             "TARGET_ARCH": "all",
             "CI_COMMIT_BRANCH": "release",
+            "COMPILE_TARGET": "all",
         })
         res = subprocess.run(
             ["bash", os.path.join(self.REPO_ROOT, "scripts/ci/publish-release-direct.sh"), "--dry-run"],

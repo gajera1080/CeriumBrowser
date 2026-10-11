@@ -45,7 +45,7 @@ prepare_android_cache:
     name: "cerium-cache-logs-${DYNAMIC_BRAVE_VERSION}"
     when: always
     paths:
-      - build-workspace/build-artifacts.tar.xz
+      - build-workspace/build-artifacts.tar.gz
     expire_in: 2 days
   rules:
     - if: '$SKIP_BUILD == "true"'
@@ -83,7 +83,7 @@ build_android:
     when: always
     paths:
       - out/apks/
-      - build-workspace/build-artifacts.tar.xz
+      - build-workspace/build-artifacts.tar.gz
       - metadata/releases/*.yaml
       - metadata/upstream-*.yaml
     expire_in: 30 days

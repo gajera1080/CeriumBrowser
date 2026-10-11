@@ -22,41 +22,28 @@ spec:
     GCLIENT_SUPPRESS_GIT_VERSION_WARNING: "1"
 
 .build_environment_setup:
+  cache:
+    key: "cerium-src-$CI_PIPELINE_ID"
+    paths:
+      - build-workspace/src/brave/
+    policy: pull
   before_script:
     - 'if [ -z "${DYNAMIC_BRAVE_VERSION:-}" ]; then echo "ERROR: DYNAMIC_BRAVE_VERSION is missing from build.env."; exit 1; fi'
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release xz-utils pkg-config zip libfuse2
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates openjdk-17-jdk ninja-build bzip2 sudo file lsb-release pkg-config zip libfuse2
     - export GCLIENT_SUPPRESS_GIT_VERSION_WARNING=1
     - curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y -qq nodejs
     - npm install -g pnpm@11.11.0
-    - |
-      WORKSPACE_DIR="${WORKSPACE_DIR:-${CI_PROJECT_DIR:-$PWD}/build-workspace}"
-      if [ ! -d "${WORKSPACE_DIR}/src/brave" ]; then
-        BRAVE_ARCHIVE=""
-        if [ -n "${DYNAMIC_BRAVE_VERSION:-}" ] && [ -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]; then
-          BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"
-        else
-          BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)
-        fi
-        if [ -n "${BRAVE_ARCHIVE}" ] && [ -f "${BRAVE_ARCHIVE}" ]; then
-          echo "Unpacking prepared brave-core from ${BRAVE_ARCHIVE}..."
-          mkdir -p "${WORKSPACE_DIR}/src"
-          tar -xzf "${BRAVE_ARCHIVE}" -C "${WORKSPACE_DIR}/src"
-          rm -f "${BRAVE_ARCHIVE}"
-          if [ ! -d "${WORKSPACE_DIR}/src/brave/.git" ]; then
-            git -C "${WORKSPACE_DIR}/src/brave" init -q
-            git -C "${WORKSPACE_DIR}/src/brave" config user.name "Cerium Browser Team"
-            git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@ceriumbrowser.org"
-            git -C "${WORKSPACE_DIR}/src/brave" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q
-          fi
-          echo "brave-core unpacked successfully."
-        fi
-      fi
 
 prepare_source:
   stage: prepare
   image: debian:bookworm-slim
+  cache:
+    key: "cerium-src-$CI_PIPELINE_ID"
+    paths:
+      - build-workspace/src/brave/
+    policy: push
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates xz-utils
+    - apt-get update -qq && apt-get install -y -qq git python3 python3-yaml curl patch ca-certificates
   script:
     - export BRAVE_VERSION="${BRAVE_VERSION:-$[[ inputs.brave_version ]]}"
     - export FORCE_CACHE_REBUILD="${FORCE_CACHE_REBUILD:-false}"
@@ -70,7 +57,6 @@ prepare_source:
       - metadata/releases/*.yaml
       - metadata/upstream-*.yaml
       - branding/
-      - build-workspace/brave-src-*.tar.gz
     reports:
       dotenv: build.env
     expire_in: 2 days

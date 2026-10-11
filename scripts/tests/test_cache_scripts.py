@@ -194,8 +194,8 @@ class TestBraveSourceTransport(unittest.TestCase):
             self.assertTrue((out_dir / "build.txt").exists(), "out directory must be preserved")
             self.assertFalse((src_dir / "untracked.txt").exists(), "untracked files must be removed")
 
-    def test_brave_artifact_unpacking_and_cleanup(self):
-        """Verify brave-src-*.tar.gz packaging, extraction to src/brave, git initialization, and archive removal."""
+    def test_brave_cache_workspace_preservation(self):
+        """Verify build-workspace/src/brave restoration, git initialization, and repository integrity."""
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir) / "workspace"
             src = workspace / "src"
@@ -204,53 +204,92 @@ class TestBraveSourceTransport(unittest.TestCase):
             (brave / "DEPS").write_text("vars = {}")
             (brave / "package.json").write_text("{}")
 
-            archive = workspace / "brave-src-1.99.0.tar.gz"
-            subprocess.run(
-                ["tar", "--exclude=.git", "--exclude=node_modules", "-czf", str(archive), "-C", str(src), "brave"],
-                check=True,
-                capture_output=True,
-            )
-            self.assertTrue(archive.exists())
-
-            # Simulate fresh downstream runner
-            dest_workspace = Path(tmpdir) / "downstream_workspace"
-            dest_src = dest_workspace / "src"
-            dest_workspace.mkdir(parents=True)
-            import shutil
-            dest_archive = dest_workspace / "brave-src-1.99.0.tar.gz"
-            shutil.copy(archive, dest_archive)
-
-            # Run the exact unpack script snippet from .build_environment_setup
-            unpack_cmd = (
-                f'WORKSPACE_DIR="{dest_workspace}"\n'
-                f'DYNAMIC_BRAVE_VERSION="1.99.0"\n'
-                'if [ ! -d "${WORKSPACE_DIR}/src/brave" ]; then\n'
-                '  BRAVE_ARCHIVE=""\n'
-                '  if [ -n "${DYNAMIC_BRAVE_VERSION:-}" ] && [ -f "${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz" ]; then\n'
-                '    BRAVE_ARCHIVE="${WORKSPACE_DIR}/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz"\n'
-                '  else\n'
-                '    BRAVE_ARCHIVE=$(ls -1 "${WORKSPACE_DIR}"/brave-src-*.tar.gz 2>/dev/null | head -n 1 || true)\n'
-                '  fi\n'
-                '  if [ -n "${BRAVE_ARCHIVE}" ] && [ -f "${BRAVE_ARCHIVE}" ]; then\n'
-                '    mkdir -p "${WORKSPACE_DIR}/src"\n'
-                '    tar -xzf "${BRAVE_ARCHIVE}" -C "${WORKSPACE_DIR}/src"\n'
-                '    rm -f "${BRAVE_ARCHIVE}"\n'
-                '    if [ ! -d "${WORKSPACE_DIR}/src/brave/.git" ]; then\n'
-                '      git -C "${WORKSPACE_DIR}/src/brave" init -q\n'
-                '      git -C "${WORKSPACE_DIR}/src/brave" config user.name "Cerium Browser Team"\n'
-                '      git -C "${WORKSPACE_DIR}/src/brave" config user.email "ci@ceriumbrowser.org"\n'
-                '      git -C "${WORKSPACE_DIR}/src/brave" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q\n'
-                '    fi\n'
-                '  fi\n'
+            # Run the verification and git-init script snippet from build.sh
+            verify_cmd = (
+                f'BRAVE_DIR="{brave}"\n'
+                'if [[ -d "${BRAVE_DIR}" && ! -d "${BRAVE_DIR}/.git" ]]; then\n'
+                '  git -C "${BRAVE_DIR}" init -q\n'
+                '  git -C "${BRAVE_DIR}" config user.name "Cerium Browser Team"\n'
+                '  git -C "${BRAVE_DIR}" config user.email "ci@ceriumbrowser.org"\n'
+                '  git -C "${BRAVE_DIR}" commit --allow-empty -m "Prepared brave-core" --no-gpg-sign -q\n'
+                'fi\n'
+                'if [[ ! -d "${BRAVE_DIR}" ]]; then\n'
+                '  echo "ERROR: Prepared brave-core not found in ${BRAVE_DIR}." >&2\n'
+                '  exit 1\n'
                 'fi\n'
             )
-            res = subprocess.run(["bash", "-c", unpack_cmd], capture_output=True, text=True)
-            self.assertEqual(res.returncode, 0, f"Unpack failed: {res.stderr}")
-            self.assertTrue((dest_src / "brave" / "DEPS").exists(), "DEPS must exist in unpacked brave-core")
-            self.assertFalse(dest_archive.exists(), "Archive must be deleted after unpacking")
+            res = subprocess.run(["bash", "-c", verify_cmd], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"Verify/init failed: {res.stderr}")
+            self.assertTrue((brave / "DEPS").exists(), "DEPS must exist in cached brave-core")
             # Verify git repo and commit exist so gclient skips unmanaged solution
-            rev_res = subprocess.run(["git", "-C", str(dest_src / "brave"), "rev-parse", "--verify", "HEAD"], capture_output=True, text=True)
+            rev_res = subprocess.run(["git", "-C", str(brave), "rev-parse", "--verify", "HEAD"], capture_output=True, text=True)
             self.assertEqual(rev_res.returncode, 0, f"Git rev-parse HEAD failed: {rev_res.stderr}")
+
+    def test_brave_missing_fails_fast(self):
+        """Verify that missing src/brave triggers immediate failure in build.sh Phase 2."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            brave = workspace / "src" / "brave"
+            verify_cmd = (
+                f'BRAVE_DIR="{brave}"\n'
+                'if [[ ! -d "${BRAVE_DIR}" ]]; then\n'
+                '  echo "ERROR: Prepared brave-core not found in ${BRAVE_DIR}." >&2\n'
+                '  exit 1\n'
+                'fi\n'
+            )
+            res = subprocess.run(["bash", "-c", verify_cmd], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 1)
+            self.assertIn("ERROR: Prepared brave-core not found", res.stderr)
+
+    def test_archive_build_artifacts_tar_gz(self):
+        """Verify archive_build_artifacts creates fast .tar.gz archive containing logs and configs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "build-workspace"
+            out_dir = workspace / "src" / "out" / "Release"
+            out_dir.mkdir(parents=True)
+            workspace.mkdir(parents=True, exist_ok=True)
+            (workspace / "build.log").write_text("build log content")
+            (out_dir / "args.gn").write_text("is_debug = false")
+            (out_dir / ".ninja_log").write_text("# ninja log")
+            (out_dir / "siso_output").write_text("siso output")
+
+            archive_cmd = (
+                f'WORKSPACE_DIR="{workspace}"\n'
+                f'OUT_DIR="{out_dir}"\n'
+                'archive_build_artifacts() {\n'
+                '  local archive_path="${WORKSPACE_DIR}/build-artifacts.tar.gz"\n'
+                '  local entries=()\n'
+                '  if [[ -f "${WORKSPACE_DIR}/build.log" ]]; then\n'
+                '    entries+=(-C "${WORKSPACE_DIR}" "build.log")\n'
+                '  fi\n'
+                '  if [[ -d "${OUT_DIR}" ]]; then\n'
+                '    if [[ -f "${OUT_DIR}/args.gn" ]]; then\n'
+                '      entries+=(-C "${OUT_DIR}" "args.gn")\n'
+                '    fi\n'
+                '    if [[ -f "${OUT_DIR}/.ninja_log" ]]; then\n'
+                '      entries+=(-C "${OUT_DIR}" ".ninja_log")\n'
+                '    fi\n'
+                '    for s_file in "${OUT_DIR}"/siso*; do\n'
+                '      if [[ -e "${s_file}" ]]; then\n'
+                '        entries+=(-C "${OUT_DIR}" "$(basename "${s_file}")")\n'
+                '      fi\n'
+                '    done\n'
+                '  fi\n'
+                '  if [[ ${#entries[@]} -gt 0 ]]; then\n'
+                '    tar -czf "${archive_path}" "${entries[@]}" 2>/dev/null || true\n'
+                '  fi\n'
+                '}\n'
+                'archive_build_artifacts\n'
+            )
+            res = subprocess.run(["bash", "-c", archive_cmd], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"archive_build_artifacts failed: {res.stderr}")
+            archive_path = workspace / "build-artifacts.tar.gz"
+            self.assertTrue(archive_path.exists(), "build-artifacts.tar.gz must exist")
+            list_res = subprocess.run(["tar", "-tzf", str(archive_path)], capture_output=True, text=True, check=True)
+            self.assertIn("build.log", list_res.stdout)
+            self.assertIn("args.gn", list_res.stdout)
+            self.assertIn(".ninja_log", list_res.stdout)
+            self.assertIn("siso_output", list_res.stdout)
 
 
 if __name__ == "__main__":
