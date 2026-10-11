@@ -57,7 +57,7 @@ What `prepare-source.sh` performs:
 4. Applies Cerium unified patches (`patches/common/` and platform patches) via `apply-patches.sh`.
 5. Verifies patch set integrity (`apply-patches.sh --check`) ensuring all patches apply cleanly.
 6. Executes programmatic Python mutators and Cerium branding overlays (`apply-features.py`, `apply-assets.sh`, `apply-branding.py`).
-7. Packages the prepared source into a compressed tarball (`build-workspace/brave-src-<version>.tar.gz`) for GitLab pipeline cache transfer.
+7. Prepares `build-workspace/src/brave` in place for immediate compilation or GitLab CI pipeline runner cache transfer.
 
 ---
 

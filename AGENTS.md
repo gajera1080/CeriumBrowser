@@ -126,7 +126,7 @@ To guarantee that no runner exceeds the 3-hour limit, Cerium splits compilation 
 
 ### 2. The Two-Tier Caching Architecture
 
-#### Tier 1: Reliable brave-core Source Transport via Pipeline Job Artifacts
+#### Tier 1: Reliable brave-core Source Transport via GitLab CI Runner Cache
 - **Stage 1 (`prepare_source`) prepares ONLY `brave-core`**:
   - Shallow checkout of exact `brave-core` release commit.
   - Applying all git patches in `patches/` via `apply-patches.sh`.
@@ -134,9 +134,8 @@ To guarantee that no runner exceeds the 3-hour limit, Cerium splits compilation 
   - Applying cross-platform GN mutators via `apply-features.py --strict`.
   - Applying Cerium branding overlay and vector assets via `apply-assets.sh`.
   - Applying UI strings remapping via `apply-branding.py --strict`.
-  - Packaging prepared `brave-core` into a pipeline job artifact: `build-workspace/brave-src-${DYNAMIC_BRAVE_VERSION}.tar.gz` (~380 MB compressed, well within GitLab SaaS 1 GB artifact limit).
-  - Eliminates reliance on best-effort, opportunistic GitLab Runner `cache:`, guaranteeing deterministic delivery to downstream stages (`cache_prep` and `build`).
-  - Automatically downloaded via `needs: artifacts: true` and unpacked into `build-workspace/src/brave` in downstream jobs (`.build_environment_setup`) with fallback unpacking in platform build scripts.
+  - Prepares `build-workspace/src/brave/` directly in place and caches it via GitLab CI runner cache (`key: cerium-src-$CI_PIPELINE_ID`, `paths: [build-workspace/src/brave/]`, `policy: push`).
+  - Downstream jobs (`.build_environment_setup`) restore the prepared `build-workspace/src/brave/` via GitLab CI runner cache (`key: cerium-src-$CI_PIPELINE_ID`, `paths: [build-workspace/src/brave/]`, `policy: pull`).
   - Dotenv metadata (`build.env`) and manifests (`metadata/releases/*.yaml`) are passed through lightweight job artifacts.
 
 - **CRITICAL RULE FOR AGENTS**: Downstream build runners MUST NEVER re-patch, re-brand, or re-run mutators on `brave-core`. `brave-core` is guaranteed to be completely prepared by Stage 1.
