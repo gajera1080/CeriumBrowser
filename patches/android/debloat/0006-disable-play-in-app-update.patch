@@ -25,7 +25,7 @@ diff --git a/android/java/org/chromium/chrome/browser/app/BraveActivity.java b/a
 -                                completeUpdateSnackbar();
 -                            }
 -                        });
-+        // Braving: Google Play In-App Update disabled
++        // Cerium: Google Play In-App Update disabled
          // Executes Leo voice prompt if it was triggered from quick search app widget
          maybeExecuteLeoVoicePrompt();
  

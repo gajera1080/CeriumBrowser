@@ -105,7 +105,7 @@ Do not reinvent browser engines. When implementing custom behavior, hook into th
 ### Component Updates & Shields Protection
 Cerium routes component updates through our secure GitLab Pages static endpoint (`https://ceriumbrowser.gitlab.io/cerium-updater/components`) via `patches/common/0002-custom-updater-endpoint.patch`:
 1. **Default Aggressive Blocking**: Cerium defaults to Aggressive ad and tracker blocking out-of-the-box (`ControlType::BLOCK` in `brave_shields_settings_values.h`) and enables `kBraveAdblockDefault1pBlocking` by default via `scripts/mutators/common/shields.py`.
-2. **Key Verification**: Enforces publisher key verification (`kBravingPublisherKeyHash`), batches component checks into a single request, and appends `disable-pings`.
+2. **Key Verification**: Enforces publisher key verification (`kCeriumPublisherKeyHash`), batches component checks into a single request, and appends `disable-pings`.
 3. **On-Demand Service Initialization**: Initializes `ad_block_service()` on demand with full profile integration to ensure stable browser startup without race conditions.
 
 ---

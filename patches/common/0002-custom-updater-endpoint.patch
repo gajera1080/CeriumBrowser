@@ -47,7 +47,7 @@ index 9ff355a55..8e07aae3b 100644
      0xf0, 0xa7, 0xf5, 0x1b, 0xb0, 0x8e, 0x3e, 0xb5, 0x64, 0xab, 0x85,
      0xbd, 0x19, 0xd6, 0xff, 0x49, 0xa7, 0x35, 0x19, 0x84, 0xf7};
  
-+constexpr uint8_t kBravingPublisherKeyHash[] = {
++constexpr uint8_t kCeriumPublisherKeyHash[] = {
 +    0x6c, 0xa6, 0xf8, 0x05, 0x9a, 0x5b, 0x05, 0x09, 0x6d, 0x39, 0x85,
 +    0x21, 0xae, 0xe2, 0x70, 0xfb, 0xa5, 0x71, 0xd6, 0xfd, 0x07, 0x90,
 +    0xf3, 0x54, 0x8e, 0x14, 0x01, 0x16, 0xc1, 0x26, 0xff, 0x21};
@@ -57,19 +57,19 @@ index 9ff355a55..8e07aae3b 100644
    return base::span(brave_publisher_key);
  }
  
-+auto GetBravingPublisherKeyHash() {
-+  static auto braving_publisher_key = std::to_array(kBravingPublisherKeyHash);
-+  return base::span(braving_publisher_key);
++auto GetCeriumPublisherKeyHash() {
++  static auto cerium_publisher_key = std::to_array(kCeriumPublisherKeyHash);
++  return base::span(cerium_publisher_key);
 +}
 +
-+bool IsBravingPublisher(base::span<const uint8_t> key_hash) {
-+  return GetBravingPublisherKeyHash() == key_hash;
++bool IsCeriumPublisher(base::span<const uint8_t> key_hash) {
++  return GetCeriumPublisherKeyHash() == key_hash;
 +}
 +
  // Used in the patch in crx_verifier.cc.
  bool IsBravePublisher(base::span<const uint8_t> key_hash) {
 -  return GetBravePublisherKeyHash() == key_hash;
-+  return GetBravePublisherKeyHash() == key_hash || IsBravingPublisher(key_hash);
++  return GetBravePublisherKeyHash() == key_hash || IsCeriumPublisher(key_hash);
  }
  
  }  // namespace
@@ -78,7 +78,7 @@ index 9ff355a55..8e07aae3b 100644
  }  // namespace crx_file
  
 +#define IsBravePublisher(key_hash)                                 \
-+  (IsBravingPublisher(key_hash)                                    \
++  (IsCeriumPublisher(key_hash)                                     \
 +       ? (required_key_set.clear(),                                \
 +          (public_key_bytes.empty() ? (public_key_bytes = key)     \
 +                                    : public_key_bytes),           \
@@ -124,7 +124,7 @@ index 000000000..83e399df3
 +namespace {
 +
 +bool IsStaticUpdaterGetUrl(const GURL& url) {
-+  return url.DomainIs("braving.gitlab.io") || url.DomainIs("gitlab.io") || url.DomainIs("updates.braving.org");
++  return url.DomainIs("ceriumbrowser.gitlab.io") || url.DomainIs("gitlab.io");
 +}
 +
 +}  // namespace
@@ -153,7 +153,7 @@ index 4806e338a..87532fdd2 100644
    DCHECK(update_context_);
  
    // Support multiple checks in a single call, but only if they are all Brave.
-+  // Braving: Batch all components into a single static manifest request.
++  // Cerium: Batch all components into a single static manifest request.
    std::vector<std::string> ids;
    for (auto id_it = remaining_ids_.begin(); id_it != remaining_ids_.end();) {
 -    const auto& component = update_context_->components[*id_it];
@@ -163,12 +163,27 @@ index 4806e338a..87532fdd2 100644
      ids.push_back(*id_it);
      id_it = remaining_ids_.erase(id_it);
    }
-@@ -132,13 +129,46 @@ void SequentialUpdateChecker::UpdateResultAvailable(
+@@ -132,13 +129,61 @@ void SequentialUpdateChecker::UpdateResultAvailable(
      // practice during development, it has sometimes happened that the list was
      // empty. A for loop is an easy way to guard against such unexpected cases:
      for (const auto& result : results->apps) {
 -      results_.apps.push_back(result);
 +      ProtocolParser::App adjusted = result;
++      for (auto& pipeline : adjusted.pipelines) {
++        for (auto& op : pipeline.operations) {
++          for (auto& url : op.urls) {
++            const std::string spec = url.spec();
++            constexpr char kOldPrefix[] =
++                "https://braving.gitlab.io/braving-updater/";
++            constexpr char kNewPrefix[] =
++                "https://ceriumbrowser.gitlab.io/cerium-updater/";
++            if (spec.starts_with(kOldPrefix)) {
++              url = GURL(std::string(kNewPrefix) +
++                         spec.substr(sizeof(kOldPrefix) - 1));
++            }
++          }
++        }
++      }
 +      if (adjusted.status == "update") {
 +        adjusted.status = "ok";
 +      }
