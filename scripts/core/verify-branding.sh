@@ -223,7 +223,7 @@ done
 
 SHIELDS_COLOR_XML="${SHIELDS_DIR}/ic_social_brave_release_favicon_fullheight_color.xml"
 if [[ -f "${SHIELDS_COLOR_XML}" ]]; then
-  if grep -qi 'fillColor="#ffffff"' "${SHIELDS_COLOR_XML}" || ! grep -qi '#FF552DFF' "${SHIELDS_COLOR_XML}"; then
+  if grep -qi 'fillColor="#ffffff"' "${SHIELDS_COLOR_XML}" || ! grep -qi '#FF7CAFFE' "${SHIELDS_COLOR_XML}"; then
     echo "ERROR: ${SHIELDS_COLOR_XML} must use the colored Cerium gradients, not flat white!" >&2
     FAILURES=$((FAILURES + 1))
   fi
