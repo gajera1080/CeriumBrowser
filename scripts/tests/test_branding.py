@@ -77,15 +77,15 @@ class TestBrandingAssets(unittest.TestCase):
             self.assertEqual(root.attrib.get(f"{ANDROID_NS}width"), "24dp", f"{name} width must be 24dp")
             self.assertEqual(root.attrib.get(f"{ANDROID_NS}height"), "24dp", f"{name} height must be 24dp")
 
-        # Verify ON shields icon uses the 4 colored Cerium gradients instead of flat white
+        # Verify ON shields icon uses the colored Cerium gradients instead of flat white
         on_path = os.path.join(shields_dir, "ic_social_brave_release_favicon_fullheight_color.xml")
         with open(on_path, "r", encoding="utf-8") as f:
             on_content = f.read()
         self.assertNotIn('fillColor="#ffffff"', on_content.lower())
-        for grad_color in ("#ff552dff", "#ffb171fa", "#ff2150ed", "#ff0b50e9"):
+        for grad_color in ("#ff7caffe", "#ff3f84ff", "#ff2668f3", "#ff1944c8", "#ff0a138a"):
             self.assertIn(grad_color, on_content.lower(), f"Missing gradient color {grad_color} in ON shields icon")
 
-        # Verify OFF/monochrome/carved shields icons use the 4 grayscale Cerium ribbon paths (not invisible white stroke)
+        # Verify OFF/monochrome/carved shields icons use the grayscale Cerium paths (not invisible white stroke)
         for off_name in (
             "ic_social_brave_monochrome_favicon_fullheight_color.xml",
             "ic_social_brave_outline_favicon_fullheight.xml",
@@ -95,7 +95,7 @@ class TestBrandingAssets(unittest.TestCase):
             with open(off_path, "r", encoding="utf-8") as f:
                 off_content = f.read()
             self.assertNotIn('strokecolor="#ffffff"', off_content.lower(), f"{off_name} must not use white stroke")
-            self.assertEqual(off_content.count("<path"), 4, f"{off_name} must contain the 4 Cerium ribbon paths")
+            self.assertEqual(off_content.count("<path"), 2, f"{off_name} must contain the 2 Cerium logo paths")
 
     def test_all_vector_logo_drawables_exact_dimensions(self):
         """All 9 Android vector logo drawables must exist and preserve exact upstream dp dimensions."""
