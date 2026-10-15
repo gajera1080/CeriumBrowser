@@ -429,7 +429,7 @@ symbol_level = 0
 target_os = "win"
 target_cpu = "${TARGET_ARCH}"
 is_brave_origin_branded = true
-use_siso = false
+use_siso = true
 exclude_unwind_tables = true
 dcheck_always_on = false
 
@@ -457,33 +457,9 @@ echo ""
 echo "Windows GN arguments configured:"
 cat "${GN_ARGS_FILE}"
 
-CACHE_RESTORED=false
-if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
-  echo ""
-  echo -e "\e[32;1m\$ ./scripts/core/download-cache.sh\e[0;m"
-  if [[ -f "${REPO_ROOT}/scripts/core/download-cache.sh" ]]; then
-    bash "${REPO_ROOT}/scripts/core/download-cache.sh"
-  fi
-  if [[ -f "${OUT_DIR}/.cache_restored" ]]; then
-    CACHE_RESTORED=true
-    rm -f "${OUT_DIR}/.cache_restored"
-    echo ""
-    echo "[CACHE] Warm cache restored from Stage 2. Skipping gn gen to preserve build.ninja integrity."
-  fi
-fi
-
-if [[ "${CACHE_RESTORED}" == "false" ]]; then
-  echo ""
-  echo "Running gn gen from source root..."
-  cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
-  rm -f "${OUT_DIR}/build.ninja.d"
-else
-  if [[ -f "${OUT_DIR}/build.ninja" ]]; then
-    touch -r "${OUT_DIR}/build.ninja" "${GN_ARGS_FILE}"
-  fi
-  echo "Running gn gen skipped — using cached build.ninja from Stage 2."
-  cd "${SRC_DIR}"
-fi
+echo ""
+echo "Running gn gen from source root..."
+cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
 
 if [[ "${GN_ONLY}" == "true" ]]; then
   echo "========================================================"
