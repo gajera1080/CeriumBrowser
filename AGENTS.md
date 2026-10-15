@@ -162,12 +162,11 @@ To guarantee that no runner exceeds the 3-hour limit, Cerium splits compilation 
 
 ---
 
-### 4. Siso vs. Ninja Cache State Files (`.siso_deps` vs. `.ninja_deps`)
-- Cerium enables Siso (`use_siso = true` in `args.gn`) as its primary build executor.
-- Siso uses its own HashFS and dependency database (`.siso_deps` and `.siso_fs_state`) along with `.ninja_log` to track target dependencies and command hashes (`cmdhash`).
-- **Siso never writes or uses Ninja's legacy `.ninja_deps` binary log.** Checking for `.ninja_deps` will produce false-positive warnings.
-- **Rule for Agents**: Never require or verify `.ninja_deps` in cache upload/download routines or validation scripts. The authoritative state files for Siso are `.siso_fs_state`, `.siso_deps`, and `.ninja_log`.
-- **Preventing Manifest Regeneration**: `download-cache.sh` intentionally removes `build.ninja.d` upon restore so Siso does not compare freshly checked-out source timestamps against `build.ninja` inputs, preserving the cached build graph and command hashes.
+### 4. Ninja Cache State Files (`.ninja_log` & `.ninja_deps`)
+- Cerium configures standard Ninja (`use_siso = false` in `args.gn`) as its primary build executor for multi-tier CI caching.
+- Unlike Siso's machine-locked HashFS (`.siso_fs_state`), Ninja tracks target commands and completion history in `.ninja_log` and header dependencies in `.ninja_deps`. These files seamlessly restore across distinct, ephemeral CI runners without container inode or device ID invalidations.
+- **Rule for Agents**: The authoritative state files for Ninja caching are `.ninja_log` and `.ninja_deps`. Always verify and preserve both files in cache upload/download routines.
+- **Preventing Manifest Regeneration**: `download-cache.sh` intentionally removes `build.ninja.d` upon restore so Ninja does not compare freshly checked-out source timestamps against `build.ninja` inputs, preserving the cached build graph and command hashes.
 
 ---
 

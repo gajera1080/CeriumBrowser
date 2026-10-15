@@ -63,7 +63,7 @@ class TestSisoCachePipeline(unittest.TestCase):
         """
         Verify that the cache restore timestamp synchronization guarantees:
         T_source <= T_manifest < T_output
-        such that Siso's checkUpToDate condition inmtime.After(outmtime) evaluates to False.
+        such that Ninja's freshness check considers outputs up to date.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -73,11 +73,10 @@ class TestSisoCachePipeline(unittest.TestCase):
             out_release.mkdir(parents=True)
 
             # 1. Simulate Stage 2 compilation outputs
-            (out_release / ".siso_fs_state").write_text("siso_fs_state_data")
-            (out_release / ".siso_deps").write_text("siso_deps_data")
             (out_release / ".ninja_log").write_text("# ninja log v5\n")
+            (out_release / ".ninja_deps").write_text("ninja_deps_data")
             (out_release / "build.ninja").write_text("rule cc\n")
-            (out_release / "args.gn").write_text("use_siso = true\n")
+            (out_release / "args.gn").write_text("use_siso = false\n")
 
             obj_dir = out_release / "obj" / "v8"
             obj_dir.mkdir(parents=True)
@@ -90,8 +89,8 @@ class TestSisoCachePipeline(unittest.TestCase):
             v8_header.write_text("// generated header")
 
             # Transient files that should be cleaned
+            (out_release / ".ninja_lock").write_text("locked")
             (out_release / ".siso_lock").write_text("locked")
-            (out_release / ".ninja_deps").write_text("ninja_deps")
 
             # 2. Package cache
             pkg_tar = tmp_path / "cache.tar.gz"
@@ -112,11 +111,13 @@ class TestSisoCachePipeline(unittest.TestCase):
             extract_dir.mkdir(parents=True, exist_ok=True)
             subprocess.run(["tar", "-xzf", str(pkg_tar), "-C", str(extract_dir)], check=True)
 
-            # 5. Clean lock and ninja deps as download-cache.sh does
+            # 5. Clean lock files while preserving .ninja_deps and .ninja_log
+            (out_release / ".ninja_lock").unlink(missing_ok=True)
             (out_release / ".siso_lock").unlink(missing_ok=True)
-            (out_release / ".ninja_deps").unlink(missing_ok=True)
+            self.assertFalse((out_release / ".ninja_lock").exists())
             self.assertFalse((out_release / ".siso_lock").exists())
-            self.assertFalse((out_release / ".ninja_deps").exists())
+            self.assertTrue((out_release / ".ninja_deps").exists(), ".ninja_deps must be preserved for Ninja")
+            self.assertTrue((out_release / ".ninja_log").exists(), ".ninja_log must be preserved for Ninja")
 
             # 6. Apply download-cache.sh timestamp synchronization
             manifest_files = [
@@ -150,13 +151,11 @@ class TestSisoCachePipeline(unittest.TestCase):
                 "Output object files must be strictly newer than manifest",
             )
 
-            # Assert Siso's condition inmtime.After(outmtime) is FALSE
-            inmtime = t_source
-            outmtime = t_output
-            inmtime_after_outmtime = inmtime > outmtime
-            self.assertFalse(
-                inmtime_after_outmtime,
-                "inmtime must NOT be after outmtime (otherwise Siso marks target dirty)",
+            # Assert Ninja's freshness condition
+            self.assertGreaterEqual(
+                t_output,
+                t_source,
+                "Output mtime must be >= source mtime for Ninja to consider target up-to-date",
             )
 
 

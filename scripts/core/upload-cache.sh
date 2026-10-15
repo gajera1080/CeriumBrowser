@@ -31,13 +31,11 @@ if [[ ! -d "${OUT_DIR}/Release" ]]; then
 fi
 
 # Clean transient process locks before packaging
-rm -f "${OUT_DIR}/Release/.siso_lock"
+rm -f "${OUT_DIR}/Release/.ninja_lock" "${OUT_DIR}/Release/.siso_lock"
 
-# Verify required Siso metadata and compilation artifacts
-# NOTE: .ninja_deps is NOT checked because Siso (use_siso=true) uses its own
-# .siso_deps/.siso_fs_state for dependency tracking and never writes .ninja_deps.
-echo "Checking Siso state files and compilation artifacts..."
-for f in ".siso_fs_state" ".siso_deps" ".ninja_log"; do
+# Verify required Ninja metadata and compilation artifacts
+echo "Checking Ninja state files and compilation artifacts..."
+for f in ".ninja_log" ".ninja_deps"; do
   if [[ -f "${OUT_DIR}/Release/${f}" ]]; then
     echo "  [FOUND] ${f} ($(stat -c%s "${OUT_DIR}/Release/${f}" 2>/dev/null || stat -f%z "${OUT_DIR}/Release/${f}" 2>/dev/null || echo "present") bytes)"
   else
@@ -45,9 +43,6 @@ for f in ".siso_fs_state" ".siso_deps" ".ninja_log"; do
   fi
 done
 
-if [[ -d "${OUT_DIR}/Release/.siso_local_cache" ]]; then
-  echo "  [FOUND] .siso_local_cache directory"
-fi
 if [[ -d "${OUT_DIR}/Release/obj" ]]; then
   echo "  [FOUND] obj/ directory ($(find "${OUT_DIR}/Release/obj" -name "*.o" 2>/dev/null | wc -l) object files)"
 fi
@@ -59,12 +54,14 @@ UPLOAD_TMP_DIR=$(mktemp -d /tmp/cache-upload-XXXXXX)
 trap 'rm -rf "${UPLOAD_TMP_DIR}"' EXIT
 cd "${UPLOAD_TMP_DIR}"
 
-# We cache compiled objects, generated headers, Ninja graph, and Siso state.
-# We exclude final apks and temporary thinlto-cache to save package storage.
+# We cache compiled objects, generated headers, Ninja graph, and dependency logs.
+# We exclude final apks, temporary thinlto-cache, and process locks to save package storage.
 echo "Compressing and splitting out/Release..."
 tar -czf - -C "${OUT_DIR}" \
   --exclude="Release/apks" \
   --exclude="Release/thinlto-cache" \
+  --exclude="Release/.ninja_lock" \
+  --exclude="Release/.siso_lock" \
   Release/ | split -b 4500M - chunk.tar.gz.
 
 echo "Generating SHA256 checksums..."
