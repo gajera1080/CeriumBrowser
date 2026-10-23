@@ -65,24 +65,24 @@ mkdir -p "${OUT_DIR}"
 # Extract without -m to preserve original compiler timestamps from Stage 2
 cat chunk.tar.gz.* | tar -xzf - -C "${OUT_DIR}"
 
-# Clean process lock files if present
-rm -f "${OUT_DIR}/Release/.ninja_lock" "${OUT_DIR}/Release/.siso_lock"
+# Clean the process lock file and legacy deps if present
+rm -f "${OUT_DIR}/Release/.siso_lock" "${OUT_DIR}/Release/.ninja_deps"
 
-# CRITICAL: Delete build.ninja.d to prevent Ninja from auto-triggering gn gen.
+# CRITICAL: Delete build.ninja.d to prevent Siso from auto-triggering gn gen.
 # build.ninja.d is a depfile listing all .gn/.gni files that were inputs to gn gen.
-# When Ninja starts, it checks if any file listed in build.ninja.d is newer than
+# When Siso starts, it checks if any file listed in build.ninja.d is newer than
 # build.ninja. Since source files were freshly checked out on this runner with
 # current timestamps, the check would ALWAYS trigger a gn gen regeneration,
 # which would overwrite the cached build.ninja and invalidate ALL command hashes
-# in .ninja_log, causing a full rebuild.
-# By deleting build.ninja.d, Ninja skips the manifest staleness check entirely
+# in .siso_deps/.ninja_log, causing a full rebuild.
+# By deleting build.ninja.d, Siso skips the manifest staleness check entirely
 # and trusts the existing build.ninja as authoritative.
 rm -f "${OUT_DIR}/Release/build.ninja.d"
 
 # Ensure timestamp hierarchy: T_source <= T_manifest < T_outputs
-# This prevents Ninja's mtime check from marking pre-built outputs dirty,
-# while keeping build.ninja newer than source files.
-echo "Synchronizing build graph and artifact timestamps to prevent dirty cache invalidation..."
+# This prevents Siso's mtime check (inmtime.After(outmtime)) from marking
+# pre-built outputs dirty, while keeping build.ninja newer than source files.
+echo "Synchronizing build graph and artifact timestamps to prevent Siso dirty cache invalidation..."
 
 # 1. Touch build manifest files to current time (newer than all freshly checked out source files).
 #    Touch args.gn FIRST, then build.ninja and build.ninja.stamp so build.ninja.stamp is >= args.gn.
@@ -154,9 +154,11 @@ done
 # 4. Write a marker file so build scripts can detect cache presence and skip gn gen
 touch "${OUT_DIR}/Release/.cache_restored"
 
-# Verify restored Ninja state
-echo "Restored Ninja state files:"
-for f in ".ninja_log" ".ninja_deps"; do
+# Verify restored Siso state
+# NOTE: .ninja_deps is NOT checked because Siso (use_siso=true) uses its own
+# .siso_deps/.siso_fs_state for dependency tracking and never writes .ninja_deps.
+echo "Restored Siso state files:"
+for f in ".siso_fs_state" ".siso_deps" ".ninja_log"; do
   if [[ -f "${OUT_DIR}/Release/${f}" ]]; then
     echo "  [RESTORED] ${f} ($(stat -c%s "${OUT_DIR}/Release/${f}" 2>/dev/null || stat -f%z "${OUT_DIR}/Release/${f}" 2>/dev/null || echo "present") bytes)"
   else
@@ -164,5 +166,11 @@ for f in ".ninja_log" ".ninja_deps"; do
   fi
 done
 
+if [[ -d "${OUT_DIR}/Release/.siso_local_cache" ]]; then
+  echo "  [RESTORED] .siso_local_cache directory"
+fi
+
 RESTORED_SIZE=$(du -sh "${OUT_DIR}/Release" 2>/dev/null | cut -f1 || echo "unknown")
 echo "Cache restore complete! Restored ${RESTORED_SIZE} into ${OUT_DIR}/Release."
+echo " [NOTE] Siso reports reused cached targets under 'skip:'."
+echo "        The 'cache:' metric is for remote cloud RBE and is expected to be 0 for local builds."

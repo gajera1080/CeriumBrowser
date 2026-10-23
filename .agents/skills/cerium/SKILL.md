@@ -198,10 +198,10 @@ To guarantee that no runner exceeds the 3-hour limit, Cerium splits compilation 
 
 ---
 
-### 4. Ninja Cache State Files (`.ninja_log` & `.ninja_deps`)
-- When `use_siso = false`, standard Ninja tracks target commands and completion history in `.ninja_log` and header dependencies in `.ninja_deps`.
-- These state files are fully portable across ephemeral runner containers without machine-locked HashFS state.
-- `download-cache.sh` automatically deletes `build.ninja.d` upon restore so Ninja does not compare freshly checked-out source timestamps against `build.ninja` inputs, preserving the cached build graph and command hashes.
+### 4. Siso vs. Ninja Cache State Files (`.siso_deps` vs. `.ninja_deps`)
+- When `use_siso = true`, Siso tracks dependencies through `.siso_deps` and `.siso_fs_state` (and command history in `.ninja_log`).
+- **Siso never creates or updates `.ninja_deps`**. Never add checks, warnings, or scripts expecting `.ninja_deps`.
+- `download-cache.sh` automatically deletes `build.ninja.d` upon restore so Siso does not compare freshly checked-out source timestamps against `build.ninja` inputs, preserving the cached build graph and command hashes.
 
 ---
 

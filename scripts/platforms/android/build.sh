@@ -395,7 +395,7 @@ skip_secondary_abi_for_cq = true
 dcheck_always_on = false
 enable_java_asserts = false
 exclude_unwind_tables = true
-use_siso = false
+use_siso = true
 disable_android_lint = true
 
 # Debloated subsystems (wallet, vpn, ai_chat, news, rewards, p3a, stats) are enforced via Enterprise Policies
@@ -422,13 +422,17 @@ echo ""
 echo "Android GN arguments configured:"
 cat "${GN_ARGS_FILE}"
 
+# Configure Siso cache environment variables
+export SISO_CACHE_DIR="${OUT_DIR}/.siso_local_cache"
+export SISO_LOCAL_CACHE_DIR="${SISO_CACHE_DIR}"
+
 # Step 9: Cache Restore OR GN Gen
 CACHE_RESTORED=false
 if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
   echo ""
-  echo -e "\e[32;1m\$ ./scripts/core/download-cache.sh\e[0;m"
-  if [[ -f "${REPO_ROOT}/scripts/core/download-cache.sh" ]]; then
-    bash "${REPO_ROOT}/scripts/core/download-cache.sh"
+  echo -e "\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
+  if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
+    bash "${REPO_ROOT}/scripts/download-cache.sh"
   fi
   # Check if download-cache.sh successfully restored the cache
   if [[ -f "${OUT_DIR}/.cache_restored" ]]; then
@@ -450,6 +454,21 @@ else
   fi
   echo "Running gn gen skipped — using cached build.ninja from Stage 2."
   cd "${SRC_DIR}"
+fi
+
+# Configure Siso runtime settings via .sisorc and ensure backend files exist
+# -fs_keep_tainted: preserves HashFS cmdhash when local file timestamps are newer than entTime
+# -local_cache_enable & -cache_dir: enables local disk caching of action outputs
+mkdir -p "${SRC_DIR}/build/config/siso"
+cat <<EOF > "${SRC_DIR}/build/config/siso/.sisorc"
+ninja -fs_keep_tainted -local_cache_enable -cache_dir=${SISO_CACHE_DIR}
+EOF
+
+if [[ -d "${SRC_DIR}/build/config/siso/backend_config" && ! -f "${SRC_DIR}/build/config/siso/backend_config/backend.star" ]]; then
+  cp "${SRC_DIR}/build/config/siso/backend_config/template.star" "${SRC_DIR}/build/config/siso/backend_config/backend.star" 2>/dev/null || true
+fi
+if [[ ! -f "${SRC_DIR}/build/config/siso/.sisoenv" ]]; then
+  touch "${SRC_DIR}/build/config/siso/.sisoenv"
 fi
 
 if [[ "${GN_ONLY:-false}" == "true" ]]; then
