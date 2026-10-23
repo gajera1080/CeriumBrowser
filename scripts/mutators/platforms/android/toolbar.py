@@ -25,12 +25,3 @@ def apply(ctx: MutatorContext):
         "    private static boolean isSmallScreen() {",
         "    @SuppressWarnings(\"unused\")\n    private static boolean isSmallScreen() {",
     )
-
-    # Disable bottom toolbar fallback check in BraveToolbarManager
-    ctx.replace_in_file(
-        "android/java/org/chromium/chrome/browser/toolbar/BraveToolbarManager.java",
-        """            if (sharedPreferences.getBoolean(
-                    BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, true)) {""",
-        """            if (sharedPreferences.getBoolean(
-                    BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false)) {""",
-    )

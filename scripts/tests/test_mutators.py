@@ -38,14 +38,12 @@ def setup_mock_brave(brave_dir):
     ntp_view_counter_pref_registry_cc = os.path.join(brave_dir, "components/ntp_background_images/common/view_counter_pref_registry.cc")
     brave_profile_prefs_cc = os.path.join(brave_dir, "browser/brave_profile_prefs.cc")
     bottom_toolbar_config_java = os.path.join(brave_dir, "android/java/org/chromium/chrome/browser/toolbar/bottom/BottomToolbarConfiguration.java")
-    brave_toolbar_manager_java = os.path.join(brave_dir, "android/java/org/chromium/chrome/browser/toolbar/BraveToolbarManager.java")
-    ntp_util_java = os.path.join(brave_dir, "android/java/org/chromium/chrome/browser/ntp/NtpUtil.java")
+    ntp_util_java = os.path.join(brave_dir, "browser/ui/android/ntp_widgets/java/src/org/chromium/chrome/browser/ntp/NtpUtil.java")
     origin_branding = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING")
     origin_branding_beta = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.beta")
     origin_branding_dev = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.development")
     origin_branding_nightly = os.path.join(brave_dir, "app/theme/brave_origin/BRANDING.nightly")
-
-    for p in [webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_content_client, user_agent_utils, brave_content_browser_client, brave_user_agent_exceptions, brave_shields_features, brave_shields_settings_values_h, ntp_view_counter_pref_registry_cc, brave_profile_prefs_cc, bottom_toolbar_config_java, brave_toolbar_manager_java, ntp_util_java, origin_branding, origin_branding_beta, origin_branding_dev, origin_branding_nightly]:
+    for p in [webui_build_gn, webui_sources_gni, nala_build_gn, brave_java_res_gni, branding_js, search_widget_layout, quick_search_view_adapter, quick_search_adapter, qse_build_gn, brave_flags_overrides, brave_content_client, user_agent_utils, brave_content_browser_client, brave_user_agent_exceptions, brave_shields_features, brave_shields_settings_values_h, ntp_view_counter_pref_registry_cc, brave_profile_prefs_cc, bottom_toolbar_config_java, ntp_util_java, origin_branding, origin_branding_beta, origin_branding_dev, origin_branding_nightly]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
     with open(webui_build_gn, "w") as f:
@@ -304,20 +302,15 @@ BASE_FEATURE(kBraveAdblockDefault1pBlocking, base::FEATURE_DISABLED_BY_DEFAULT);
     }
 """)
 
-    with open(brave_toolbar_manager_java, "w") as f:
-        f.write("""            if (sharedPreferences.getBoolean(
-                    BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, true)) {
-""")
-
     with open(ntp_util_java, "w") as f:
         f.write("""    public static boolean shouldDisplayTopSites() {
         return ChromeSharedPreferences.getInstance()
-                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, true);
+                .readBoolean(PREF_SHOW_TOP_SITES, true);
     }
 
     public static boolean shouldDisplayBraveStats() {
         return ChromeSharedPreferences.getInstance()
-                .readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, true);
+                .readBoolean(PREF_SHOW_BRAVE_STATS, true);
     }
 """)
 
@@ -459,7 +452,6 @@ inline constexpr wchar_t kProductPathName[] = L"Brave-Browser-Development";
         "ntp_view_counter_pref_registry_cc": ntp_view_counter_pref_registry_cc,
         "brave_profile_prefs_cc": brave_profile_prefs_cc,
         "bottom_toolbar_config_java": bottom_toolbar_config_java,
-        "brave_toolbar_manager_java": brave_toolbar_manager_java,
         "ntp_util_java": ntp_util_java,
         "origin_branding": origin_branding,
         "origin_branding_beta": origin_branding_beta,
@@ -794,13 +786,10 @@ def test_apply_features():
             assert ".readBoolean(BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false);" in btc_content
             assert '@SuppressWarnings("unused")' in btc_content
 
-        with open(mock_files["brave_toolbar_manager_java"]) as f:
-            assert "BravePreferenceKeys.BRAVE_BOTTOM_TOOLBAR_ENABLED_KEY, false)) {" in f.read()
-
         with open(mock_files["ntp_util_java"]) as f:
             ntp_u_content = f.read()
-            assert ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_TOP_SITES, false);" in ntp_u_content
-            assert ".readBoolean(BackgroundImagesPreferences.PREF_SHOW_BRAVE_STATS, false);" in ntp_u_content
+            assert ".readBoolean(PREF_SHOW_TOP_SITES, false);" in ntp_u_content
+            assert ".readBoolean(PREF_SHOW_BRAVE_STATS, false);" in ntp_u_content
 
         with open(mock_files["install_worker_cc"]) as f:
             assert "// Cerium: Disable VPN NT background service registration" in f.read()
