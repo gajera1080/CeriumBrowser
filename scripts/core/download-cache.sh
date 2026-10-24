@@ -68,16 +68,12 @@ cat chunk.tar.gz.* | tar -xzf - -C "${OUT_DIR}"
 # Clean the process lock file and legacy deps if present
 rm -f "${OUT_DIR}/Release/.siso_lock" "${OUT_DIR}/Release/.ninja_deps"
 
-# CRITICAL: Delete build.ninja.d to prevent Siso from auto-triggering gn gen.
-# build.ninja.d is a depfile listing all .gn/.gni files that were inputs to gn gen.
-# When Siso starts, it checks if any file listed in build.ninja.d is newer than
-# build.ninja. Since source files were freshly checked out on this runner with
-# current timestamps, the check would ALWAYS trigger a gn gen regeneration,
-# which would overwrite the cached build.ninja and invalidate ALL command hashes
-# in .siso_deps/.ninja_log, causing a full rebuild.
-# By deleting build.ninja.d, Siso skips the manifest staleness check entirely
-# and trusts the existing build.ninja as authoritative.
-rm -f "${OUT_DIR}/Release/build.ninja.d"
+# CRITICAL: Do NOT delete build.ninja.d — when the depfile is missing, Ninja/Siso
+# treats the generator edge as dirty and unconditionally re-runs gn gen.
+# Instead, we touch build.ninja.d along with other manifest files (below) so that
+# build.ninja.stamp is >= all depfile inputs. Since cache restore now runs AFTER
+# gclient sync, all source .gn/.gni files already have their final timestamps
+# and the touched manifest files will be newer, satisfying Siso's staleness check.
 
 # Ensure timestamp hierarchy: T_source <= T_manifest < T_outputs
 # This prevents Siso's mtime check (inmtime.After(outmtime)) from marking
@@ -85,8 +81,8 @@ rm -f "${OUT_DIR}/Release/build.ninja.d"
 echo "Synchronizing build graph and artifact timestamps to prevent Siso dirty cache invalidation..."
 
 # 1. Touch build manifest files to current time (newer than all freshly checked out source files).
-#    Touch args.gn FIRST, then build.ninja and build.ninja.stamp so build.ninja.stamp is >= args.gn.
-for manifest_file in "${OUT_DIR}/Release/args.gn" "${OUT_DIR}/Release/build.ninja" "${OUT_DIR}/Release/build.ninja.stamp"; do
+#    Touch args.gn FIRST, then build.ninja.d, build.ninja and build.ninja.stamp so build.ninja.stamp is >= args.gn.
+for manifest_file in "${OUT_DIR}/Release/args.gn" "${OUT_DIR}/Release/build.ninja.d" "${OUT_DIR}/Release/build.ninja" "${OUT_DIR}/Release/build.ninja.stamp"; do
   if [[ -f "${manifest_file}" ]]; then
     touch "${manifest_file}"
   fi

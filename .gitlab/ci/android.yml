@@ -72,8 +72,6 @@ build_android:
     - export TARGET_ARCH="arm64"
     - echo "Verifying Android release signing credentials and fetching Secure File (${ANDROID_KEYSTORE_FILE})..."
     - ./scripts/platforms/android/package.sh --preflight
-    - echo "Restoring warm cache for ${DYNAMIC_BRAVE_VERSION}-${TARGET_ARCH}..."
-    - ./scripts/core/download-cache.sh || true
     - echo "Executing Android compile for release manifest metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml"
     - ./scripts/platforms/android/build.sh --manifest="metadata/releases/${DYNAMIC_BRAVE_VERSION}.yaml" --arch="${TARGET_ARCH}" --release
     - echo "Signing and verifying Android release APK..."

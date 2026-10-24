@@ -167,7 +167,7 @@ To guarantee that no runner exceeds the 3-hour limit, Cerium splits compilation 
 - Siso uses its own HashFS and dependency database (`.siso_deps` and `.siso_fs_state`) along with `.ninja_log` to track target dependencies and command hashes (`cmdhash`).
 - **Siso never writes or uses Ninja's legacy `.ninja_deps` binary log.** Checking for `.ninja_deps` will produce false-positive warnings.
 - **Rule for Agents**: Never require or verify `.ninja_deps` in cache upload/download routines or validation scripts. The authoritative state files for Siso are `.siso_fs_state`, `.siso_deps`, and `.ninja_log`.
-- **Preventing Manifest Regeneration**: `download-cache.sh` intentionally removes `build.ninja.d` upon restore so Siso does not compare freshly checked-out source timestamps against `build.ninja` inputs, preserving the cached build graph and command hashes.
+- **Preventing Manifest Regeneration**: `download-cache.sh` touches `build.ninja.d` (along with `build.ninja`, `build.ninja.stamp`, and `args.gn`) to the current time upon restore, ensuring all manifest files are newer than source `.gn`/`.gni` files synced by `gclient sync`. Cache restore is invoked inside platform build scripts (`scripts/platforms/{android,windows}/build.sh`) at Step 9, **after** `gclient sync` and `args.gn` generation, guaranteeing the timestamp hierarchy $T_{source} \le T_{manifest} < T_{outputs}$.
 
 ---
 

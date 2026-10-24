@@ -430,9 +430,9 @@ export SISO_LOCAL_CACHE_DIR="${SISO_CACHE_DIR}"
 CACHE_RESTORED=false
 if [[ "${CACHE_PREP_ONLY:-false}" != "true" ]]; then
   echo ""
-  echo -e "\e[32;1m\$ ./scripts/download-cache.sh\e[0;m"
-  if [[ -f "${REPO_ROOT}/scripts/download-cache.sh" ]]; then
-    bash "${REPO_ROOT}/scripts/download-cache.sh"
+  echo -e "\e[32;1m\$ ./scripts/core/download-cache.sh\e[0;m"
+  if [[ -f "${REPO_ROOT}/scripts/core/download-cache.sh" ]]; then
+    bash "${REPO_ROOT}/scripts/core/download-cache.sh"
   fi
   # Check if download-cache.sh successfully restored the cache
   if [[ -f "${OUT_DIR}/.cache_restored" ]]; then
@@ -447,11 +447,7 @@ if [[ "${CACHE_RESTORED}" == "false" ]]; then
   echo ""
   echo "Running gn gen from source root..."
   cd "${SRC_DIR}" && gn gen "${OUT_DIR}"
-  rm -f "${OUT_DIR}/build.ninja.d"
 else
-  if [[ -f "${OUT_DIR}/build.ninja" ]]; then
-    touch -r "${OUT_DIR}/build.ninja" "${GN_ARGS_FILE}"
-  fi
   echo "Running gn gen skipped — using cached build.ninja from Stage 2."
   cd "${SRC_DIR}"
 fi
